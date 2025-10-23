@@ -1,6 +1,6 @@
 # tests/test_html_renderer.py
 import unittest
-from processors import html_renderer
+from processors import html_renderer, ui_components
 
 
 class TestHTMLRenderer(unittest.TestCase):
@@ -118,6 +118,24 @@ class TestHTMLRenderer(unittest.TestCase):
         self.assertIn('class="math-buttons"', result)
         self.assertIn('<button type="submit">Отправить ответ</button>', result)
 
+    def test_render_block_handles_asset_prefix(self):
+        """Test that the render_block method correctly adjusts asset paths if prefix is provided."""
+        block_html_with_img = '<p>Question</p><img src="assets/test_image.jpg" alt="Test Image"><p>Answer area</p>'
+        block_index = 1
+        asset_prefix = "../assets"
+        result = self.renderer.render_block(block_html_with_img, block_index, asset_path_prefix=asset_prefix)
+        
+        # The image path should be adjusted
+        expected_img_src = f'src="{asset_prefix}/test_image.jpg"'
+        self.assertIn(expected_img_src, result)
+        # The original path should not be present
+        self.assertNotIn('src="assets/test_image.jpg"', result)
+
+        # Other parts of the block HTML should remain
+        self.assertIn('<p>Question</p>', result)
+        self.assertIn('<p>Answer area</p>', result)
+        self.assertIn('alt="Test Image"', result)
+
     def test_save_writes_to_file(self):
         """Test that the save method writes the HTML string to a file."""
         import tempfile
@@ -150,21 +168,61 @@ class TestHTMLRenderer(unittest.TestCase):
         result = self.renderer._clean_css(raw_css)
         self.assertEqual(result, expected_cleaned)
 
-    def test_get_answer_form_html_returns_string(self):
-        """Test that _get_answer_form_html returns a string."""
-        # Access the private method for testing
-        result = self.renderer._get_answer_form_html(0)
+    # --- Удалены тесты для _get_answer_form_html и _get_js_functions ---
+    # Эти методы больше не существуют в HTMLRenderer.
+    # Их логика вынесена в ui_components.
+    # Соответствующие тесты должны быть в тестах для ui_components.
+
+# --- Новый класс для тестирования ui_components ---
+class TestUIComponents(unittest.TestCase):
+    """
+    Tests for the UI components in processors/ui_components.py.
+    """
+
+    def test_math_symbol_buttons_renderer_returns_string(self):
+        """Test that MathSymbolButtonsRenderer.render returns a string."""
+        result = ui_components.MathSymbolButtonsRenderer.render(0)
         self.assertIsInstance(result, str)
 
-    def test_get_answer_form_html_includes_index(self):
-        """Test that _get_answer_form_html includes the correct block index."""
-        # Access the private method for testing
+    def test_math_symbol_buttons_renderer_includes_index(self):
+        """Test that MathSymbolButtonsRenderer.render includes the correct block index."""
         idx = 7
-        result = self.renderer._get_answer_form_html(idx)
+        result = ui_components.MathSymbolButtonsRenderer.render(idx)
+        # Check for symbol insertion calls with the index
+        self.assertIn(f'onclick="insertSymbol({idx},', result)
+
+    def test_math_symbol_buttons_renderer_active_class(self):
+        """Test that MathSymbolButtonsRenderer.render includes active class when requested."""
+        idx = 0
+        result_inactive = ui_components.MathSymbolButtonsRenderer.render(idx, active=False)
+        result_active = ui_components.MathSymbolButtonsRenderer.render(idx, active=True)
+        self.assertIn('class="math-buttons"', result_inactive)
+        self.assertIn('class="math-buttons active"', result_active)
+        self.assertNotIn('class="math-buttons active"', result_inactive)
+        self.assertIn('class="math-buttons active"', result_active)
+
+    def test_answer_form_renderer_returns_string(self):
+        """Test that AnswerFormRenderer.render returns a string."""
+        result = ui_components.AnswerFormRenderer().render(0)
+        self.assertIsInstance(result, str)
+
+    def test_answer_form_renderer_includes_index(self):
+        """Test that AnswerFormRenderer.render includes the correct block index."""
+        idx = 7
+        result = ui_components.AnswerFormRenderer().render(idx)
         self.assertIn(f'id="answer_{idx}"', result)
         self.assertIn(f'name="answer"', result) # Name should be generic
         self.assertIn(f'onsubmit="submitAnswer(event, {idx})"', result)
-        self.assertIn(f'onclick="insertSymbol({idx},', result) # Check for symbol insertion with index
+        # Should also contain the math buttons HTML which includes the index
+        self.assertIn(f'onclick="insertSymbol({idx},', result)
+
+    def test_common_css_is_string(self):
+        """Test that the COMMON_CSS constant is a string."""
+        self.assertIsInstance(ui_components.COMMON_CSS, str)
+
+    def test_common_js_functions_is_string(self):
+        """Test that the COMMON_JS_FUNCTIONS constant is a string."""
+        self.assertIsInstance(ui_components.COMMON_JS_FUNCTIONS, str)
 
 
 if __name__ == '__main__':

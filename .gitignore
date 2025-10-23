@@ -41,6 +41,8 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
+
 
 # IDE
 .vscode/
