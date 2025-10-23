@@ -80,13 +80,13 @@ def main():
     html_proc = html_renderer.HTMLRenderer()
     json_proc = json_saver.JSONSaver()
 
-    # 5. Scrape and process pages
+    # 5. Scrape and process pages - ВОССТАНОВЛЕНО: полный список страниц
     page_list = ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]
 
     for page_name in page_list:
         print(f"Processing page: {page_name} for subject '{selected_subject_name}'...")
         try:
-            # Scrape raw data for the page - ИСПРАВЛЕНО: передаем run_folder
+            # Scrape raw data for the page - ВОССТАНОВЛЕНО: используем оригинальный scrape_page
             scraped_data = scraper.scrape_page(selected_proj_id, page_name, run_folder)
 
             if not scraped_data:
