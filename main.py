@@ -104,7 +104,8 @@ def main():
             blocks_html = scraped_data.get("blocks_html", [])
             for block_idx, block_content in enumerate(blocks_html):
                 # Generate HTML for a single block using the new method
-                block_html_content = html_proc.render_block(block_content, block_idx) # Используем новый метод
+                # ИСПРАВЛЕНО: Передаём asset_path_prefix="../assets" для коррекции путей
+                block_html_content = html_proc.render_block(block_content, block_idx, asset_path_prefix="../assets") # Используем новый метод с префиксом
                 # Define path for the block's HTML file
                 block_html_file_path = run_folder / page_name / "blocks" / f"block_{block_idx}_{page_name}.html" # HTML блока в подпапку 'blocks'
                 block_html_file_path.parent.mkdir(parents=True, exist_ok=True) # Убедиться, что подпапка 'blocks' существует

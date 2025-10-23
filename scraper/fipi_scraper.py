@@ -100,8 +100,8 @@ class FIPIScraper:
         Scrapes a specific page of assignments for a given subject.
 
         This method navigates to the URL for a specific page (proj_id & page_num),
-        extracts assignment blocks (`div.qblock`), processes their content (e.g., replaces
-        ShowPicture scripts with <img> tags, downloads files, includes task info),
+        extracts assignment blocks (`div.qblock`) and their associated headers (`div[id^='i']`).
+        It pairs them based on their order in the DOM, processes their content,
         downloads images and files, and returns the processed data.
 
         Args:
@@ -116,7 +116,7 @@ class FIPIScraper:
                                 "page_name": page_num,
                                 "url": "full_url_of_the_page",
                                 "assignments": ["Text of assignment 1", "Text of assignment 2", ...],
-                                "blocks_html": ["<div>Processed HTML block 1...</div>", ...],
+                                "blocks_html": ["<div>Combined HTML for block 1</div>", ...],
                                 "images": {"original_src": "local_path", ...}, # Map of image sources to saved paths
                                 "files": {"original_href": "local_path", ...} # Map of file sources to saved paths
                             }
@@ -141,7 +141,62 @@ class FIPIScraper:
                 print(f"Warning: Could not get files_location from page {page_url}, using default. Error: {e}")
                 files_location_prefix = '../../'
 
-            qblocks = page.query_selector_all("div.qblock")
+            # Get the full HTML of the page body to work with the order of elements
+            page_content = page.content()
+            page_soup = BeautifulSoup(page_content, 'html.parser')
+
+            # Find all qblock elements and divs with id starting with 'i'
+            qblocks = page_soup.find_all('div', class_='qblock')
+            header_containers = page_soup.find_all('div', id=re.compile(r'^i')) # Find divs with id starting with 'i'
+
+            print(f"Found {len(qblocks)} qblocks and {len(header_containers)} header containers on page {page_num}.")
+
+            # Pair qblocks with their corresponding header containers based on DOM order
+            # This assumes that the first header_container corresponds to the first qblock, etc.
+            # The total number of elements should ideally be len(qblocks) + len(header_containers)
+            # and they should alternate or be grouped predictably.
+            # We iterate through the direct children of the body (or a common parent if applicable)
+            # to establish the order and pairing.
+            body_children = page_soup.body.children if page_soup.body else []
+            ordered_elements = []
+            current_qblock_idx = 0
+            current_header_idx = 0
+
+            for child in body_children:
+                if child.name == 'div':
+                    if child.get('class') and 'qblock' in child.get('class'):
+                        if current_qblock_idx < len(qblocks):
+                            ordered_elements.append(('qblock', qblocks[current_qblock_idx]))
+                            current_qblock_idx += 1
+                    elif child.get('id') and child.get('id', '').startswith('i'):
+                        if current_header_idx < len(header_containers):
+                            ordered_elements.append(('header', header_containers[current_header_idx]))
+                            current_header_idx += 1
+
+            # Now, pair them based on the established order
+            # We expect a pattern like: header, qblock, header, qblock, ...
+            paired_elements = []
+            i = 0
+            while i < len(ordered_elements):
+                if ordered_elements[i][0] == 'header' and i + 1 < len(ordered_elements) and ordered_elements[i + 1][0] == 'qblock':
+                    # Found a pair: header, qblock
+                    header_soup = ordered_elements[i][1]
+                    qblock_soup = ordered_elements[i + 1][1]
+                    paired_elements.append((header_soup, qblock_soup))
+                    i += 2
+                elif ordered_elements[i][0] == 'qblock' and i + 1 < len(ordered_elements) and ordered_elements[i + 1][0] == 'header':
+                    # Found a pair: qblock, header (order might vary)
+                    qblock_soup = ordered_elements[i][1]
+                    header_soup = ordered_elements[i + 1][1]
+                    paired_elements.append((header_soup, qblock_soup))
+                    i += 2
+                else:
+                    # Handle unpaired elements if necessary, or skip
+                    print(f"Warning: Unpaired element found at index {i}: {ordered_elements[i][0]}")
+                    i += 1
+
+            print(f"Paired {len(paired_elements)} header-qblock sets.")
+
             processed_blocks_html = []
             assignments_text = []
             downloaded_images = {} # Map original src to local path
@@ -151,22 +206,19 @@ class FIPIScraper:
             page_assets_dir = run_folder / page_num / "assets"
             page_assets_dir.mkdir(parents=True, exist_ok=True)
 
-            for idx, block in enumerate(qblocks):
-                block_html = block.inner_html()
-                soup = BeautifulSoup(block_html, 'html.parser')
+            for idx, (header_container, qblock) in enumerate(paired_elements):
+                # Create a new soup object to hold the combined content for this specific assignment
+                combined_soup = BeautifulSoup('', 'html.parser')
+                # Append the qblock first
+                combined_soup.append(qblock.extract()) # extract() removes it from original tree
 
                 # --- Process Images (ShowPicture, ShowPictureQ2WH) ---
                 # ИСПРАВЛЕНО: Ищем оба типа вызовов, но обрабатываем только те, которые должны создать <img>
                 # В оригинальном скрипте `ShowPicture` вызывает `ShowPictureQ2WH`, которая создает <img> внутри <a>
                 # Мы будем искать скрипты, вызывающие `ShowPictureQ2WH` или `ShowPicture` (предполагая, что они создают <img>)
                 # и заменять их на <img> теги, скачивая изображение.
-
-                # Паттерн для ShowPictureQ2WH (и, возможно, других функций, создающих <img>)
-                # Пример: <script language="javascript">ShowPictureQ2WH('path/to/img.jpg', ...)</script>
-                # Пример: <script language="javascript">ShowPicture('path/to/img.jpg')</script>
-                # Общий паттерн: (ShowPicture\w*)\(\s*['"]([^'"]+)['"]
-                # Найдем вызов функции и путь к изображению
-                for script_tag in soup.find_all('script', string=re.compile(r'ShowPicture\w*\s*\(\s*[\'\"][^\'\"]+[\'\"]', re.IGNORECASE)):
+                # Теперь они могут быть в qblock (внутри combined_soup после добавления).
+                for script_tag in combined_soup.find_all('script', string=re.compile(r'ShowPicture\w*\s*\(\s*[\'\"][^\'\"]+[\'\"]', re.IGNORECASE)):
                     script_text = script_tag.get_text()
                     # Попробуем оба паттерна
                     match_q2wh = re.search(r"ShowPictureQ2WH\s*\(\s*['\"]([^'\"]+)['\"]", script_text, re.IGNORECASE)
@@ -185,13 +237,12 @@ class FIPIScraper:
                         local_path = self._download_asset_with_context(page, img_src, page_assets_dir, self.base_url, files_location_prefix, asset_type='image')
                         if local_path:
                             # ИСПРАВЛЕНО: Сохраняем путь ОТНОСИТЕЛЬНО папки страницы (где будет лежать HTML)
-                            # downloaded_images[img_src] = str(local_path.relative_to(run_folder)) # Было
                             downloaded_images[img_src] = str(local_path.relative_to(run_folder / page_num)) # Стало: относительно папки страницы
                             # Create new <img> tag with local path RELATIVE TO THE HTML FILE'S DIRECTORY
                             # The HTML file will be saved as run_folder / page_num / f"{page_num}.html"
                             # So, the img src should be e.g. "assets/filename.jpg"
                             img_relative_path_from_html = local_path.relative_to(run_folder / page_num) # Path object
-                            new_img = soup.new_tag('img', src=str(img_relative_path_from_html), alt='Downloaded FIPI Image')
+                            new_img = combined_soup.new_tag('img', src=str(img_relative_path_from_html), alt='Downloaded FIPI Image')
                             # Replace the <script> tag with the <img> tag
                             script_tag.replace_with(new_img)
                             print(f"Replaced script with img tag: {new_img}")
@@ -202,7 +253,7 @@ class FIPIScraper:
                 # These often have src="../../docs/.../simg1_...gif" (small preview)
                 # The ShowPictureQ2WH function might create the <img> directly inside the <a>
                 # We process them *after* handling the scripts above, so the <img> tags exist in soup
-                for a_tag in soup.find_all('a'):
+                for a_tag in combined_soup.find_all('a'):
                     img_tag = a_tag.find('img')
                     if img_tag:
                         # Get the src of the image, assuming it's relative like the file links
@@ -213,7 +264,6 @@ class FIPIScraper:
                             local_img_path = self._download_asset_with_context(page, clean_img_src, page_assets_dir, self.base_url, files_location_prefix, asset_type='image')
                             if local_img_path:
                                 # ИСПРАВЛЕНО: Сохраняем путь ОТНОСИТЕЛЬНО папки страницы
-                                # downloaded_images[clean_img_src] = str(local_img_path.relative_to(run_folder)) # Было
                                 downloaded_images[clean_img_src] = str(local_img_path.relative_to(run_folder / page_num)) # Стало
                                 # Update the img src to point to the local file RELATIVE TO THE HTML FILE'S DIRECTORY
                                 img_relative_path_from_html = local_img_path.relative_to(run_folder / page_num) # Path object
@@ -223,13 +273,13 @@ class FIPIScraper:
 
                 # --- Process Files (e.g., .zip from links) ---
                 # Find links that might trigger file downloads via javascript or direct href
-                for a_tag in soup.find_all('a'):
+                for a_tag in combined_soup.find_all('a'):
                     href = a_tag.get('href')
                     # Извлекаем путь из javascript: ссылки, если необходимо
                     file_path = href
                     if href and href.startswith('javascript:'):
                         # Example: javascript:var wnd=window.open('../../docs/.../file.zip',...
-                        match = re.search(r"window\.open\(\s*['\"]([^'\"]+\.zip|[^'\"]+\.rar|[^'\"]+\.pdf|[^'\"]+\.doc|[^'\"]+\.docx|[^'\"]+\.xls|[^'\"]+\.xlsx)['\"]", href, re.I)
+                        match = re.search(r"window\.open\(\s*['\"]([^'\"]+\.zip|[^'\"]+\.rar|[^'\"]+\.pdf|doc|docx|xls|xlsx)['\"]", href, re.I)
                         if match:
                             file_path = match.group(1)
                             # Remove leading ../../ if present, as it's relative to base_url
@@ -240,7 +290,6 @@ class FIPIScraper:
                         local_path = self._download_asset_with_context(page, file_path, page_assets_dir, self.base_url, files_location_prefix, asset_type='file')
                         if local_path:
                             # ИСПРАВЛЕНО: Сохраняем путь ОТНОСИТЕЛЬНО папки страницы
-                            # downloaded_files[file_path] = str(local_path.relative_to(run_folder)) # Было
                             downloaded_files[file_path] = str(local_path.relative_to(run_folder / page_num)) # Стало
                             # Update the href in the link to point to the local file RELATIVE TO THE HTML FILE'S DIRECTORY
                             file_relative_path_from_html = local_path.relative_to(run_folder / page_num) # Path object
@@ -249,46 +298,54 @@ class FIPIScraper:
 
 
                 # --- Remove duplicate or undefined <img> tags based on attributes ---
-                for img_tag in soup.find_all('img'):
+                for img_tag in combined_soup.find_all('img'):
                     if img_tag.get('alt') == 'undefined' or img_tag.get('align') or img_tag.get('border'):
                         img_tag.decompose()
 
                 # --- Remove the original answer input field from FIPI HTML ---
                 # ИСПРАВЛЕНО: Удаляем поле ввода ответа, которое было на сайте FIPI
-                for input_tag in soup.find_all('input', attrs={'name': 'answer'}):
+                # Теперь ищем внутри combined_soup (всего фрагмента задания)
+                for input_tag in combined_soup.find_all('input', attrs={'name': 'answer'}):
                     input_tag.decompose() # Удаляем элемент из дерева BeautifulSoup
                     print(f"Removed original FIPI answer input field: {input_tag}")
 
 
-                # --- Preserve and make Task Info functional ---
-                # Find the info button and the corresponding task-info-content
-                info_button = soup.find('div', class_='info-button')
-                info_content_div = soup.find('div', class_='task-info-content')
-                if info_button and info_content_div:
-                    # Modify the onclick attribute to work in the standalone HTML
-                    # The original onclick="this.parentNode.classList.toggle("show-info")" might not work as expected
-                    # when the HTML is saved separately. We'll add a generic JS function call.
-                    info_button['onclick'] = f"toggleInfo(this); return false;" # Add return false to prevent any default action
-                    # Ensure the content is visible by default or hidden via CSS
-                    # We will rely on CSS and JS in html_renderer to control visibility
-                    # Leave the info_content_div as is for now, it will be rendered by html_renderer
+                # --- Append the header container (task-header-panel) after the qblock ---
+                # Extract the task-header-panel from the header_container
+                task_header_panel = header_container.find('div', class_='task-header-panel')
+                if task_header_panel:
+                    # Modify the onclick attribute to work in the standalone HTML for the info button INSIDE the panel
+                    info_button = task_header_panel.find('div', class_='info-button')
+                    if info_button:
+                         # Modify the onclick attribute to work in the standalone HTML
+                        # The original onclick="this.parentNode.classList.toggle("show-info")" might not work as expected
+                        # when the HTML is saved separately. We'll add a generic JS function call.
+                        # ИСПРАВЛЕНО: Обновляем onclick у кнопки info_button внутри панели
+                        info_button['onclick'] = f"toggleInfo(this); return false;" # Add return false to prevent any default action
+                        print(f"Found and processed info button for assignment pair {idx}")
+                    # Append the task-header-panel to the combined soup
+                    combined_soup.append(task_header_panel.extract()) # extract() removes it from header_container
+                    print(f"Appended task-header-panel for assignment pair {idx}")
+                else:
+                    print(f"Warning: No task-header-panel found in header container for assignment pair {idx}")
+
 
                 # --- Clean up remaining scripts and MathML ---
                 # ИСПРАВЛЕНО: Возвращаем удаление MathML тегов, как в оригинальном скрипте
                 # Это позволяет MathJax обрабатывать оставшиеся формулы (LaTeX и т.п.).
-                for math_tag in soup.find_all(['math','mml:math']):
+                for math_tag in combined_soup.find_all(['math','mml:math']):
                     math_tag.decompose()
                 # Удаляем все скрипты, кроме тех, что были обработаны выше.
                 # Те, что были обработаны, уже заменены и не находятся тут.
-                for s in soup.find_all('script'):
-                    # Удаляем все скрипты, которые не были обработаны выше.
+                for s in combined_soup.find_all('script'):
+                    # Удаляем все оставшиеся скрипты, которые не были обработаны выше.
                     # Те, что были обработаны, уже заменены и не находятся тут.
                     s.decompose() # Удаляем все оставшиеся скрипты
 
 
-                processed_html = str(soup)
+                processed_html = str(combined_soup)
                 processed_blocks_html.append(processed_html)
-                assignments_text.append(soup.get_text(separator='\n', strip=True))
+                assignments_text.append(combined_soup.get_text(separator='\n', strip=True))
 
             browser.close() # Close browser after scraping
 
@@ -296,7 +353,7 @@ class FIPIScraper:
                 "page_name": page_num,
                 "url": page_url,
                 "assignments": assignments_text,
-                "blocks_html": processed_blocks_html,
+                "blocks_html": processed_blocks_html, # Теперь содержит объединённый HTML для каждой пары
                 "images": downloaded_images,
                 "files": downloaded_files
             }
