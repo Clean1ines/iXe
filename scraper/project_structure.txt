@@ -1,0 +1,14 @@
+Project Structure for: /home/haku/iXe/scraper
+Generated on: Thu Oct 23 09:57:04 MSK 2025
+
+Directory and File Tree (excluding common artifacts and gitignored files):
++-- __init__.py
++-- fipi_scraper.py
++-- project_structure.txt
+||+-- ./
+||+-- __pycache__/
+
+All Non-Gitignored Project Files (excluding common build artifacts and virtual environments):
+./__init__.py
+./fipi_scraper.py
+./project_structure.txt

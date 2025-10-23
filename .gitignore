@@ -3,7 +3,10 @@ venv/
 .venv/
 
 # Data and Assets (если не планируете хранить в репо)
+history/
 data/
+problems/
+custom_output/
 
 # Environment variables file
 .env

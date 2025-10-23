@@ -1,0 +1,12 @@
+playwright==1.46.0
+fastapi==0.100.0
+uvicorn==0.23.0
+requests==2.31.0
+python-dotenv==1.0.0
+pydantic==1.10.7
+jsonschema==4.21.4
+tqdm==4.66.1
+pytest==7.4.0
+pymorphy2==0.9.1
+beautifulsoup4==4.12.2
+lxml==4.9.3
