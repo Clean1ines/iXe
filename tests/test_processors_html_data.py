@@ -1,10 +1,7 @@
-"""
-Tests for html_data_processors module.
-"""
+# File: tests/test_processors_html_data.py
 
 import unittest
 from pathlib import Path
-from io import StringIO
 from unittest.mock import MagicMock
 from bs4 import BeautifulSoup
 from processors.html_data_processors import (
@@ -12,8 +9,110 @@ from processors.html_data_processors import (
     FileLinkProcessor,
     TaskInfoProcessor,
     InputFieldRemover,
-    MathMLRemover
+    MathMLRemover,
+    UnwantedElementRemover
 )
+
+
+class TestUnwantedElementRemover(unittest.TestCase):
+    def test_remove_all_elements(self):
+        html = '''
+        <html>
+        <body>
+            <div>Some content</div>
+            <div class="hint" id="hint" name="hint">Впишите правильный ответ.</div>
+            <span class="status-title-text hidden-xs">Статус задания:</span>
+            <span class="task-status task-status-0">НЕ РЕШЕНО</span>
+            <table>
+                <tr bgcolor="#FFFFFF">
+                    <td>Some data</td>
+                </tr>
+            </table>
+            <div>More content</div>
+        </body>
+        </html>
+        '''
+        soup = BeautifulSoup(html, 'html.parser')
+        processor = UnwantedElementRemover()
+        result_soup = processor.process(soup)
+
+        # Check that unwanted elements are removed
+        hint_div = result_soup.find('div', attrs={'class': 'hint', 'id': 'hint', 'name': 'hint'}, string='Впишите правильный ответ.')
+        self.assertIsNone(hint_div)
+
+        status_title_span = result_soup.find('span', attrs={'class': 'status-title-text hidden-xs'}, string='Статус задания:')
+        self.assertIsNone(status_title_span)
+
+        # Check for task status span with specific class and content
+        task_status_spans = result_soup.find_all('span', string='НЕ РЕШЕНО')
+        matching_task_status = None
+        for span in task_status_spans:
+            class_attr = span.get('class', [])
+            if any('task-status' in cls and 'task-status-' in cls for cls in class_attr):
+                matching_task_status = span
+                break
+        self.assertIsNone(matching_task_status)
+
+        tr_with_bgcolor = result_soup.find('tr', attrs={'bgcolor': '#FFFFFF'})
+        self.assertIsNone(tr_with_bgcolor)
+
+        # Check that other elements remain
+        self.assertIsNotNone(result_soup.find('div', string='Some content'))
+        self.assertIsNotNone(result_soup.find('div', string='More content'))
+
+    def test_remove_partial_elements(self):
+        html = '''
+        <html>
+        <body>
+            <div>Some content</div>
+            <div class="hint" id="hint" name="hint">Впишите правильный ответ.</div>
+            <span class="other-class">Other text</span>
+            <span class="task-status task-status-0">НЕ РЕШЕНО</span>
+            <div>More content</div>
+        </body>
+        </html>
+        '''
+        soup = BeautifulSoup(html, 'html.parser')
+        processor = UnwantedElementRemover()
+        result_soup = processor.process(soup)
+
+        # Check that specified unwanted elements are removed
+        hint_div = result_soup.find('div', attrs={'class': 'hint', 'id': 'hint', 'name': 'hint'}, string='Впишите правильный ответ.')
+        self.assertIsNone(hint_div)
+
+        # Check for task status span with specific class and content
+        task_status_spans = result_soup.find_all('span', string='НЕ РЕШЕНО')
+        matching_task_status = None
+        for span in task_status_spans:
+            class_attr = span.get('class', [])
+            if any('task-status' in cls and 'task-status-' in cls for cls in class_attr):
+                matching_task_status = span
+                break
+        self.assertIsNone(matching_task_status)
+
+        # Check that other elements remain
+        self.assertIsNotNone(result_soup.find('div', string='Some content'))
+        self.assertIsNotNone(result_soup.find('span', class_='other-class', string='Other text'))
+        self.assertIsNotNone(result_soup.find('div', string='More content'))
+
+    def test_remove_no_match(self):
+        html = '''
+        <html>
+        <body>
+            <div>Some content</div>
+            <span class="other-class">Other text</span>
+            <div>More content</div>
+        </body>
+        </html>
+        '''
+        soup = BeautifulSoup(html, 'html.parser')
+        processor = UnwantedElementRemover()
+        original_html = str(soup)
+        result_soup = processor.process(soup)
+        result_html = str(result_soup)
+
+        # Check that the HTML remains unchanged
+        self.assertEqual(result_html, original_html)
 
 
 class TestImageScriptProcessor(unittest.TestCase):

@@ -7,14 +7,19 @@ FIPI website using Playwright to fetch subject listings and assignment pages.
 """
 
 import re
-import zipfile
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, Any
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 from utils.downloader import AssetDownloader
-from processors.html_data_processors import ImageScriptProcessor, FileLinkProcessor, TaskInfoProcessor, InputFieldRemover, MathMLRemover
-
+from processors.html_data_processors import (
+    ImageScriptProcessor,
+    FileLinkProcessor,
+    TaskInfoProcessor,
+    InputFieldRemover,
+    MathMLRemover,
+    UnwantedElementRemover  # <-- Убедились, что импорт присутствует
+)
 
 
 class FIPIScraper:
@@ -39,7 +44,6 @@ class FIPIScraper:
                                        Defaults to True.
         """
         self.base_url = base_url
-        # Use subjects_url if provided, otherwise assume base_url is also the subjects page
         self.subjects_url = subjects_url if subjects_url else base_url
         self.user_agent = user_agent
         self.headless = headless
@@ -66,24 +70,19 @@ class FIPIScraper:
 
             projects = {}
             try:
-                # Find the main list element containing subjects
-                # This ID is based on the example provided in the prompt
                 list_selector = "ul[id^='pgp_']"
                 list_element = page.query_selector(list_selector)
 
                 if list_element:
-                    # Find all list items within the found list
                     list_items = list_element.query_selector_all("li[id^='p_']")
                     for item in list_items:
-                        # Extract project ID from the 'id' attribute (e.g., p_XXXX -> XXXX)
                         item_id = item.get_attribute("id")
                         if item_id and item_id.startswith("p_"):
-                            proj_id = item_id[2:]  # Remove the 'p_' prefix
+                            proj_id = item_id[2:]
                         else:
                             print(f"Warning: Skipping item with unexpected ID format: {item_id}")
-                            continue # Skip if ID doesn't match expected format
+                            continue
 
-                        # Extract subject name from the text content
                         subject_name = item.inner_text().strip()
                         if proj_id and subject_name:
                             projects[proj_id] = subject_name
@@ -97,14 +96,18 @@ class FIPIScraper:
         print(f"[Fetched subjects] Found {len(projects)} subjects.")
         return projects
 
-    # ИСПРАВЛЕНО: Переименован метод scrape_page_with_processors в scrape_page
-    # ИСПРАВЛЕНО: Удален старый метод scrape_page
     def scrape_page(self, proj_id: str, page_num: str, run_folder: Path) -> Dict[str, Any]:
         """
-        Scrapes a specific page of assignments for a given subject using HTML processors.
-        
-        This is a refactored version of the original scrape_page that uses dedicated processor classes
-        for different aspects of HTML processing, making the code more modular and maintainable.
+        Scrapes a specific page of assignments for a given subject using a full set of HTML processors,
+        including removal of unwanted UI elements.
+
+        This method uses dedicated processor classes for different aspects of HTML processing:
+        - ImageScriptProcessor: replaces ShowPicture(...) scripts with <img> tags
+        - FileLinkProcessor: downloads and localizes file links
+        - TaskInfoProcessor: updates info button handlers
+        - InputFieldRemover: removes answer input fields
+        - MathMLRemover: strips MathML for MathJax compatibility
+        - UnwantedElementRemover: removes auxiliary UI elements like hints, status spans, and unused table rows
 
         Args:
             proj_id (str): The project ID corresponding to the subject.
@@ -117,14 +120,14 @@ class FIPIScraper:
                             {
                                 "page_name": page_num,
                                 "url": "full_url_of_the_page",
-                                "assignments": ["Text of assignment 1", "Text of assignment 2", ...],
+                                "assignments": ["Text of assignment 1", ...],
                                 "blocks_html": ["<div>Combined HTML for block 1</div>", ...],
                                 "images": {"original_src": "local_path", ...},
                                 "files": {"original_href": "local_path", ...}
                             }
         """
         page_url = f"{self.base_url}?proj={proj_id}&page={page_num}"
-        print(f"[Scraping page with processors: {page_num}] Fetching {page_url} ...")
+        print(f"[Scraping page: {page_num}] Fetching {page_url} ...")
 
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=self.headless)
@@ -139,20 +142,15 @@ class FIPIScraper:
                 print(f"Warning: Could not get files_location from page {page_url}, using default. Error: {e}")
                 files_location_prefix = '../../'
 
-            # Initialize AssetDownloader
             downloader = AssetDownloader(page, self.base_url, files_location_prefix)
-
-            # Get page content and parse with BeautifulSoup
             page_content = page.content()
             page_soup = BeautifulSoup(page_content, 'html.parser')
 
-            # Find all qblock elements and header containers
             qblocks = page_soup.find_all('div', class_='qblock')
             header_containers = page_soup.find_all('div', id=re.compile(r'^i'))
 
             print(f"Found {len(qblocks)} qblocks and {len(header_containers)} header containers on page {page_num}.")
 
-            # Pair qblocks with header containers based on DOM order
             body_children = page_soup.body.children if page_soup.body else []
             ordered_elements = []
             current_qblock_idx = 0
@@ -169,7 +167,6 @@ class FIPIScraper:
                             ordered_elements.append(('header', header_containers[current_header_idx]))
                             current_header_idx += 1
 
-            # Pair header and qblock elements
             paired_elements = []
             i = 0
             while i < len(ordered_elements):
@@ -189,29 +186,27 @@ class FIPIScraper:
 
             print(f"Paired {len(paired_elements)} header-qblock sets.")
 
-            # Initialize processors
+            # Initialize all processors including UnwantedElementRemover
             image_proc = ImageScriptProcessor(downloader)
             file_proc = FileLinkProcessor(downloader)
             info_proc = TaskInfoProcessor()
             input_remover = InputFieldRemover()
             math_remover = MathMLRemover()
+            unwanted_remover = UnwantedElementRemover()
 
             processed_blocks_html = []
             assignments_text = []
             downloaded_images = {}
             downloaded_files = {}
 
-            # Create assets directory for this specific page
             page_assets_dir = run_folder / page_num / "assets"
             page_assets_dir.mkdir(parents=True, exist_ok=True)
 
             for idx, (header_container, qblock) in enumerate(paired_elements):
-                # Create combined soup for this assignment pair
                 combined_soup = BeautifulSoup('', 'html.parser')
                 combined_soup.append(qblock.extract())
 
                 # Process images inside <a> tags (previews for downloads)
-                # This needs to be handled separately as it's not covered by ImageScriptProcessor
                 for a_tag in combined_soup.find_all('a'):
                     img_tag = a_tag.find('img')
                     if img_tag:
@@ -225,13 +220,11 @@ class FIPIScraper:
                                 img_tag['src'] = str(img_relative_path_from_html)
                                 print(f"Updated img src inside <a> to local file: {img_tag['src']}")
 
-                # Use processors for HTML processing
+                # Apply all processors
                 combined_soup, new_imgs = image_proc.process(combined_soup, run_folder / page_num)
                 combined_soup, new_files = file_proc.process(combined_soup, run_folder / page_num)
                 combined_soup = input_remover.process(combined_soup)
                 combined_soup = math_remover.process(combined_soup)
-                
-                # Update downloaded assets dictionaries
                 downloaded_images.update(new_imgs)
                 downloaded_files.update(new_files)
 
@@ -240,23 +233,22 @@ class FIPIScraper:
                     if img_tag.get('alt') == 'undefined' or img_tag.get('align') or img_tag.get('border'):
                         img_tag.decompose()
 
-                # Append the header container (task-header-panel) after the qblock
+                # Append task-header-panel after qblock
                 task_header_panel = header_container.find('div', class_='task-header-panel')
                 if task_header_panel:
-                    # Process info button with TaskInfoProcessor
                     info_button = task_header_panel.find('div', class_='info-button')
                     if info_button:
-                        # Create a temporary soup for the header to process the info button
                         header_soup_temp = BeautifulSoup('', 'html.parser')
                         header_soup_temp.append(task_header_panel)
                         header_soup_temp = info_proc.process(header_soup_temp)
-                        # Extract the processed task_header_panel back
                         task_header_panel = header_soup_temp.find('div', class_='task-header-panel')
-                    
                     combined_soup.append(task_header_panel.extract())
                     print(f"Appended task-header-panel for assignment pair {idx}")
                 else:
                     print(f"Warning: No task-header-panel found in header container for assignment pair {idx}")
+
+                # 🔥 Ключевое изменение: применяем UnwantedElementRemover
+                combined_soup = unwanted_remover.process(combined_soup)
 
                 # Remove all remaining scripts
                 for script_tag in combined_soup.find_all('script'):

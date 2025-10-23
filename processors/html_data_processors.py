@@ -1,3 +1,5 @@
+# File: processors/html_data_processors.py
+
 """
 Module for processing HTML data and extracting content.
 
@@ -219,4 +221,50 @@ class MathMLRemover:
         for math_tag in soup.find_all(['math', 'mml:math']):
             math_tag.decompose()
         
+        return soup
+
+
+class UnwantedElementRemover:
+    """
+    A class to remove unwanted elements from HTML content.
+
+    This processor removes specific elements that are not needed in the processed output,
+    such as hint divs, status spans, and submission tables.
+    """
+
+    def __init__(self):
+        """Initializes the UnwantedElementRemover."""
+        pass
+
+    def process(self, soup: BeautifulSoup) -> BeautifulSoup:
+        """
+        Removes unwanted elements from the HTML.
+
+        Args:
+            soup (BeautifulSoup): The BeautifulSoup object containing HTML to process.
+
+        Returns:
+            BeautifulSoup: Updated BeautifulSoup object without unwanted elements
+        """
+        # Remove hint div with specific content
+        hint_div = soup.find('div', attrs={'class': 'hint', 'id': 'hint', 'name': 'hint'}, string='Впишите правильный ответ.')
+        if hint_div:
+            hint_div.decompose()
+
+        # Remove status title span with specific content
+        status_title_span = soup.find('span', attrs={'class': 'status-title-text hidden-xs'}, string='Статус задания:')
+        if status_title_span:
+            status_title_span.decompose()
+
+        # Remove task status span with dynamic class containing 'task-status' and 'task-status-'
+        for span in soup.find_all('span', string='НЕ РЕШЕНО'):
+            class_attr = span.get('class', [])
+            if class_attr and any('task-status' in cls and 'task-status-' in cls for cls in class_attr):
+                span.decompose()
+
+        # Remove table row with bgcolor="#FFFFFF"
+        tr_with_bgcolor = soup.find('tr', attrs={'bgcolor': '#FFFFFF'})
+        if tr_with_bgcolor:
+            tr_with_bgcolor.decompose()
+
         return soup
