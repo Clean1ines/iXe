@@ -1,4 +1,3 @@
-# main.py
 """
 Main entry point for the FIPI Parser application.
 This script orchestrates the scraping process:
@@ -15,7 +14,7 @@ from processors import html_renderer, json_saver
 from utils.local_storage import LocalStorage
 from utils.answer_checker import FIPIAnswerChecker
 from api.answer_api import create_app
-from utils.problem_storage import ProblemStorage
+from utils.database_manager import DatabaseManager  # NEW: Import DatabaseManager
 from pathlib import Path
 from datetime import datetime
 import threading
@@ -103,8 +102,9 @@ def main():
     # 4. Initialize processors - передаем storage в html_proc
     html_proc = html_renderer.HTMLRenderer(storage=storage) # NEW: Pass storage
     json_proc = json_saver.JSONSaver()
-    # NEW: Initialize ProblemStorage
-    problem_storage = ProblemStorage(run_folder / "problems.jsonl")
+    # NEW: Initialize DatabaseManager instead of ProblemStorage
+    db_manager = DatabaseManager(str(run_folder / "fipi_data.db")) # NEW: Initialize DatabaseManager
+    db_manager.initialize_db() # NEW: Initialize database tables
 
     # 5. Scrape and process pages - ВОССТАНОВЛЕНО: полный список страниц
     page_list = ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]
@@ -118,9 +118,9 @@ def main():
                 print(f"  Warning: No data scraped for page {page_name}. Skipping.")
                 continue
             
-            # NEW: Save Problems using ProblemStorage
-            problem_storage.save_problems(problems)
-            print(f"  Saved {len(problems)} problems to problems.jsonl for page {page_name}.")
+            # NEW: Save Problems using DatabaseManager instead of ProblemStorage
+            db_manager.save_problems(problems) # NEW: Use DatabaseManager
+            print(f"  Saved {len(problems)} problems to SQLite database for page {page_name}.")
 
             # --- Process and save HTML for the entire PAGE (as before) ---
             # NEW: Передаем page_name в render, чтобы он мог получить initial_state

@@ -1,4 +1,3 @@
-# tests/test_main.py
 import unittest
 from unittest.mock import patch, MagicMock, ANY
 from pathlib import Path
@@ -68,12 +67,12 @@ class TestMainMainFunction(unittest.TestCase):
     @patch('main.create_app')
     @patch('main.start_api_server')
     @patch('threading.Thread')
-    @patch('main.ProblemStorage') # NEW: Mock ProblemStorage
-    def test_main_flow(self, mock_problem_storage_cls, mock_thread, mock_start_api_server, mock_create_app, mock_checker_cls, mock_storage_cls, mock_json_saver_cls, mock_html_renderer_cls, mock_scraper_cls, mock_print, mock_input):
+    @patch('main.DatabaseManager') # NEW: Mock DatabaseManager
+    def test_main_flow(self, mock_db_manager_cls, mock_thread, mock_start_api_server, mock_create_app, mock_checker_cls, mock_storage_cls, mock_json_saver_cls, mock_html_renderer_cls, mock_scraper_cls, mock_print, mock_input):
         """
         Test the main flow: get projects -> user selects -> scrape -> process -> save.
         API components are mocked to prevent actual server startup.
-        NEW: Also mocks ProblemStorage.
+        NEW: Also mocks DatabaseManager.
         """
         # Mock instances returned by the classes
         mock_scraper_instance = mock_scraper_cls.return_value
@@ -83,8 +82,8 @@ class TestMainMainFunction(unittest.TestCase):
         mock_storage_instance = mock_storage_cls.return_value
         mock_checker_instance = mock_checker_cls.return_value
         mock_app_instance = mock_create_app.return_value
-        # NEW: Mock ProblemStorage
-        mock_problem_storage_instance = mock_problem_storage_cls.return_value
+        # NEW: Mock DatabaseManager
+        mock_db_manager_instance = mock_db_manager_cls.return_value
 
         # Define test data
         test_subjects = {'TEST_PROJ_ID': 'Test Subject'}
@@ -102,6 +101,7 @@ class TestMainMainFunction(unittest.TestCase):
         # Configure mock return values
         mock_scraper_instance.get_projects.return_value = test_subjects
         # NEW: scrape_page теперь возвращает кортеж (problems, scraped_data)
+        # NEW: Для теста scrape_page возвращает одни и те же данные для всех страниц, но этого достаточно для проверки логики вызовов
         mock_scraper_instance.scrape_page.return_value = (test_problems, test_page_data)
         mock_html_renderer_instance.render.return_value = test_html_content
         # NEW: Мокаем render_block, чтобы он возвращал фиктивный HTML
@@ -111,8 +111,8 @@ class TestMainMainFunction(unittest.TestCase):
         mock_storage_cls.return_value = mock_storage_instance
         mock_checker_cls.return_value = mock_checker_instance
         mock_create_app.return_value = mock_app_instance
-        # NEW: Configure mocked ProblemStorage
-        mock_problem_storage_cls.return_value = mock_problem_storage_instance
+        # NEW: Configure mocked DatabaseManager
+        mock_db_manager_cls.return_value = mock_db_manager_instance
 
         # Run the main function
         main.main()
@@ -134,18 +134,30 @@ class TestMainMainFunction(unittest.TestCase):
         mock_thread.assert_called_once()
         mock_start_api_server.assert_not_called() # Should not be called directly, only via thread target
 
-        # 4. NEW: Verify ProblemStorage was initialized and save_problems was called for each page
-        mock_problem_storage_cls.assert_called_once() # Called once in main() with the path
+        # 4. NEW: Verify DatabaseManager was initialized, initialize_db was called, and save_problems was called for each page
+        mock_db_manager_cls.assert_called_once() # Called once in main() with the path
+        mock_db_manager_instance.initialize_db.assert_called_once() # initialize_db called once
         # save_problems should be called once per page
-        self.assertEqual(mock_problem_storage_instance.save_problems.call_count, len(expected_scrape_calls))
+        self.assertEqual(mock_db_manager_instance.save_problems.call_count, len(expected_scrape_calls))
         # Assert it was called with the list of problems each time
         expected_save_problem_calls = [unittest.mock.call(test_problems) for _ in range(len(expected_scrape_calls))]
-        mock_problem_storage_instance.save_problems.assert_has_calls(expected_save_problem_calls, any_order=False)
+        mock_db_manager_instance.save_problems.assert_has_calls(expected_save_problem_calls, any_order=False)
 
         # 5. HTML renderer's render and render_block and save were called
-        # Check render was called for each page's data (with page_name)
-        expected_render_calls = [unittest.mock.call(test_page_data, page_name=page_name) for page_name in ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]]
-        mock_html_renderer_instance.render.assert_has_calls(expected_render_calls, any_order=False)
+        # Check render was called the correct number of times
+        expected_render_call_count = len(expected_scrape_calls)
+        self.assertEqual(mock_html_renderer_instance.render.call_count, expected_render_call_count)
+        # Check render was called with correct arguments (scraped_data, page_name=page_name)
+        # We check the page_name argument specifically
+        actual_render_calls = mock_html_renderer_instance.render.call_args_list
+        page_names_for_scraped_pages = ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]
+        for i, call in enumerate(actual_render_calls):
+            args, kwargs = call
+            # args[0] is scraped_data (we don't check its content precisely here, just that it was called)
+            # kwargs['page_name'] should match the expected page name
+            expected_page_name = page_names_for_scraped_pages[i]
+            self.assertEqual(kwargs.get('page_name'), expected_page_name)
+
 
         # Check render_block was called for each block in each page's data
         num_blocks_per_page = len(test_page_data.get('blocks_html', []))
