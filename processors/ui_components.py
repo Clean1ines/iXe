@@ -111,7 +111,7 @@ class AnswerFormRenderer:
         # Используем block_index как placeholder для task_id и form_id.
         # Эти значения будут заменены в html_renderer при генерации итогового HTML.
         # Также добавляем div для отображения статуса проверки.
-        return f'''<form class="answer-form" onsubmit="submitAndCheckAnswer(event, {block_index})">
+        return f'''<form class="answer-form" onsubmit="submitAnswerAndCheck(event, {block_index})">
   <label for="answer_{block_index}">Ваш ответ:</label>
   <input type="text" id="answer_{block_index}" name="answer" maxlength="250" size="40" placeholder="Введите/соберите ответ">
   <button type="button" class="toggle-math-btn" onclick="toggleMathButtons(this)">Показать/скрыть математические символы</button>
@@ -153,6 +153,11 @@ img{max-width:100%;height:auto;}
     color: #080;
     border: 1px solid #ccffcc;
 }
+.task-status-error { /* Error */
+    background-color: #fff0e6;
+    color: #ff6600;
+    border: 1px solid #ffccaa;
+}
 """
 
 # Optional: Define common JS functions here if not using an external file
@@ -167,8 +172,9 @@ function insertSymbol(blockIndex, symbol) {
   input.focus();
 }
 
+
 // ИСПРАВЛЕНО: Новая асинхронная функция для отправки и проверки ответа через backend
-async function submitAndCheckAnswer(event, blockIndex) {
+async function submitAnswerAndCheck(event, blockIndex) {
   event.preventDefault(); // Предотвращаем стандартную отправку формы
 
   // Находим элемент блока и извлекаем data-атрибуты
@@ -196,21 +202,21 @@ async function submitAndCheckAnswer(event, blockIndex) {
 
   try {
     // Отправляем запрос на ваш backend endpoint
-    // ЗАМЕНИТЕ '/api/check-answer/' на реальный URL вашего endpoint
-    const response = await fetch('/api/check-answer/', {
+    // ЗАМЕНИТЕ 'http://localhost:8000' на реальный URL вашего API
+    const response = await fetch('http://localhost:8000/submit_answer', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         task_id: taskId,
+        answer: userAnswer,
         form_id: formId,
-        user_answer: userAnswer,
       }),
     });
 
     if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP error! status: \${response.status}`);
     }
 
     const data = await response.json();
@@ -251,5 +257,50 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.info-button').forEach(button => {
         button.onclick = function() { toggleInfo(this); };
     });
+
+    // Загрузка начального состояния из глобальной переменной INITIAL_PAGE_STATE
+    // Эта переменная должна быть вставлена в HTML при генерации
+    if (typeof INITIAL_PAGE_STATE === 'object' && INITIAL_PAGE_STATE !== null) {
+        loadInitialStateFromObject(INITIAL_PAGE_STATE);
+    } else {
+        console.warn("INITIAL_PAGE_STATE не определена. Состояние не будет загружено из локального хранилища при загрузке.");
+    }
 });
+
+// Новая функция для загрузки начального состояния из переданного объекта
+function loadInitialStateFromObject(state) {
+    // Перебираем все блоки заданий на странице
+    document.querySelectorAll('.processed_qblock').forEach(block => {
+        const taskId = block.getAttribute('data-task-id');
+        if (taskId && state[taskId]) {
+            const storedData = state[taskId];
+            const blockIndex = parseInt(block.id.replace('processed_qblock_', ''));
+            const input = document.querySelector(`#answer_\${blockIndex}`);
+            const statusDiv = document.querySelector(`#task-status-\${blockIndex}`);
+
+            // Устанавливаем сохранённый ответ в поле ввода
+            if (input && storedData.answer) {
+                input.value = storedData.answer;
+            }
+
+            // Устанавливаем сохранённый статус
+            if (statusDiv) {
+                statusDiv.textContent = storedData.status === 'correct' ? "Сохранено: ВЕРНО" :
+                                       storedData.status === 'incorrect' ? "Сохранено: НЕВЕРНО" :
+                                       storedData.status === 'not_checked' ? "Сохранено: Не проверено" : "Сохранено: " + storedData.status;
+                // Убираем предыдущие классы статуса
+                statusDiv.classList.remove('task-status-2', 'task-status-3', 'task-status-error');
+                // Добавляем соответствующий класс
+                if (storedData.status === 'correct') {
+                    statusDiv.classList.add('task-status-3');
+                } else if (storedData.status === 'incorrect') {
+                    statusDiv.classList.add('task-status-2');
+                } else {
+                    // Для 'not_checked' или других статусов можно добавить общий класс или оставить без специфического
+                    // statusDiv.classList.add('task-status-not-checked'); // Если такой стиль добавлен
+                }
+            }
+        }
+    });
+}
 """

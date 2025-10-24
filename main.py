@@ -8,13 +8,28 @@ This script orchestrates the scraping process:
 3. Provides a console interface for the user to select a subject.
 4. Scrapes pages for the selected subject.
 5. Processes and saves the data using dedicated modules.
+6. Starts the API server in a separate thread.
 """
 
 import config
 from scraper import fipi_scraper
 from processors import html_renderer, json_saver
+from utils.local_storage import LocalStorage
+from utils.answer_checker import FIPIAnswerChecker
+from api.answer_api import create_app
 from pathlib import Path
 from datetime import datetime
+import threading
+import uvicorn
+import time
+import asyncio
+
+
+def start_api_server(app, host="127.0.0.1", port=8000):
+    """Starts the Uvicorn server in a separate thread."""
+    print(f"Starting API server on {host}:{port}...")
+    uvicorn.run(app, host=host, port=port, log_level="info")
+
 
 def get_user_selection(subjects_dict):
     """
@@ -76,8 +91,22 @@ def main():
     run_folder.mkdir(parents=True, exist_ok=True)
     print(f"Data will be saved to: {run_folder}")
 
-    # 4. Initialize processors
-    html_proc = html_renderer.HTMLRenderer()
+    # --- NEW: Initialize API components ---
+    storage = LocalStorage(run_folder / "answers.json")
+    checker = FIPIAnswerChecker(base_url=config.FIPI_QUESTIONS_URL)
+    app = create_app(storage, checker)
+
+    # --- NEW: Start API server in a separate thread ---
+    api_host = "127.0.0.1"
+    api_port = 8000
+    api_thread = threading.Thread(target=start_api_server, args=(app, api_host, api_port), daemon=True)
+    api_thread.start()
+    print(f"API server started in background. Waiting for server to be ready on {api_host}:{api_port}...")
+    time.sleep(3) # Give the server a moment to start up
+    print("API server should be ready.")
+
+    # 4. Initialize processors - передаем storage в html_proc
+    html_proc = html_renderer.HTMLRenderer(storage=storage) # NEW: Pass storage
     json_proc = json_saver.JSONSaver()
 
     # 5. Scrape and process pages - ВОССТАНОВЛЕНО: полный список страниц
@@ -94,7 +123,8 @@ def main():
                 continue
 
             # --- Process and save HTML for the entire PAGE (as before) ---
-            html_content = html_proc.render(scraped_data)
+            # NEW: Передаем page_name в render, чтобы он мог получить initial_state
+            html_content = html_proc.render(scraped_data, page_name=page_name)
             html_file_path = run_folder / page_name / f"{page_name}.html" # HTML в подпапку
             html_file_path.parent.mkdir(parents=True, exist_ok=True) # Убедиться, что подпапка существует
             html_proc.save(html_content, html_file_path)
@@ -105,7 +135,8 @@ def main():
             for block_idx, block_content in enumerate(blocks_html):
                 # Generate HTML for a single block using the new method
                 # ИСПРАВЛЕНО: Передаём asset_path_prefix="../assets" для коррекции путей
-                block_html_content = html_proc.render_block(block_content, block_idx, asset_path_prefix="../assets") # Используем новый метод с префиксом
+                # NEW: Передаем page_name и block_idx для получения initial_state для конкретного блока
+                block_html_content = html_proc.render_block(block_content, block_idx, asset_path_prefix="../assets", page_name=page_name) # Используем новый метод с префиксом и page_name
                 # Define path for the block's HTML file
                 block_html_file_path = run_folder / page_name / "blocks" / f"block_{block_idx}_{page_name}.html" # HTML блока в подпапку 'blocks'
                 block_html_file_path.parent.mkdir(parents=True, exist_ok=True) # Убедиться, что подпапка 'blocks' существует
@@ -129,6 +160,10 @@ def main():
             continue # Skip to the next page
 
     print(f"\n--- Parsing completed for '{selected_subject_name}'. Data saved in: {run_folder} ---")
+    print(f"API server is running on http://{api_host}:{api_port}")
+    print("Press Enter to stop the API server and exit...")
+    input() # Wait for user input before exiting
+    print("Exiting...")
 
 
 if __name__ == "__main__":

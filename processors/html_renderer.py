@@ -10,6 +10,7 @@ It now delegates UI component rendering to `ui_components.py`.
 import re
 from typing import Dict, Any, Optional
 from . import ui_components # Импортируем модуль с компонентами
+from utils.local_storage import LocalStorage
 
 
 class HTMLRenderer:
@@ -21,31 +22,43 @@ class HTMLRenderer:
     rendering formulas, and interactive answer forms.
     """
 
-    def __init__(self):
+    def __init__(self, storage: LocalStorage): # NEW: Принимаем storage
         """
         Initializes the HTMLRenderer.
         """
         # Pre-compile the CSS cleaning regex for efficiency if used multiple times
         self._css_clean_pattern = re.compile(r'[^\{\}]+\{\s*\}')
         self._answer_form_renderer = ui_components.AnswerFormRenderer()
+        self._storage = storage # NEW: Сохраняем storage
 
-    def render(self, data: Dict[str, Any]) -> str:
+    def render(self, data: Dict[str, Any], page_name: str) -> str: # NEW: Принимаем page_name
         """
         Renders the provided data dictionary into an HTML string for the entire page.
 
         Args:
             data (Dict[str, Any]): The data dictionary from the scraper.
                                    Expected keys: 'page_name', 'blocks_html', 'task_metadata'.
+            page_name (str): The name of the current page, used for initial state loading.
 
         Returns:
             str: The complete HTML string for the page.
         """
-        page_name = data.get("page_name", "unknown")
+        # NEW: Загружаем начальное состояние для этой страницы
+        initial_state = self._storage._load_data() # Получаем все данные
+        # Фильтруем по префиксу page_name (или используем всю информацию, если page_name не используется как префикс)
+        # Для простоты, передаем всё состояние, но JS будет использовать только нужные ему task_id
+        page_initial_state = {k: v for k, v in initial_state.items() if k.startswith(page_name)}
+
         blocks_html = data.get("blocks_html", [])
         task_metadata = data.get("task_metadata", []) # Получаем метаданные
 
         # Use the common CSS and JS from ui_components
         cleaned_css = self._clean_css(ui_components.COMMON_CSS)
+
+        # NEW: Генерируем JS для вставки глобальной переменной INITIAL_PAGE_STATE
+        import json
+        initial_state_json = json.dumps(page_initial_state, ensure_ascii=False, indent=2)
+        initial_state_js = f"<script>\nvar INITIAL_PAGE_STATE = {initial_state_json};\n</script>\n"
 
         # Start building the HTML string
         html_parts = [
@@ -53,6 +66,8 @@ class HTMLRenderer:
             f"<title>FIPI Page {page_name}</title>\n",
             f"<style>{cleaned_css}</style>\n",
             "<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
+            # NEW: Вставляем переменную INITIAL_PAGE_STATE перед COMMON_JS_FUNCTIONS
+            initial_state_js,
             "<script>\n",
             ui_components.COMMON_JS_FUNCTIONS, # Use the common JS functions
             "</script>\n",
@@ -80,7 +95,7 @@ class HTMLRenderer:
         html_parts.append("</body>\n</html>")
         return "".join(html_parts)
 
-    def render_block(self, block_html: str, block_index: int, asset_path_prefix: Optional[str] = None, task_id: Optional[str] = "", form_id: Optional[str] = "") -> str:
+    def render_block(self, block_html: str, block_index: int, asset_path_prefix: Optional[str] = None, task_id: Optional[str] = "", form_id: Optional[str] = "", page_name: Optional[str] = None) -> str: # NEW: Принимаем page_name
         """
         Renders a single assignment block HTML string.
 
@@ -92,10 +107,17 @@ class HTMLRenderer:
                                                "assets/image.jpg" will be changed to "{prefix}/image.jpg".
             task_id (Optional[str]): The task ID to embed in the block.
             form_id (Optional[str]): The form ID to embed in the block.
+            page_name (Optional[str]): The name of the current page, used for initial state loading for the block.
 
         Returns:
             str: The complete HTML string for the single block, including MathJax and form.
         """
+        # NEW: Загружаем начальное состояние для этой страницы (если page_name предоставлена)
+        initial_state = {}
+        if page_name:
+            all_data = self._storage._load_data()
+            initial_state = {k: v for k, v in all_data.items() if k.startswith(page_name)}
+
         # Use the common CSS and JS from ui_components
         cleaned_css = self._clean_css(ui_components.COMMON_CSS)
 
@@ -124,11 +146,18 @@ class HTMLRenderer:
             
             processed_block_html = re.sub(pattern, replace_path, block_html)
 
+        # NEW: Генерируем JS для вставки глобальной переменной INITIAL_PAGE_STATE
+        import json
+        initial_state_json = json.dumps(initial_state, ensure_ascii=False, indent=2)
+        initial_state_js = f"<script>\nvar INITIAL_PAGE_STATE = {initial_state_json};\n</script>\n"
+
         html_parts = [
             "<!DOCTYPE html>\n<html lang='ru'>\n<head>\n<meta charset='utf-8'>\n",
             f"<title>FIPI Block {block_index}</title>\n", # Different title
             f"<style>{cleaned_css}</style>\n",
-            "<script src='  https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
+            "<script src='    https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
+            # NEW: Вставляем переменную INITIAL_PAGE_STATE перед COMMON_JS_FUNCTIONS
+            initial_state_js,
             "<script>\n",
             ui_components.COMMON_JS_FUNCTIONS,
             "</script>\n",

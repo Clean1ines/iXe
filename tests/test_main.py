@@ -56,29 +56,54 @@ class TestMainMainFunction(unittest.TestCase):
     Integration test for the main.main() function, mocking dependencies.
     """
 
-    @patch('builtins.input', side_effect=['1']) # Mock user input to select first subject
+    @patch('builtins.input', side_effect=['1', '']) # Mock user input to select first subject, then Enter to exit
     @patch('builtins.print') # Suppress print statements
     @patch('main.fipi_scraper.FIPIScraper')
     @patch('main.html_renderer.HTMLRenderer')
     @patch('main.json_saver.JSONSaver')
-    def test_main_flow(self, mock_json_saver_cls, mock_html_renderer_cls, mock_scraper_cls, mock_print, mock_input):
+    # NEW: Mock API-related components to prevent real server startup
+    @patch('main.LocalStorage')
+    @patch('main.FIPIAnswerChecker')
+    @patch('main.create_app')
+    @patch('main.start_api_server')
+    @patch('threading.Thread')
+    def test_main_flow(self, mock_thread, mock_start_api_server, mock_create_app, mock_checker_cls, mock_storage_cls, mock_json_saver_cls, mock_html_renderer_cls, mock_scraper_cls, mock_print, mock_input):
         """
         Test the main flow: get projects -> user selects -> scrape -> process -> save.
+        API components are mocked to prevent actual server startup.
         """
         # Mock instances returned by the classes
         mock_scraper_instance = mock_scraper_cls.return_value
         mock_html_renderer_instance = mock_html_renderer_cls.return_value
         mock_json_saver_instance = mock_json_saver_cls.return_value
+        # NEW: Mock API components
+        mock_storage_instance = mock_storage_cls.return_value
+        mock_checker_instance = mock_checker_cls.return_value
+        mock_app_instance = mock_create_app.return_value
 
         # Define test data
         test_subjects = {'TEST_PROJ_ID': 'Test Subject'}
-        test_page_data = {'page_name': 'init', 'url': 'http://test.url', 'assignments': ['Q1', 'Q2']}
+        # NEW: Добавим blocks_html и task_metadata в test_page_data
+        test_page_data = {
+            'page_name': 'init',
+            'url': 'http://test.url',
+            'assignments': ['Q1', 'Q2'],
+            'blocks_html': ['<p>Block1</p>', '<p>Block2</p>'], # 2 блока для теста render_block
+            'task_metadata': [{'task_id': 'task1', 'form_id': 'form1'}, {'task_id': 'task2', 'form_id': 'form2'}]
+        }
         test_html_content = '<html><body>Test HTML</body></html>'
 
         # Configure mock return values
         mock_scraper_instance.get_projects.return_value = test_subjects
         mock_scraper_instance.scrape_page.return_value = test_page_data
         mock_html_renderer_instance.render.return_value = test_html_content
+        # NEW: Мокаем render_block, чтобы он возвращал фиктивный HTML
+        mock_html_renderer_instance.render_block.return_value = '<html>Block HTML</html>'
+
+        # NEW: Configure mocked API components to return sensible mocks
+        mock_storage_cls.return_value = mock_storage_instance
+        mock_checker_cls.return_value = mock_checker_instance
+        mock_create_app.return_value = mock_app_instance
 
         # Run the main function
         main.main()
@@ -90,22 +115,45 @@ class TestMainMainFunction(unittest.TestCase):
         # 2. Scraper's scrape_page was called for each page in the list (init, 1, 2, ..., TOTAL_PAGES)
         # We use TOTAL_PAGES from the config module that the main function uses
         # ИСПРАВЛЕНО: Ожидаем вызовы с тремя аргументами: proj_id, page_name, run_folder (ANY)
-        expected_calls = [unittest.mock.call('TEST_PROJ_ID', page_name, ANY) for page_name in ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]]
-        mock_scraper_instance.scrape_page.assert_has_calls(expected_calls, any_order=False) # Order matters
+        expected_scrape_calls = [unittest.mock.call('TEST_PROJ_ID', page_name, ANY) for page_name in ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]]
+        mock_scraper_instance.scrape_page.assert_has_calls(expected_scrape_calls, any_order=False) # Order matters
 
-        # 3. HTML renderer's render and save were called
-        # Check render was called for each page's data
-        expected_render_calls = [unittest.mock.call(test_page_data)] * len(expected_calls) # Assuming same data returned each time for simplicity in this mock
-        # For a more robust test, you'd need to mock scrape_page to return different data or track calls dynamically
-        # Here, we check that render was called the correct number of times
-        self.assertEqual(mock_html_renderer_instance.render.call_count, len(expected_calls))
-        # Check save was called for each page's HTML content
-        # The path would be constructed inside main, we can't easily predict the exact Path object without mocking Path calls too deeply
-        # We can check the number of calls matches
-        self.assertEqual(mock_html_renderer_instance.save.call_count, len(expected_calls))
+        # 3. NEW: Verify API components were initialized and server started in thread
+        mock_storage_cls.assert_called_once()
+        mock_checker_cls.assert_called_once()
+        mock_create_app.assert_called_once()
+        mock_thread.assert_called_once()
+        mock_start_api_server.assert_not_called() # Should not be called directly, only via thread target
 
-        # 4. JSON saver's save was called
-        self.assertEqual(mock_json_saver_instance.save.call_count, len(expected_calls))
+        # 4. HTML renderer's render and render_block and save were called
+        # Check render was called for each page's data (with page_name)
+        expected_render_calls = [unittest.mock.call(test_page_data, page_name=page_name) for page_name in ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]]
+        mock_html_renderer_instance.render.assert_has_calls(expected_render_calls, any_order=False)
+
+        # Check render_block was called for each block in each page's data
+        num_blocks_per_page = len(test_page_data.get('blocks_html', []))
+        expected_render_block_calls = []
+        for page_name in ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]:
+            for block_idx, block_content in enumerate(test_page_data.get('blocks_html', [])):
+                 expected_render_block_calls.append(unittest.mock.call(block_content, block_idx, asset_path_prefix="../assets", page_name=page_name))
+        mock_html_renderer_instance.render_block.assert_has_calls(expected_render_block_calls, any_order=False)
+
+        # Check save was called:
+        # - once for the main HTML page per scraped page
+        # - once for each block's HTML per scraped page
+        expected_save_calls_for_pages = len(expected_scrape_calls)
+        expected_save_calls_for_blocks = len(expected_scrape_calls) * num_blocks_per_page
+        expected_total_save_calls = expected_save_calls_for_pages + expected_save_calls_for_blocks
+
+        self.assertEqual(mock_html_renderer_instance.save.call_count, expected_total_save_calls)
+        # Example: 51 pages * (1 main HTML + 2 blocks HTML) = 51 * 3 = 153 calls
+        # If TOTAL_PAGES = 50, then pages are ["init"] + ["1", ..., "50"] = 51 page name -> 51 scrape calls
+        # 51 main HTML saves + 51 * 2 block saves = 51 + 102 = 153 total saves
+        # self.assertEqual(mock_html_renderer_instance.save.call_count, 153) # This would be specific check for TOTAL_PAGES=50 and 2 blocks
+
+
+        # 5. JSON saver's save was called for each page's data
+        self.assertEqual(mock_json_saver_instance.save.call_count, len(expected_scrape_calls))
 
 
 if __name__ == '__main__':
