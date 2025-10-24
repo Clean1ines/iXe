@@ -1,6 +1,10 @@
+import logging
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urljoin
+
+
+logger = logging.getLogger(__name__)
 
 
 class AssetDownloader:
@@ -23,6 +27,7 @@ class AssetDownloader:
         self.page = page
         self.base_url = base_url
         self.files_location_prefix = files_location_prefix
+        logger.debug(f"AssetDownloader initialized with base_url: {base_url}, prefix: {files_location_prefix}")
 
     def download(self, asset_src: str, save_dir: Path, asset_type: str = 'image') -> Optional[Path]:
         """Downloads an asset from the web and saves it locally.
@@ -35,22 +40,31 @@ class AssetDownloader:
         Returns:
             Path to the saved file if successful, None otherwise.
         """
+        logger.info(f"Attempting to download {asset_type}: {asset_src} to {save_dir}")
+        
         # Construct the full URL - urljoin will normalize the path
-        asset_path = self.files_location_prefix + asset_src
-        full_url = urljoin(self.base_url, asset_path)
+        logger.debug(f"Constructing full asset path using prefix '{self.files_location_prefix}' and src '{asset_src}'")
+        full_asset_path = self.files_location_prefix + asset_src
+        
+        logger.debug(f"Constructing full URL from base '{self.base_url}' and path '{full_asset_path}'")
+        asset_url = urljoin(self.base_url, full_asset_path)
 
         try:
-            response = self.page.request.get(full_url)
+            logger.debug(f"Initiating GET request to: {asset_url}")
+            response = self.page.request.get(asset_url)
+            
             if response.ok:
+                logger.debug(f"Download request for {asset_src} successful, status: {response.status}")
                 save_filename = Path(asset_src).name
                 save_path = save_dir / save_filename
                 save_path.parent.mkdir(parents=True, exist_ok=True)
                 save_path.write_bytes(response.body())
-                print(f"Successfully downloaded {asset_type} to {save_path}")
+                logger.info(f"Successfully downloaded {asset_type} from {asset_src} and saved to {save_path}")
+                logger.debug(f"Returning save path: {save_path}")
                 return save_path
             else:
-                print(f"Error downloading {asset_type} {full_url}: Status {response.status}")
+                logger.warning(f"Failed to download {asset_type} {asset_url}. Status: {response.status}")
                 return None
         except Exception as e:
-            print(f"Error downloading {asset_type} {full_url}: {e}")
+            logger.error(f"Error downloading {asset_type} {asset_url}: {e}", exc_info=True)
             return None
