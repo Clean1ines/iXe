@@ -47,6 +47,7 @@ class TestMainGetUserSelection(unittest.TestCase):
     def test_out_of_range_input(self, mock_print, mock_input):
         """Test handling of out-of-range numeric inputs."""
         result = main.get_user_selection(self.test_subjects)
+        # Исправлено: после ввода -1 и 4 (оба неверные), третий ввод - '1', что соответствует ID1
         self.assertEqual(result, ('ID1', 'Subject A'))
         self.assertEqual(mock_input.call_count, 3)
 
@@ -67,10 +68,12 @@ class TestMainMainFunction(unittest.TestCase):
     @patch('main.create_app')
     @patch('main.start_api_server')
     @patch('threading.Thread')
-    def test_main_flow(self, mock_thread, mock_start_api_server, mock_create_app, mock_checker_cls, mock_storage_cls, mock_json_saver_cls, mock_html_renderer_cls, mock_scraper_cls, mock_print, mock_input):
+    @patch('main.ProblemStorage') # NEW: Mock ProblemStorage
+    def test_main_flow(self, mock_problem_storage_cls, mock_thread, mock_start_api_server, mock_create_app, mock_checker_cls, mock_storage_cls, mock_json_saver_cls, mock_html_renderer_cls, mock_scraper_cls, mock_print, mock_input):
         """
         Test the main flow: get projects -> user selects -> scrape -> process -> save.
         API components are mocked to prevent actual server startup.
+        NEW: Also mocks ProblemStorage.
         """
         # Mock instances returned by the classes
         mock_scraper_instance = mock_scraper_cls.return_value
@@ -80,6 +83,8 @@ class TestMainMainFunction(unittest.TestCase):
         mock_storage_instance = mock_storage_cls.return_value
         mock_checker_instance = mock_checker_cls.return_value
         mock_app_instance = mock_create_app.return_value
+        # NEW: Mock ProblemStorage
+        mock_problem_storage_instance = mock_problem_storage_cls.return_value
 
         # Define test data
         test_subjects = {'TEST_PROJ_ID': 'Test Subject'}
@@ -91,11 +96,13 @@ class TestMainMainFunction(unittest.TestCase):
             'blocks_html': ['<p>Block1</p>', '<p>Block2</p>'], # 2 блока для теста render_block
             'task_metadata': [{'task_id': 'task1', 'form_id': 'form1'}, {'task_id': 'task2', 'form_id': 'form2'}]
         }
+        test_problems = [MagicMock(), MagicMock()] # Example Problem objects
         test_html_content = '<html><body>Test HTML</body></html>'
 
         # Configure mock return values
         mock_scraper_instance.get_projects.return_value = test_subjects
-        mock_scraper_instance.scrape_page.return_value = test_page_data
+        # NEW: scrape_page теперь возвращает кортеж (problems, scraped_data)
+        mock_scraper_instance.scrape_page.return_value = (test_problems, test_page_data)
         mock_html_renderer_instance.render.return_value = test_html_content
         # NEW: Мокаем render_block, чтобы он возвращал фиктивный HTML
         mock_html_renderer_instance.render_block.return_value = '<html>Block HTML</html>'
@@ -104,6 +111,8 @@ class TestMainMainFunction(unittest.TestCase):
         mock_storage_cls.return_value = mock_storage_instance
         mock_checker_cls.return_value = mock_checker_instance
         mock_create_app.return_value = mock_app_instance
+        # NEW: Configure mocked ProblemStorage
+        mock_problem_storage_cls.return_value = mock_problem_storage_instance
 
         # Run the main function
         main.main()
@@ -125,7 +134,15 @@ class TestMainMainFunction(unittest.TestCase):
         mock_thread.assert_called_once()
         mock_start_api_server.assert_not_called() # Should not be called directly, only via thread target
 
-        # 4. HTML renderer's render and render_block and save were called
+        # 4. NEW: Verify ProblemStorage was initialized and save_problems was called for each page
+        mock_problem_storage_cls.assert_called_once() # Called once in main() with the path
+        # save_problems should be called once per page
+        self.assertEqual(mock_problem_storage_instance.save_problems.call_count, len(expected_scrape_calls))
+        # Assert it was called with the list of problems each time
+        expected_save_problem_calls = [unittest.mock.call(test_problems) for _ in range(len(expected_scrape_calls))]
+        mock_problem_storage_instance.save_problems.assert_has_calls(expected_save_problem_calls, any_order=False)
+
+        # 5. HTML renderer's render and render_block and save were called
         # Check render was called for each page's data (with page_name)
         expected_render_calls = [unittest.mock.call(test_page_data, page_name=page_name) for page_name in ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]]
         mock_html_renderer_instance.render.assert_has_calls(expected_render_calls, any_order=False)
@@ -135,7 +152,22 @@ class TestMainMainFunction(unittest.TestCase):
         expected_render_block_calls = []
         for page_name in ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]:
             for block_idx, block_content in enumerate(test_page_data.get('blocks_html', [])):
-                 expected_render_block_calls.append(unittest.mock.call(block_content, block_idx, asset_path_prefix="../assets", page_name=page_name))
+                # ИСПРАВЛЕНО: добавлены task_id и form_id из task_metadata
+                metadata = test_page_data.get('task_metadata', [])[block_idx]
+                task_id = metadata.get('task_id', '')
+                form_id = metadata.get('form_id', '')
+                # render_block вызывается с позиционными аргументами block_content, block_idx
+                # и именованными asset_path_prefix, page_name, task_id, form_id
+                expected_render_block_calls.append(
+                    unittest.mock.call(
+                        block_content,
+                        block_idx,
+                        asset_path_prefix="../assets",
+                        page_name=page_name,
+                        task_id=task_id,
+                        form_id=form_id
+                    )
+                )
         mock_html_renderer_instance.render_block.assert_has_calls(expected_render_block_calls, any_order=False)
 
         # Check save was called:
@@ -152,7 +184,7 @@ class TestMainMainFunction(unittest.TestCase):
         # self.assertEqual(mock_html_renderer_instance.save.call_count, 153) # This would be specific check for TOTAL_PAGES=50 and 2 blocks
 
 
-        # 5. JSON saver's save was called for each page's data
+        # 6. JSON saver's save was called for each page's data
         self.assertEqual(mock_json_saver_instance.save.call_count, len(expected_scrape_calls))
 
 
