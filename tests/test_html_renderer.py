@@ -1,4 +1,3 @@
-# tests/test_html_renderer.py
 import unittest
 from processors import html_renderer, ui_components
 
@@ -63,7 +62,7 @@ class TestHTMLRenderer(unittest.TestCase):
         result = self.renderer.render(test_data)
         # Check for key elements of the form
         self.assertIn('<form class="answer-form"', result)
-        self.assertIn('onsubmit="submitAnswer(event,', result) # Should reference block index
+        self.assertIn('onsubmit="submitAndCheckAnswer(event,', result) # Should reference block index
         self.assertIn('<label for="answer_', result) # Should reference block index
         self.assertIn('<input type="text" id="answer_', result) # Should reference block index
         self.assertIn('name="answer"', result)
@@ -72,6 +71,22 @@ class TestHTMLRenderer(unittest.TestCase):
         self.assertIn('class="toggle-math-btn"', result)
         self.assertIn('class="math-buttons"', result)
         self.assertIn('<button type="submit">Отправить ответ</button>', result)
+
+    def test_render_includes_data_attributes_from_metadata(self):
+        """Test that the rendered HTML includes data-task-id and data-form-id from metadata."""
+        test_block_content = "<p>Block 1 content</p>"
+        task_id = "TASK789"
+        form_id = "FORM101"
+        test_data = {
+            "page_name": "test_page",
+            "blocks_html": [test_block_content],
+            "assignments": ["Assignment 1 text"],
+            "task_metadata": [{"task_id": task_id, "form_id": form_id}] # Предполагаемая структура
+        }
+        result = self.renderer.render(test_data)
+        # Проверяем, что атрибуты встроены в первый (и единственный) блок (с одинарными кавычками)
+        self.assertIn(f"data-task-id='{task_id}'", result)
+        self.assertIn(f"data-form-id='{form_id}'", result)
 
     def test_render_block_returns_string(self):
         """Test that the render_block method returns a string."""
@@ -108,7 +123,7 @@ class TestHTMLRenderer(unittest.TestCase):
         result = self.renderer.render_block(block_html, block_index)
         # Check for key elements of the form, referencing the correct index
         self.assertIn('<form class="answer-form"', result)
-        self.assertIn(f'onsubmit="submitAnswer(event, {block_index})"', result)
+        self.assertIn(f'onsubmit="submitAndCheckAnswer(event, {block_index})"', result)
         self.assertIn(f'<label for="answer_{block_index}">', result)
         self.assertIn(f'<input type="text" id="answer_{block_index}"', result)
         self.assertIn('name="answer"', result)
@@ -117,6 +132,18 @@ class TestHTMLRenderer(unittest.TestCase):
         self.assertIn('class="toggle-math-btn"', result)
         self.assertIn('class="math-buttons"', result)
         self.assertIn('<button type="submit">Отправить ответ</button>', result)
+
+    def test_render_block_includes_data_attributes(self):
+        """Test that the rendered block HTML includes data-task-id and data-form-id."""
+        block_html = "<p>Single block content</p>"
+        block_index = 3
+        task_id = "TASK123"
+        form_id = "FORM456"
+        result = self.renderer.render_block(block_html, block_index, task_id=task_id, form_id=form_id)
+        # Check for data attributes in the processed_qblock div (с одинарными кавычками)
+        self.assertIn(f"data-task-id='{task_id}'", result)
+        self.assertIn(f"data-form-id='{form_id}'", result)
+
 
     def test_render_block_handles_asset_prefix(self):
         """Test that the render_block method correctly adjusts asset paths if prefix is provided."""
@@ -212,7 +239,7 @@ class TestUIComponents(unittest.TestCase):
         result = ui_components.AnswerFormRenderer().render(idx)
         self.assertIn(f'id="answer_{idx}"', result)
         self.assertIn(f'name="answer"', result) # Name should be generic
-        self.assertIn(f'onsubmit="submitAnswer(event, {idx})"', result)
+        self.assertIn(f'onsubmit="submitAndCheckAnswer(event, {idx})"', result) # ИСПРАВЛЕНО: Проверка на submitAndCheckAnswer
         # Should also contain the math buttons HTML which includes the index
         self.assertIn(f'onclick="insertSymbol({idx},', result)
 
