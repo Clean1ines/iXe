@@ -1,5 +1,8 @@
 import unittest
 from unittest.mock import patch, MagicMock, ANY
+import sys
+# Импортируем uvicorn для проверки объекта
+import uvicorn
 from pathlib import Path
 import main
 import config # Import config if needed for assertions
@@ -65,14 +68,15 @@ class TestMainMainFunction(unittest.TestCase):
     # REMOVED: @patch('main.LocalStorage') # OLD: No longer used
     @patch('main.FIPIAnswerChecker')
     @patch('main.create_app')
-    @patch('main.start_api_server')
-    @patch('threading.Thread')
+    @patch('threading.Thread') # NEW: Mock threading.Thread to prevent actual thread creation
     @patch('main.DatabaseManager') # NEW: Mock DatabaseManager
-    def test_main_flow(self, mock_db_manager_cls, mock_thread, mock_start_api_server, mock_create_app, mock_checker_cls, mock_json_saver_cls, mock_html_renderer_cls, mock_scraper_cls, mock_print, mock_input):
+    def test_main_flow(self, mock_db_manager_cls, mock_thread_cls, mock_create_app, mock_checker_cls, mock_json_saver_cls, mock_html_renderer_cls, mock_scraper_cls, mock_print, mock_input):
         """
         Test the main flow: get projects -> user selects -> scrape -> process -> save.
         API components are mocked to prevent actual server startup.
         NEW: Also mocks DatabaseManager.
+        NEW: Mock threading.Thread to prevent actual thread creation and uvicorn.run call.
+        NEW: Updated to reflect the new internal run_server function used as target.
         """
         # Mock instances returned by the classes
         mock_scraper_instance = mock_scraper_cls.return_value
@@ -82,6 +86,7 @@ class TestMainMainFunction(unittest.TestCase):
         # OLD: mock_storage_instance = mock_storage_cls.return_value # No longer used
         mock_checker_instance = mock_checker_cls.return_value
         mock_app_instance = mock_create_app.return_value
+        mock_thread_instance = mock_thread_cls.return_value # NEW: Mock thread instance
         # NEW: Mock DatabaseManager
         mock_db_manager_instance = mock_db_manager_cls.return_value
 
@@ -111,6 +116,8 @@ class TestMainMainFunction(unittest.TestCase):
         # OLD: mock_storage_cls.return_value = mock_storage_instance # No longer used
         mock_checker_cls.return_value = mock_checker_instance
         mock_create_app.return_value = mock_app_instance
+        # NEW: Configure mocked thread to return a mock instance
+        mock_thread_cls.return_value = mock_thread_instance
         # NEW: Configure mocked DatabaseManager
         mock_db_manager_cls.return_value = mock_db_manager_instance
 
@@ -127,15 +134,32 @@ class TestMainMainFunction(unittest.TestCase):
         expected_scrape_calls = [unittest.mock.call('TEST_PROJ_ID', page_name, ANY) for page_name in ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]]
         mock_scraper_instance.scrape_page.assert_has_calls(expected_scrape_calls, any_order=False) # Order matters
 
-        # 3. NEW: Verify API components were initialized and server started in thread
+        # 3. NEW: Verify API components were initialized and thread was created with correct arguments
         # OLD: mock_storage_cls.assert_called_once() # No longer used
         mock_checker_cls.assert_called_once()
-        mock_create_app.assert_called_once()
-        mock_thread.assert_called_once()
-        mock_start_api_server.assert_not_called() # Should not be called directly, only via thread target
+        mock_create_app.assert_called_once_with(mock_db_manager_instance, mock_checker_instance) # Passes db_manager and checker
+        # NEW: Verify threading.Thread was called once with the correct target (the internal run_server function) and kwargs
+        # The target should now be the internal function defined in main.py, not uvicorn.run directly
+        mock_thread_cls.assert_called_once()
+        # Get the call arguments
+        call_args = mock_thread_cls.call_args
+        kwargs_passed_to_thread = call_args[1] # Keyword arguments passed to Thread constructor
+        # Assert 'target' is the internal run_server function (we cannot easily assert its identity without importing it)
+        # Instead, we can assert it's a function (callable)
+        self.assertTrue(callable(kwargs_passed_to_thread['target']), "Thread target should be callable")
+        # Assert 'args' contains the expected arguments for the run_server function (app, host, port)
+        expected_run_server_args = (mock_app_instance, "127.0.0.1", 8000)
+        actual_run_server_args = kwargs_passed_to_thread['args']
+        self.assertEqual(actual_run_server_args, expected_run_server_args)
+        # Assert daemon was set
+        self.assertTrue(mock_thread_instance.daemon)
 
         # 4. NEW: Verify DatabaseManager was initialized, initialize_db was called, and save_problems was called for each page
         mock_db_manager_cls.assert_called_once() # Called once in main() with the path
+        # Get the arguments used to call DatabaseManager constructor
+        db_manager_call_args = mock_db_manager_cls.call_args
+        # The path should be relative to run_folder
+        # We can't easily assert the exact path without knowing the timestamp, but we know it happens
         mock_db_manager_instance.initialize_db.assert_called_once() # initialize_db called once
         # save_problems should be called once per page
         self.assertEqual(mock_db_manager_instance.save_problems.call_count, len(expected_scrape_calls))
@@ -201,6 +225,3 @@ class TestMainMainFunction(unittest.TestCase):
         # 6. JSON saver's save was called for each page's data
         self.assertEqual(mock_json_saver_instance.save.call_count, len(expected_scrape_calls))
 
-
-if __name__ == '__main__':
-    unittest.main()

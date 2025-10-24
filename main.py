@@ -1,4 +1,3 @@
-# main.py
 """
 Main entry point for the FIPI Parser application.
 
@@ -23,6 +22,7 @@ from datetime import datetime
 import threading # NEW: Import threading for API server
 import time # NEW: Import time for waiting
 import uvicorn # NEW: Import uvicorn to run the API server
+import os # NEW: Import os for graceful shutdown
 
 def get_user_selection(subjects_dict):
     """
@@ -53,28 +53,6 @@ def get_user_selection(subjects_dict):
                 print(f"Please enter a number between 1 and {len(options)}.")
         except ValueError:
             print("Invalid input. Please enter a number.")
-
-# NEW: Function to run the API server in a separate thread
-def start_api_server(app, host="127.0.0.1", port=8000):
-    """
-    Starts the FastAPI server in a background thread.
-    """
-    logger = logging.getLogger(__name__)
-    logger.info(f"Starting API server on {host}:{port}...")
-    # NEW: Use uvicorn to run the app
-    # Note: Running uvicorn in a thread can be tricky. This is a basic approach.
-    # Consider using uvicorn programmatically with lifespan='off' if needed.
-    config_obj = uvicorn.Config(app, host=host, port=port, log_level="info")
-    server = uvicorn.Server(config_obj)
-    server.run_in_thread() # This might block, depending on uvicorn version
-    # A more robust way might involve asyncio and running the event loop in the thread.
-    # For now, let's assume it starts correctly for the purpose of this script.
-    # The main thread will continue, and the server will run in the background thread created by uvicorn.
-    # We might need to handle server shutdown gracefully later.
-    # For now, the server runs until the main script exits.
-    # Be careful about address already in use errors if running multiple times.
-    # You might need to kill the port manually or implement a check.
-    logger.info(f"API server started on {host}:{port}.") # NEW: Log server start
 
 def main():
     """
@@ -126,18 +104,41 @@ def main():
     logger.info("Initializing FIPIAnswerChecker") # NEW: Log initialization
     checker = FIPIAnswerChecker(base_url=config.FIPI_QUESTIONS_URL)
 
-    # NEW: Create and start API server in a background thread
+    # NEW: Create API application
     logger.info("Creating API application") # NEW: Log app creation
     app = create_app(db_manager, checker) # NEW: Pass db_manager and checker to API
-    api_thread = threading.Thread(target=start_api_server, args=(app, "127.0.0.1", 8000))
+
+    # NEW: Define a target function for the thread that handles server startup
+    def run_server(app, host, port):
+        try:
+            logger.info(f"Attempting to start API server on {host}:{port}...")
+            uvicorn.run(app, host=host, port=port, log_level="info")
+        except OSError as e:
+            if e.errno == 98: # Address already in use
+                logger.error(f"Failed to start API server on {host}:{port}: Address already in use ({e.errno}).")
+                print(f"ERROR: Cannot start API server on {host}:{port}. Address already in use. Please stop the other process using this port first.")
+                os._exit(1) # Exit the script if port is in use
+            else:
+                logger.error(f"Failed to start API server on {host}:{port}: {e}")
+                print(f"ERROR: Cannot start API server on {host}:{port}. Reason: {e}")
+                os._exit(1) # Exit the script for other OS errors too
+        except Exception as e:
+            logger.error(f"Unexpected error in API server thread: {e}", exc_info=True)
+            print(f"ERROR: Unexpected error in API server thread: {e}")
+            os._exit(1) # Exit the script for any other error
+
+    # NEW: Start API server in a background thread using the target function
+    logger.info("Starting API server in background thread...")
+    api_thread = threading.Thread(
+        target=run_server,
+        args=(app, "127.0.0.1", 8000)
+    )
     api_thread.daemon = True # NEW: Daemon thread so it closes with main script
     api_thread.start()
-
-    # NEW: Wait a bit for the server to potentially start
-    # A more robust check would involve trying to connect to the port.
-    logger.info("API server started in background. Waiting for server to be ready on 127.0.0.1:8000...")
-    time.sleep(3) # NEW: Wait 3 seconds. Adjust if needed.
-    logger.info("API server should be ready.")
+    # NEW: Brief wait to allow the thread to attempt startup and potentially log the error before proceeding
+    # This wait is minimal as the error (if any) happens almost immediately in the thread
+    time.sleep(1)
+    logger.info("API server startup process initiated in background thread.")
 
     # 4. Initialize processors
     # OLD: html_proc = html_renderer.HTMLRenderer(storage=storage) # NEW: Pass storage
