@@ -86,9 +86,13 @@ def main():
     print(f"Data will be saved to: {run_folder}")
 
     # --- NEW: Initialize API components ---
-    storage = LocalStorage(run_folder / "answers.json")
+    # storage = LocalStorage(run_folder / "answers.json") # OLD: Not used for API anymore
     checker = FIPIAnswerChecker(base_url=config.FIPI_QUESTIONS_URL)
-    app = create_app(storage, checker)
+    # NEW: Initialize DatabaseManager instead of ProblemStorage
+    db_manager = DatabaseManager(str(run_folder / "fipi_data.db")) # NEW: Initialize DatabaseManager
+    db_manager.initialize_db() # NEW: Initialize database tables
+    # NEW: Pass db_manager and checker to create_app
+    app = create_app(db_manager, checker)
 
     # --- NEW: Start API server in a separate thread ---
     api_host = "127.0.0.1"
@@ -100,11 +104,10 @@ def main():
     print("API server should be ready.")
 
     # 4. Initialize processors - передаем storage в html_proc
+    storage = LocalStorage(run_folder / "answers.json") # NEW: Still needed for HTML rendering initial state
     html_proc = html_renderer.HTMLRenderer(storage=storage) # NEW: Pass storage
     json_proc = json_saver.JSONSaver()
-    # NEW: Initialize DatabaseManager instead of ProblemStorage
-    db_manager = DatabaseManager(str(run_folder / "fipi_data.db")) # NEW: Initialize DatabaseManager
-    db_manager.initialize_db() # NEW: Initialize database tables
+    # db_manager is already initialized above
 
     # 5. Scrape and process pages - ВОССТАНОВЛЕНО: полный список страниц
     page_list = ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]
