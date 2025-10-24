@@ -6,8 +6,12 @@ This module provides classes and functions to generate common UI elements
 like math symbol buttons, answer forms, and task info components.
 """
 
+import logging
 from typing import Optional
 import html
+
+
+logger = logging.getLogger(__name__)
 
 
 class MathSymbolButtonsRenderer:
@@ -27,9 +31,10 @@ class MathSymbolButtonsRenderer:
         Returns:
             str: The HTML string for the math buttons div.
         """
+        logger.debug(f"Rendering MathSymbolButtons for block_index: {block_index}, active: {active}")
         active_class = " active" if active else ""
         # The onclick handlers call the global JS functions defined in HTMLRenderer
-        return f'''<div class="math-buttons{active_class}">
+        html_content = f'''<div class="math-buttons{active_class}">
     <!-- Основные символы -->
     <button type="button" onclick="insertSymbol({block_index}, '+')">+</button>
     <button type="button" onclick="insertSymbol({block_index}, '−')">−</button>
@@ -83,6 +88,8 @@ class MathSymbolButtonsRenderer:
     <button type="button" onclick="insertSymbol({block_index}, '\\\\Rightarrow')">⇒</button>
     <button type="button" onclick="insertSymbol({block_index}, '\\\\Leftrightarrow')">⇔</button>
   </div>'''
+        logger.debug(f"Generated HTML for MathSymbolButtons, length: {len(html_content)} characters")
+        return html_content
 
 class AnswerFormRenderer:
     """
@@ -94,6 +101,7 @@ class AnswerFormRenderer:
         Initializes the AnswerFormRenderer.
         """
         self.math_buttons_renderer = MathSymbolButtonsRenderer()
+        logger.debug("AnswerFormRenderer initialized with MathSymbolButtonsRenderer instance")
 
     def render(self, block_index: int) -> str:
         """
@@ -105,13 +113,16 @@ class AnswerFormRenderer:
         Returns:
             str: The HTML string for the form.
         """
+        logger.debug(f"Rendering AnswerForm for block_index: {block_index}")
         # Use the MathSymbolButtonsRenderer to get the button HTML
+        logger.debug(f"Generating MathSymbolButtons HTML for AnswerForm block_index: {block_index}")
         math_buttons_html = self.math_buttons_renderer.render(block_index, active=False)
+        logger.debug(f"Generated MathSymbolButtons HTML for AnswerForm block_index: {block_index}, length: {len(math_buttons_html)} characters")
 
         # Используем block_index как placeholder для task_id и form_id.
         # Эти значения будут заменены в html_renderer при генерации итогового HTML.
         # Также добавляем div для отображения статуса проверки.
-        return f'''<form class="answer-form" onsubmit="submitAnswerAndCheck(event, {block_index})">
+        html_content = f'''<form class="answer-form" onsubmit="submitAnswerAndCheck(event, {block_index})">
   <label for="answer_{block_index}">Ваш ответ:</label>
   <input type="text" id="answer_{block_index}" name="answer" maxlength="250" size="40" placeholder="Введите/соберите ответ">
   <button type="button" class="toggle-math-btn" onclick="toggleMathButtons(this)">Показать/скрыть математические символы</button>
@@ -119,6 +130,8 @@ class AnswerFormRenderer:
   <button type="submit">Отправить ответ</button>
 </form>
 <div class="task-status" id="task-status-{block_index}"></div>'''
+        logger.debug(f"Generated HTML for AnswerForm block_index: {block_index}, length: {len(html_content)} characters")
+        return html_content
 
 # Optional: Define common CSS here if not using an external file
 COMMON_CSS = """
@@ -161,8 +174,7 @@ img{max-width:100%;height:auto;}
 """
 
 # Optional: Define common JS functions here if not using an external file
-COMMON_JS_FUNCTIONS = """
-function insertSymbol(blockIndex, symbol) {
+COMMON_JS_FUNCTIONS = """function insertSymbol(blockIndex, symbol) {
   const input = document.querySelector(`#answer_` + blockIndex);
   const start = input.selectionStart;
   const end = input.selectionEnd;
@@ -304,3 +316,4 @@ function loadInitialStateFromObject(state) {
     });
 }
 """
+

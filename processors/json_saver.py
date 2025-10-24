@@ -9,8 +9,12 @@ proper UTF-8 encoding for international characters.
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Union
+
+
+logger = logging.getLogger(__name__)
 
 
 class JSONSaver:
@@ -43,9 +47,24 @@ class JSONSaver:
             OSError: If there is an issue writing to the specified file path
                      (e.g., permission denied, invalid path).
         """
+        logger.info(f"Saving data to JSON file: {path}")
+        
         path_obj = Path(path)
         # Ensure the parent directory exists
+        logger.debug(f"Ensuring parent directory exists for path: {path_obj}")
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(path_obj, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        logger.debug(f"Serializing data to JSON. Data type: {type(data)}.")
+        try:
+            with open(path_obj, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            logger.info(f"Successfully serialized and wrote JSON data to {path_obj}. File size: {path_obj.stat().st_size} bytes.")
+        except TypeError as e:
+            logger.error(f"TypeError while serializing data to JSON for {path_obj}: {e}. Data might contain non-serializable objects.", exc_info=True)
+            raise
+        except OSError as e:
+            logger.error(f"OSError while writing JSON to {path_obj}: {e}", exc_info=True)
+            raise
+        except Exception as e:
+            logger.critical(f"Unexpected error while saving JSON to {path_obj}: {e}", exc_info=True)
+            raise
