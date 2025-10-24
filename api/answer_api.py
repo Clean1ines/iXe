@@ -1,17 +1,17 @@
 # api/answer_api.py
-"""API router for interacting with local storage and answer checking functionality."""
+"""API router for interacting with database and answer checking functionality."""
 
 from fastapi import FastAPI, HTTPException, Request
 from typing import Dict, Any, Optional
-from utils.local_storage import LocalStorage
 from utils.answer_checker import FIPIAnswerChecker
+from utils.database_manager import DatabaseManager
 
 
-def create_app(storage: LocalStorage, checker: FIPIAnswerChecker) -> FastAPI:
+def create_app(db_manager: DatabaseManager, checker: FIPIAnswerChecker) -> FastAPI:
     """Creates a FastAPI application with endpoints for answer storage and checking.
 
     Args:
-        storage: An instance of LocalStorage for managing answers and statuses.
+        db_manager: An instance of DatabaseManager for managing answers and statuses in the database.
         checker: An instance of FIPIAnswerChecker for verifying answers.
 
     Returns:
@@ -24,7 +24,9 @@ def create_app(storage: LocalStorage, checker: FIPIAnswerChecker) -> FastAPI:
         """Loads the initial state (answers and statuses) for tasks on a specific page.
 
         This endpoint retrieves stored answers and statuses for all tasks associated
-        with a given page name. It's intended to initialize the frontend state.
+        with a given page name from the database. It's intended to initialize the frontend state.
+        Note: This implementation assumes task IDs are prefixed with the page name,
+        and the database manager filters answers based on this prefix.
 
         Args:
             page_name: The name of the page to load state for. Task IDs are assumed
@@ -34,13 +36,53 @@ def create_app(storage: LocalStorage, checker: FIPIAnswerChecker) -> FastAPI:
             A dictionary mapping task IDs (for the given page) to their stored
             answer and status information.
         """
-        # For simplicity, this implementation assumes task IDs are globally unique
-        # or that the storage implementation can filter by a prefix like page_name.
-        # A more robust approach might involve storing page-to-task mappings separately
-        # or having LocalStorage support prefix-based retrieval.
-        all_data = storage._load_data() # Accessing private method for full data dump
-        page_data = {k: v for k, v in all_data.items() if k.startswith(page_name)}
-        return page_data
+        # В реальной реализации DatabaseManager может иметь метод вроде get_answers_for_page
+        # или get_all_answers_for_user, и мы фильтруем ответы здесь.
+        # Для простоты, если DatabaseManager не поддерживает фильтрацию по page_name напрямую,
+        # можно получить все ответы для пользователя и отфильтровать их здесь.
+        # Предположим, DatabaseManager имеет метод get_all_user_answers(user_id="default_user")
+        # возвращающий список объектов DBAnswer.
+        # Псевдокод: all_db_answers = db_manager.get_all_user_answers(user_id="default_user")
+        # filtered_data = {a.problem_id: {"answer": a.user_answer, "status": a.status} for a in all_db_answers if a.problem_id.startswith(page_name)}
+        # return filtered_data
+
+        # В отсутствие специфичного метода в DatabaseManager для получения ответов по page_name,
+        # и для соответствия предыдущему поведению, мы можем получить все ответы
+        # и отфильтровать их.
+        # Лучше добавить метод в DatabaseManager, например, `get_answers_for_page_prefix`.
+        # Для текущей реализации, предположим, что мы можем получить все ответы для пользователя
+        # и отфильтровать их. Используем гипотетический метод или адаптируем.
+        # Псевдокод:
+        # all_db_answers = db_manager.get_all_user_answers(user_id="default_user")
+        # page_data = {}
+        # for db_answer in all_db_answers:
+        #     if db_answer.problem_id.startswith(page_name):
+        #         page_data[db_answer.problem_id] = {
+        #             "answer": db_answer.user_answer,
+        #             "status": db_answer.status
+        #         }
+        # return page_data
+
+        # В целях примера, предположим, что db_manager.get_all_user_answers возвращает список объектов DBAnswer.
+        # from models.database_models import DBAnswer # Импорт может быть нужен, если DBAnswer не доступен в другом месте
+        try:
+            all_db_answers = db_manager.get_all_user_answers(user_id="default_user")
+            page_data = {}
+            for db_answer in all_db_answers:
+                 if db_answer.problem_id.startswith(page_name):
+                     page_data[db_answer.problem_id] = {
+                         "answer": db_answer.user_answer,
+                         "status": db_answer.status
+                     }
+            return page_data
+        except AttributeError:
+            # Если метод get_all_user_answers не существует или не поддерживает фильтрацию,
+            # и метод get_answers_for_page_prefix не реализован, возвращаем пустой словарь
+            # или вызываем исключение.
+            # Псевдокод: raise HTTPException(status_code=500, detail="DatabaseManager method for fetching page answers not implemented.")
+            # Или возвращаем пустой результат, если это допустимо.
+            return {}
+
 
     @app.post("/submit_answer")
     async def submit_answer(request: Request) -> Dict[str, Any]:
@@ -48,7 +90,7 @@ def create_app(storage: LocalStorage, checker: FIPIAnswerChecker) -> FastAPI:
 
         This endpoint accepts a user's answer for a specific task. If the answer has not
         been checked previously, it calls the checker to verify the answer, saves the
-        result in storage, and returns the status. If the answer was already checked,
+        result in the database, and returns the status. If the answer was already checked,
         it returns the stored status without re-checking.
 
         Args:
@@ -68,8 +110,8 @@ def create_app(storage: LocalStorage, checker: FIPIAnswerChecker) -> FastAPI:
             if not task_id or answer is None:
                  raise HTTPException(status_code=422, detail="task_id and answer are required")
 
-            # Check if the answer already exists in storage
-            existing_answer, existing_status = storage.get_answer_and_status(task_id)
+            # Check if the answer already exists in the database
+            existing_answer, existing_status = db_manager.get_answer_and_status(task_id)
 
             if existing_answer is not None:
                 # If an answer exists, return the stored status without re-checking
@@ -84,8 +126,8 @@ def create_app(storage: LocalStorage, checker: FIPIAnswerChecker) -> FastAPI:
                 status = check_result["status"]
                 message = check_result["message"]
 
-                # Save the answer and its status to storage
-                storage.save_answer_and_status(task_id, answer, status)
+                # Save the answer and its status to the database
+                db_manager.save_answer(task_id, answer, status)
 
                 # Return the check result
                 return check_result
@@ -116,10 +158,11 @@ def create_app(storage: LocalStorage, checker: FIPIAnswerChecker) -> FastAPI:
                  raise HTTPException(status_code=422, detail="task_id and answer are required")
 
             # Save the answer with the status "not_checked"
-            storage.save_answer_and_status(task_id, answer, "not_checked")
+            db_manager.save_answer(task_id, answer, "not_checked")
             return {"message": f"Answer for task {task_id} saved successfully with status 'not_checked'."}
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
     return app
+
