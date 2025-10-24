@@ -6,8 +6,9 @@ FIPI website using Playwright to fetch subject listings and assignment pages.
 """
 
 import re
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 from utils.downloader import AssetDownloader
@@ -19,6 +20,7 @@ from processors.html_data_processors import (
     MathMLRemover,
     UnwantedElementRemover
 )
+from models.problem_schema import Problem
 
 
 class FIPIScraper:
@@ -95,7 +97,63 @@ class FIPIScraper:
         print(f"[Fetched subjects] Found {len(projects)} subjects.")
         return projects
 
-    def scrape_page(self, proj_id: str, page_num: str, run_folder: Path) -> Dict[str, Any]:
+    def _extract_task_id(self, header_container) -> str:
+        """
+        Извлекает task_id из контейнера заголовка.
+        """
+        task_id = ""
+        canselect_span = header_container.find('span', class_='canselect')
+        if canselect_span:
+            task_id = canselect_span.get_text(strip=True)
+        return task_id
+
+    def _extract_kes_codes(self, header_container) -> List[str]:
+        """
+        Извлекает коды КЭС из контейнера заголовка.
+        """
+        kes_codes = []
+        kes_text = header_container.get_text(separator=' ', strip=True)
+        # Пример: ищем последовательности вида "A1.2", "B3.4", "1.2.3"
+        kes_pattern = re.compile(r'\b[A-Z]?\d+(?:\.\d+)*\b')
+        kes_codes = kes_pattern.findall(kes_text)
+        return kes_codes
+
+    def _determine_task_type_and_difficulty(self, header_container) -> Tuple[str, str]:
+        """
+        Определяет тип и сложность задания на основе номера задания в заголовке.
+        """
+        type_str = "unknown"
+        difficulty_str = "unknown"
+        header_text = header_container.get_text(separator=' ', strip=True)
+        # Пример: ищем начало строки с номером, например "Задание 1", "1", "A1", "B2"
+        match = re.search(r'(?:Задание\s+)?([A-Z]?\d+)', header_text)
+        if match:
+            task_num = match.group(1)
+            # Простая логика, можно улучшить
+            if task_num.startswith('A'):
+                type_str = "multiple_choice"
+                difficulty_str = "easy"
+            elif task_num.startswith('B'):
+                type_str = "short_answer"
+                difficulty_str = "medium"
+            elif task_num.startswith('C'):
+                type_str = "extended_answer"
+                difficulty_str = "hard"
+            else:
+                # Только цифра
+                num = int(task_num) if task_num.isdigit() else 0
+                if 1 <= num <= 12:
+                    type_str = f"task_{num}"
+                    difficulty_str = "easy" if num <= 5 else "medium"
+                elif 13 <= num <= 20:
+                    type_str = f"task_{num}"
+                    difficulty_str = "hard"
+                else:
+                    type_str = f"task_{num}"
+                    difficulty_str = "medium"
+        return type_str, difficulty_str
+
+    def scrape_page(self, proj_id: str, page_num: str, run_folder: Path) -> Tuple[List[Problem], Dict[str, Any]]:
         """
         Scrapes a specific page of assignments for a given subject using a full set of HTML processors,
         including removal of unwanted UI elements.
@@ -114,20 +172,9 @@ class FIPIScraper:
             run_folder (Path): The base run folder where assets should be saved.
 
         Returns:
-            Dict[str, Any]: A dictionary containing the scraped and processed data.
-                            Example structure:
-                            {
-                                "page_name": page_num,
-                                "url": "full_url_of_the_page",
-                                "assignments": ["Text of assignment 1", ...],
-                                "blocks_html": ["<div>Combined HTML for block 1</div>", ...],
-                                "images": {"original_src": "local_path", ...},
-                                "files": {"original_href": "local_path", ...},
-                                "task_metadata": [
-                                    {"task_id": "40B442", "form_id": "checkform40B442", "block_index": 0},
-                                    ...
-                                ]
-                            }
+            Tuple[List[Problem], Dict[str, Any]]: A tuple containing:
+                - A list of Problem objects created from the scraped data.
+                - A dictionary with the old scraped data structure (page_name, blocks_html, etc.).
         """
         page_url = f"{self.base_url}?proj={proj_id}&page={page_num}"
         print(f"[Scraping page: {page_num}] Fetching {page_url} ...")
@@ -206,15 +253,12 @@ class FIPIScraper:
             page_assets_dir = run_folder / page_num / "assets"
             page_assets_dir.mkdir(parents=True, exist_ok=True)
 
+            problems: List[Problem] = []
+
             for idx, (header_container, qblock) in enumerate(paired_elements):
                 # Step 1: Extract task_id and form_id BEFORE any processing
-                task_id = None
+                task_id = self._extract_task_id(header_container)
                 form_id = None
-
-                # Extract task_id from <span class="canselect">
-                canselect_span = header_container.find('span', class_='canselect')
-                if canselect_span:
-                    task_id = canselect_span.get_text(strip=True)
 
                 # Extract form_id from <span class="answer-button">
                 answer_button = header_container.find('span', class_='answer-button')
@@ -285,9 +329,46 @@ class FIPIScraper:
                 processed_blocks_html.append(processed_html)
                 assignments_text.append(combined_soup.get_text(separator='\n', strip=True))
 
+                # --- Создание объекта Problem ---
+                # Извлекаем данные из обработанного combined_soup и header_container
+                extracted_task_id = task_id or f"unknown_{idx}"
+                problem_id = f"{page_num}_{extracted_task_id}"
+
+                # Определяем subject, type, difficulty
+                # subject: передаётся в scrape_page, но пока используем заглушку
+                subject = "unknown_subject" # TODO: передать subject сюда или получить из proj_id
+                type_str, difficulty_str = self._determine_task_type_and_difficulty(header_container)
+
+                # Извлекаем текст задачи из combined_soup
+                text = combined_soup.get_text(separator='\n', strip=True)
+
+                # Извлекаем темы (КЭС)
+                topics = self._extract_kes_codes(header_container)
+
+                # Создаём объект Problem
+                problem = Problem(
+                    problem_id=problem_id,
+                    subject=subject,
+                    type=type_str,
+                    text=text,
+                    options=None, # Пока не извлекаем
+                    answer="placeholder_answer", # Пока не извлекаем
+                    solutions=None,
+                    topics=topics,
+                    skills=None, # Пока не извлекаем
+                    difficulty=difficulty_str,
+                    source_url=page_url,
+                    raw_html_path=None, # Пока не сохраняем
+                    created_at=datetime.now(),
+                    updated_at=None,
+                    metadata={"original_block_index": idx, "proj_id": proj_id}
+                )
+                problems.append(problem)
+                # --- Конец создания Problem ---
+
             browser.close()
 
-            return {
+            scraped_data = {
                 "page_name": page_num,
                 "url": page_url,
                 "assignments": assignments_text,
@@ -296,3 +377,6 @@ class FIPIScraper:
                 "files": downloaded_files,
                 "task_metadata": task_metadata
             }
+
+            return problems, scraped_data
+
