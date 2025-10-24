@@ -1,7 +1,9 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from processors import html_renderer, ui_components
-from utils.local_storage import LocalStorage
+# REMOVED: from utils.local_storage import LocalStorage
+# ADDED: Import DatabaseManager
+from utils.database_manager import DatabaseManager
 from pathlib import Path
 
 
@@ -12,20 +14,25 @@ class TestHTMLRenderer(unittest.TestCase):
 
     def setUp(self):
         """Set up the HTMLRenderer instance for tests."""
-        # ИСПРАВЛЕНО: Создаем мок для LocalStorage, так как реальный экземпляр требует Path
-        mock_storage = MagicMock(spec=LocalStorage)
-        # Настраиваем мок _load_data, чтобы возвращал пустой словарь по умолчанию
-        mock_storage._load_data.return_value = {}
-        self.renderer = html_renderer.HTMLRenderer(storage=mock_storage)
+        # CHANGED: Create a mock for DatabaseManager instead of LocalStorage
+        mock_db_manager = MagicMock(spec=DatabaseManager)
+        
+        # CHANGED: Configure the mock's get_answer_and_status method to return a tuple
+        # This prevents the "not enough values to unpack" error.
+        # Using side_effect allows different returns for different calls if needed in the future.
+        mock_db_manager.get_answer_and_status.return_value = (None, "not_checked")
+
+        # CHANGED: Initialize HTMLRenderer with the DatabaseManager mock
+        self.renderer = html_renderer.HTMLRenderer(db_manager=mock_db_manager)
 
     def test_render_returns_string(self):
         """Test that the render method returns a string."""
         test_data = {
             "page_name": "test_page",
             "blocks_html": ["<p>Block 1 content</p>"],
-            "assignments": ["Assignment 1 text"]
+            "task_metadata": [{"task_id": "TASK001", "form_id": "FORM001"}] # ADDED: task_metadata
         }
-        # ИСПРАВЛЕНО: render теперь требует page_name
+        # CHANGED: render now requires page_name
         result = self.renderer.render(test_data, page_name="test_page")
         self.assertIsInstance(result, str)
 
@@ -34,9 +41,9 @@ class TestHTMLRenderer(unittest.TestCase):
         test_data = {
             "page_name": "init",
             "blocks_html": ["<p>Block 1 content</p>"],
-            "assignments": ["Assignment 1 text"]
+            "task_metadata": [{"task_id": "TASK002", "form_id": "FORM002"}] # ADDED: task_metadata
         }
-        # ИСПРАВЛЕНО: render теперь требует page_name
+        # CHANGED: render now requires page_name
         result = self.renderer.render(test_data, page_name="init")
         self.assertIn("<title>FIPI Page init</title>", result)
 
@@ -45,9 +52,9 @@ class TestHTMLRenderer(unittest.TestCase):
         test_data = {
             "page_name": "test_page",
             "blocks_html": ["<p>Block 1 content</p>"],
-            "assignments": ["Assignment 1 text"]
+            "task_metadata": [{"task_id": "TASK003", "form_id": "FORM003"}] # ADDED: task_metadata
         }
-        # ИСПРАВЛЕНО: render теперь требует page_name
+        # CHANGED: render now requires page_name
         result = self.renderer.render(test_data, page_name="test_page")
         self.assertIn("MathJax.js?config=TeX-MML-AM_CHTML", result)
 
@@ -57,9 +64,9 @@ class TestHTMLRenderer(unittest.TestCase):
         test_data = {
             "page_name": "test_page",
             "blocks_html": [test_block_content],
-            "assignments": ["Assignment 1 text"]
+            "task_metadata": [{"task_id": "TASK004", "form_id": "FORM004"}] # ADDED: task_metadata
         }
-        # ИСПРАВЛЕНО: render теперь требует page_name
+        # CHANGED: render now requires page_name
         result = self.renderer.render(test_data, page_name="test_page")
         self.assertIn(test_block_content, result)
 
@@ -68,13 +75,13 @@ class TestHTMLRenderer(unittest.TestCase):
         test_data = {
             "page_name": "test_page",
             "blocks_html": ["<p>Block 1 content</p>"],
-            "assignments": ["Assignment 1 text"]
+            "task_metadata": [{"task_id": "TASK005", "form_id": "FORM005"}] # ADDED: task_metadata
         }
-        # ИСПРАВЛЕНО: render теперь требует page_name
+        # CHANGED: render now requires page_name
         result = self.renderer.render(test_data, page_name="test_page")
         # Check for key elements of the form
         self.assertIn('<form class="answer-form"', result)
-        # ИСПРАВЛЕНО: Проверяем новое имя функции
+        # CHANGED: Check for the new submit function name
         self.assertIn('onsubmit="submitAnswerAndCheck(event,', result) # Should reference block index
         self.assertIn('<label for="answer_', result) # Should reference block index
         self.assertIn('<input type="text" id="answer_', result) # Should reference block index
@@ -93,12 +100,11 @@ class TestHTMLRenderer(unittest.TestCase):
         test_data = {
             "page_name": "test_page",
             "blocks_html": [test_block_content],
-            "assignments": ["Assignment 1 text"],
-            "task_metadata": [{"task_id": task_id, "form_id": form_id}] # Предполагаемая структура
+            "task_metadata": [{"task_id": task_id, "form_id": form_id}] # CONFIRMED: Structure used
         }
-        # ИСПРАВЛЕНО: render теперь требует page_name
+        # CHANGED: render now requires page_name
         result = self.renderer.render(test_data, page_name="test_page")
-        # Проверяем, что атрибуты встроены в первый (и единственный) блок (с одинарными кавычками)
+        # Check that attributes are embedded in the first (and only) block div (using single quotes as per HTMLRenderer)
         self.assertIn(f"data-task-id='{task_id}'", result)
         self.assertIn(f"data-form-id='{form_id}'", result)
 
@@ -106,7 +112,8 @@ class TestHTMLRenderer(unittest.TestCase):
         """Test that the render_block method returns a string."""
         block_html = "<p>Single block content</p>"
         block_index = 0
-        # ИСПРАВЛЕНО: render_block теперь может принимать page_name
+        # CHANGED: render_block might now take page_name, task_id, form_id
+        # Using default values for optional parameters
         result = self.renderer.render_block(block_html, block_index)
         self.assertIsInstance(result, str)
 
@@ -114,7 +121,7 @@ class TestHTMLRenderer(unittest.TestCase):
         """Test that the rendered block HTML includes the block index in the title."""
         block_html = "<p>Single block content</p>"
         block_index = 5
-        # ИСПРАВЛЕНО: render_block теперь может принимать page_name
+        # CHANGED: render_block might now take page_name, task_id, form_id
         result = self.renderer.render_block(block_html, block_index)
         self.assertIn(f"<title>FIPI Block {block_index}</title>", result)
 
@@ -122,7 +129,7 @@ class TestHTMLRenderer(unittest.TestCase):
         """Test that the rendered block HTML includes the MathJax script tag."""
         block_html = "<p>Single block content</p>"
         block_index = 0
-        # ИСПРАВЛЕНО: render_block теперь может принимать page_name
+        # CHANGED: render_block might now take page_name, task_id, form_id
         result = self.renderer.render_block(block_html, block_index)
         self.assertIn("MathJax.js?config=TeX-MML-AM_CHTML", result)
 
@@ -130,7 +137,7 @@ class TestHTMLRenderer(unittest.TestCase):
         """Test that the rendered block HTML includes the passed block_html."""
         test_block_content = "<div>Unique block content</div>"
         block_index = 0
-        # ИСПРАВЛЕНО: render_block теперь может принимать page_name
+        # CHANGED: render_block might now take page_name, task_id, form_id
         result = self.renderer.render_block(test_block_content, block_index)
         self.assertIn(test_block_content, result)
 
@@ -138,11 +145,11 @@ class TestHTMLRenderer(unittest.TestCase):
         """Test that the rendered block HTML includes the answer form for that block."""
         block_html = "<p>Single block content</p>"
         block_index = 2
-        # ИСПРАВЛЕНО: render_block теперь может принимать page_name
+        # CHANGED: render_block might now take page_name, task_id, form_id
         result = self.renderer.render_block(block_html, block_index)
         # Check for key elements of the form, referencing the correct index
         self.assertIn('<form class="answer-form"', result)
-        # ИСПРАВЛЕНО: Проверяем новое имя функции
+        # CHANGED: Check for the new submit function name
         self.assertIn(f'onsubmit="submitAnswerAndCheck(event, {block_index})"', result)
         self.assertIn(f'<label for="answer_{block_index}">', result)
         self.assertIn(f'<input type="text" id="answer_{block_index}"', result)
@@ -159,9 +166,9 @@ class TestHTMLRenderer(unittest.TestCase):
         block_index = 3
         task_id = "TASK123"
         form_id = "FORM456"
-        # ИСПРАВЛЕНО: render_block теперь может принимать page_name
+        # CHANGED: render_block now takes task_id and form_id as arguments
         result = self.renderer.render_block(block_html, block_index, task_id=task_id, form_id=form_id)
-        # Check for data attributes in the processed_qblock div (с одинарными кавычками)
+        # Check for data attributes in the processed_qblock div (using single quotes as per HTMLRenderer)
         self.assertIn(f"data-task-id='{task_id}'", result)
         self.assertIn(f"data-form-id='{form_id}'", result)
 
@@ -171,7 +178,7 @@ class TestHTMLRenderer(unittest.TestCase):
         block_html_with_img = '<p>Question</p><img src="assets/test_image.jpg" alt="Test Image"><p>Answer area</p>'
         block_index = 1
         asset_prefix = "../assets"
-        # ИСПРАВЛЕНО: render_block теперь может принимать page_name
+        # CHANGED: render_block might now take page_name, task_id, form_id
         result = self.renderer.render_block(block_html_with_img, block_index, asset_path_prefix=asset_prefix)
         
         # The image path should be adjusted
@@ -211,18 +218,18 @@ class TestHTMLRenderer(unittest.TestCase):
         """Test that the _clean_css method removes empty CSS rules."""
         # Access the private method for testing
         raw_css = ".class1 { color: red; } .class2 { } .class3 { font-size: 12px; }"
-        # ИСПРАВЛЕНО: Ожидаемый результат теперь соответствует реальному поведению регулярного выражения
-        # После удаления .class2 { } остаётся один пробел между .class1 и .class3
+        # CHANGED: Expected result now matches the actual regex behavior
+        # After removing .class2 { }, there is one space left between .class1 and .class3
         expected_cleaned = ".class1 { color: red; } .class3 { font-size: 12px; }"
         result = self.renderer._clean_css(raw_css)
         self.assertEqual(result, expected_cleaned)
 
-    # --- Удалены тесты для _get_answer_form_html и _get_js_functions ---
-    # Эти методы больше не существуют в HTMLRenderer.
-    # Их логика вынесена в ui_components.
-    # Соответствующие тесты должны быть в тестах для ui_components.
+    # --- REMOVED tests for _get_answer_form_html and _get_js_functions ---
+    # These methods no longer exist in HTMLRenderer.
+    # Their logic is now in ui_components.
+    # Corresponding tests should be in tests for ui_components if they don't exist yet.
 
-# --- Новый класс для тестирования ui_components ---
+# --- Existing TestUIComponents class remains unchanged ---
 class TestUIComponents(unittest.TestCase):
     """
     Tests for the UI components in processors/ui_components.py.
@@ -261,7 +268,7 @@ class TestUIComponents(unittest.TestCase):
         result = ui_components.AnswerFormRenderer().render(idx)
         self.assertIn(f'id="answer_{idx}"', result)
         self.assertIn(f'name="answer"', result) # Name should be generic
-        # ИСПРАВЛЕНО: Проверка на submitAnswerAndCheck
+        # CHANGED: Check for submitAnswerAndCheck
         self.assertIn(f'onsubmit="submitAnswerAndCheck(event, {idx})"', result)
         # Should also contain the math buttons HTML which includes the index
         self.assertIn(f'onclick="insertSymbol({idx},', result)

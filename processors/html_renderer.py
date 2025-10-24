@@ -1,4 +1,3 @@
-# processors/html_renderer.py
 """
 Module for rendering scraped data into HTML format.
 
@@ -7,10 +6,13 @@ from the scraper and generates a complete HTML document.
 It now delegates UI component rendering to `ui_components.py`.
 """
 
+import json
 import re
 from typing import Dict, Any, Optional
-from . import ui_components # Импортируем модуль с компонентами
-from utils.local_storage import LocalStorage
+
+# NEW: Import DatabaseManager
+from utils.database_manager import DatabaseManager
+from . import ui_components  # Импортируем модуль с компонентами
 
 
 class HTMLRenderer:
@@ -22,16 +24,21 @@ class HTMLRenderer:
     rendering formulas, and interactive answer forms.
     """
 
-    def __init__(self, storage: LocalStorage): # NEW: Принимаем storage
+    # CHANGED: Constructor now accepts a DatabaseManager instance
+    def __init__(self, db_manager: DatabaseManager):
         """
         Initializes the HTMLRenderer.
+
+        Args:
+            db_manager (DatabaseManager): Instance of the database manager
+                                          to fetch initial state.
         """
         # Pre-compile the CSS cleaning regex for efficiency if used multiple times
         self._css_clean_pattern = re.compile(r'[^\{\}]+\{\s*\}')
         self._answer_form_renderer = ui_components.AnswerFormRenderer()
-        self._storage = storage # NEW: Сохраняем storage
+        self._db_manager = db_manager  # NEW: Store the database manager instance
 
-    def render(self, data: Dict[str, Any], page_name: str) -> str: # NEW: Принимаем page_name
+    def render(self, data: Dict[str, Any], page_name: str) -> str:
         """
         Renders the provided data dictionary into an HTML string for the entire page.
 
@@ -43,21 +50,23 @@ class HTMLRenderer:
         Returns:
             str: The complete HTML string for the page.
         """
-        # NEW: Загружаем начальное состояние для этой страницы
-        initial_state = self._storage._load_data() # Получаем все данные
-        # Фильтруем по префиксу page_name (или используем всю информацию, если page_name не используется как префикс)
-        # Для простоты, передаем всё состояние, но JS будет использовать только нужные ему task_id
-        page_initial_state = {k: v for k, v in initial_state.items() if k.startswith(page_name)}
+        # CHANGED: Load initial state from DatabaseManager instead of LocalStorage
+        # NEW: Get task_ids from metadata to fetch specific answers
+        task_metadata = data.get("task_metadata", [])
+        task_ids = [metadata.get('task_id', '') for metadata in task_metadata if metadata.get('task_id')]
+        # NEW: Fetch answers and statuses for the specific task IDs on this page
+        # Assuming DatabaseManager has a method get_answers_for_task_ids
+        # If not, implement it or adapt the call to existing methods like get_answer_and_status for each ID
+        initial_state = self._get_filtered_initial_state_from_db(task_ids)
 
         blocks_html = data.get("blocks_html", [])
-        task_metadata = data.get("task_metadata", []) # Получаем метаданные
+        # task_metadata is already used above
 
         # Use the common CSS and JS from ui_components
         cleaned_css = self._clean_css(ui_components.COMMON_CSS)
 
-        # NEW: Генерируем JS для вставки глобальной переменной INITIAL_PAGE_STATE
-        import json
-        initial_state_json = json.dumps(page_initial_state, ensure_ascii=False, indent=2)
+        # Generate JS for inserting the global variable INITIAL_PAGE_STATE
+        initial_state_json = json.dumps(initial_state, ensure_ascii=False, indent=2)
         initial_state_js = f"<script>\nvar INITIAL_PAGE_STATE = {initial_state_json};\n</script>\n"
 
         # Start building the HTML string
@@ -66,22 +75,22 @@ class HTMLRenderer:
             f"<title>FIPI Page {page_name}</title>\n",
             f"<style>{cleaned_css}</style>\n",
             "<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
-            # NEW: Вставляем переменную INITIAL_PAGE_STATE перед COMMON_JS_FUNCTIONS
+            # Insert the INITIAL_PAGE_STATE variable before COMMON_JS_FUNCTIONS
             initial_state_js,
             "<script>\n",
-            ui_components.COMMON_JS_FUNCTIONS, # Use the common JS functions
+            ui_components.COMMON_JS_FUNCTIONS,  # Use the common JS functions
             "</script>\n",
             "</head>\n<body>\n"
         ]
 
         for idx, block_html in enumerate(blocks_html):
-            # Получаем метаданные для текущего блока
+            # Get metadata for the current block
             metadata = task_metadata[idx] if idx < len(task_metadata) else {}
             task_id = metadata.get('task_id', '')
             form_id = metadata.get('form_id', '')
 
-            # Встраиваем task_id и form_id как data-атрибуты в div.processed_qblock
-            # Также используем атрибут id для идентификации блока
+            # Embed task_id and form_id as data attributes in the div.processed_qblock
+            # Also use the id attribute to identify the block
             block_wrapper_start = f"<div class='processed_qblock' id='processed_qblock_{idx}' data-task-id='{task_id}' data-form-id='{form_id}'>\n"
 
             # Render the answer form for this block
@@ -95,7 +104,7 @@ class HTMLRenderer:
         html_parts.append("</body>\n</html>")
         return "".join(html_parts)
 
-    def render_block(self, block_html: str, block_index: int, asset_path_prefix: Optional[str] = None, task_id: Optional[str] = "", form_id: Optional[str] = "", page_name: Optional[str] = None) -> str: # NEW: Принимаем page_name
+    def render_block(self, block_html: str, block_index: int, asset_path_prefix: Optional[str] = None, task_id: Optional[str] = "", form_id: Optional[str] = "", page_name: Optional[str] = None) -> str:
         """
         Renders a single assignment block HTML string.
 
@@ -112,11 +121,17 @@ class HTMLRenderer:
         Returns:
             str: The complete HTML string for the single block, including MathJax and form.
         """
-        # NEW: Загружаем начальное состояние для этой страницы (если page_name предоставлена)
+        # CHANGED: Load initial state for a specific block from DatabaseManager
+        # NEW: Use the provided task_id for this specific block
         initial_state = {}
-        if page_name:
-            all_data = self._storage._load_data()
-            initial_state = {k: v for k, v in all_data.items() if k.startswith(page_name)}
+        if task_id:
+            # NEW: Fetch answer and status for the specific task_id
+            # Assuming DatabaseManager has a method get_answer_and_status
+            user_answer, status = self._db_manager.get_answer_and_status(task_id=task_id)
+            # NEW: Construct the initial state object for this single task
+            if user_answer is not None or status != "not_checked": # Only include if there's data
+                 initial_state = {task_id: {"answer": user_answer, "status": status}}
+
 
         # Use the common CSS and JS from ui_components
         cleaned_css = self._clean_css(ui_components.COMMON_CSS)
@@ -127,43 +142,42 @@ class HTMLRenderer:
             # Example regex for <img src="..."> and <a href="...">
             # This is a basic example, might need refinement for other tags/attributes
             import re
-            # ИСПРАВЛЕНО: Регулярное выражение теперь аккуратно захватывает только атрибут src или href
-            # Ищем src="assets/..." или href="assets/..." (или с одинарными кавычками)
-            # (\1) - захватывает src=" или href=" или src=' или href='
-            # assets/ - искомый префикс
-            # (\2) - захватывает оставшуюся часть пути
-            # (\3) - захватывает закрывающую кавычку
+            # FIXED: The regex now carefully captures only the src or href attribute
+            # It looks for src="assets/..." or href="assets/..." (or with single quotes)
+            # (\1) - captures src=" or href=" or src=' or href='
+            # assets/ - the prefix to find
+            # (\2) - captures the rest of the path
+            # (\3) - captures the closing quote
             pattern = r'((src|href)\s*=\s*["\'])assets/([^"\']*)(["\'])'
-            
+
             def replace_path(match):
                 prefix = asset_path_prefix
                 if not prefix.endswith('/'):
                     prefix += '/'
-                # match.group(1) = "src=" или "href=" (с кавычкой)
-                # match.group(3) = оставшаяся часть пути
-                # match.group(4) = закрывающая кавычка
+                # match.group(1) = "src=" or "href=" (with quote)
+                # match.group(3) = the rest of the path
+                # match.group(4) = closing quote
                 return f"{match.group(1)}{prefix}{match.group(3)}{match.group(4)}"
-            
+
             processed_block_html = re.sub(pattern, replace_path, block_html)
 
-        # NEW: Генерируем JS для вставки глобальной переменной INITIAL_PAGE_STATE
-        import json
+        # Generate JS for inserting the global variable INITIAL_PAGE_STATE
         initial_state_json = json.dumps(initial_state, ensure_ascii=False, indent=2)
         initial_state_js = f"<script>\nvar INITIAL_PAGE_STATE = {initial_state_json};\n</script>\n"
 
         html_parts = [
             "<!DOCTYPE html>\n<html lang='ru'>\n<head>\n<meta charset='utf-8'>\n",
-            f"<title>FIPI Block {block_index}</title>\n", # Different title
+            f"<title>FIPI Block {block_index}</title>\n",  # Different title
             f"<style>{cleaned_css}</style>\n",
-            "<script src='    https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
-            # NEW: Вставляем переменную INITIAL_PAGE_STATE перед COMMON_JS_FUNCTIONS
+            "<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
+            # Insert the INITIAL_PAGE_STATE variable before COMMON_JS_FUNCTIONS
             initial_state_js,
             "<script>\n",
             ui_components.COMMON_JS_FUNCTIONS,
             "</script>\n",
             "</head>\n<body>\n",
             # Wrap the single block (with potentially adjusted paths)
-            # Встраиваем task_id и form_id как data-атрибуты в div.processed_qblock
+            # Embed task_id and form_id as data attributes in the div.processed_qblock
             f"<div class='processed_qblock' id='processed_qblock_{block_index}' data-task-id='{task_id}' data-form-id='{form_id}'>\n{processed_block_html}\n",
             # Add the form for this specific block
             self._answer_form_renderer.render(block_index),
@@ -194,5 +208,25 @@ class HTMLRenderer:
             str: The cleaned CSS string with empty rules removed.
         """
         return self._css_clean_pattern.sub('', css_text)
+
+    # NEW: Helper method to fetch initial state for a list of task IDs
+    def _get_filtered_initial_state_from_db(self, task_ids: list[str]) -> dict:
+        """
+        Fetches answers and statuses for a list of task IDs from the DatabaseManager.
+
+        Args:
+            task_ids (list[str]): List of task IDs to fetch data for.
+
+        Returns:
+            dict: A dictionary mapping task_id to {"answer": ..., "status": ...}.
+        """
+        initial_state = {}
+        for task_id in task_ids:
+            if task_id: # Ensure task_id is not empty
+                user_answer, status = self._db_manager.get_answer_and_status(task_id=task_id)
+                # NEW: Only add to state if there's meaningful data
+                if user_answer is not None or status != "not_checked":
+                    initial_state[task_id] = {"answer": user_answer, "status": status}
+        return initial_state
 
     # _get_js_functions and _get_answer_form_html are removed as their logic is now in ui_components
