@@ -35,13 +35,14 @@ class HTMLRenderer:
 
         Args:
             data (Dict[str, Any]): The data dictionary from the scraper.
-                                   Expected keys: 'page_name', 'blocks_html'.
+                                   Expected keys: 'page_name', 'blocks_html', 'task_metadata'.
 
         Returns:
             str: The complete HTML string for the page.
         """
         page_name = data.get("page_name", "unknown")
         blocks_html = data.get("blocks_html", [])
+        task_metadata = data.get("task_metadata", []) # Получаем метаданные
 
         # Use the common CSS and JS from ui_components
         cleaned_css = self._clean_css(ui_components.COMMON_CSS)
@@ -59,18 +60,27 @@ class HTMLRenderer:
         ]
 
         for idx, block_html in enumerate(blocks_html):
+            # Получаем метаданные для текущего блока
+            metadata = task_metadata[idx] if idx < len(task_metadata) else {}
+            task_id = metadata.get('task_id', '')
+            form_id = metadata.get('form_id', '')
+
+            # Встраиваем task_id и form_id как data-атрибуты в div.processed_qblock
+            # Также используем атрибут id для идентификации блока
+            block_wrapper_start = f"<div class='processed_qblock' id='processed_qblock_{idx}' data-task-id='{task_id}' data-form-id='{form_id}'>\n"
+
             # Render the answer form for this block
             form_html = self._answer_form_renderer.render(idx)
             # Wrap each block in a div and add the interactive form
             # The scraper should have already included the info content and button in block_html
             # We just add the form after the block content
-            full_block_html = f"<div class='processed_qblock' id='processed_qblock_{idx}'>\n{block_html}\n{form_html}\n</div>\n<hr>\n"
+            full_block_html = f"{block_wrapper_start}{block_html}\n{form_html}\n</div>\n<hr>\n"
             html_parts.append(full_block_html)
 
         html_parts.append("</body>\n</html>")
         return "".join(html_parts)
 
-    def render_block(self, block_html: str, block_index: int, asset_path_prefix: Optional[str] = None) -> str:
+    def render_block(self, block_html: str, block_index: int, asset_path_prefix: Optional[str] = None, task_id: Optional[str] = "", form_id: Optional[str] = "") -> str:
         """
         Renders a single assignment block HTML string.
 
@@ -80,6 +90,8 @@ class HTMLRenderer:
             asset_path_prefix (Optional[str]): A prefix to adjust relative paths for assets like images.
                                                If provided (e.g., "../assets"), paths in block_html like
                                                "assets/image.jpg" will be changed to "{prefix}/image.jpg".
+            task_id (Optional[str]): The task ID to embed in the block.
+            form_id (Optional[str]): The form ID to embed in the block.
 
         Returns:
             str: The complete HTML string for the single block, including MathJax and form.
@@ -116,13 +128,14 @@ class HTMLRenderer:
             "<!DOCTYPE html>\n<html lang='ru'>\n<head>\n<meta charset='utf-8'>\n",
             f"<title>FIPI Block {block_index}</title>\n", # Different title
             f"<style>{cleaned_css}</style>\n",
-            "<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
+            "<script src='  https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
             "<script>\n",
             ui_components.COMMON_JS_FUNCTIONS,
             "</script>\n",
             "</head>\n<body>\n",
             # Wrap the single block (with potentially adjusted paths)
-            f"<div class='processed_qblock' id='processed_qblock_{block_index}'>\n{processed_block_html}\n",
+            # Встраиваем task_id и form_id как data-атрибуты в div.processed_qblock
+            f"<div class='processed_qblock' id='processed_qblock_{block_index}' data-task-id='{task_id}' data-form-id='{form_id}'>\n{processed_block_html}\n",
             # Add the form for this specific block
             self._answer_form_renderer.render(block_index),
             "\n</div>\n</body>\n</html>"

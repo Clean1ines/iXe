@@ -1,5 +1,3 @@
-# File: processors/html_data_processors.py
-
 """
 Module for processing HTML data and extracting content.
 
@@ -266,5 +264,8 @@ class UnwantedElementRemover:
         tr_with_bgcolor = soup.find('tr', attrs={'bgcolor': '#FFFFFF'})
         if tr_with_bgcolor:
             tr_with_bgcolor.decompose()
+
+        # DO NOT remove <span class="canselect"> — needed for task ID extraction
+        # DO NOT remove <span class="answer-button"> — needed for form ID extraction
 
         return soup

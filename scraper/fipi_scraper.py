@@ -1,4 +1,3 @@
-# scraper/fipi_scraper.py
 """
 Module for scraping data from the FIPI website.
 
@@ -8,7 +7,7 @@ FIPI website using Playwright to fetch subject listings and assignment pages.
 
 import re
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 from utils.downloader import AssetDownloader
@@ -18,7 +17,7 @@ from processors.html_data_processors import (
     TaskInfoProcessor,
     InputFieldRemover,
     MathMLRemover,
-    UnwantedElementRemover  # <-- Убедились, что импорт присутствует
+    UnwantedElementRemover
 )
 
 
@@ -123,7 +122,11 @@ class FIPIScraper:
                                 "assignments": ["Text of assignment 1", ...],
                                 "blocks_html": ["<div>Combined HTML for block 1</div>", ...],
                                 "images": {"original_src": "local_path", ...},
-                                "files": {"original_href": "local_path", ...}
+                                "files": {"original_href": "local_path", ...},
+                                "task_metadata": [
+                                    {"task_id": "40B442", "form_id": "checkform40B442", "block_index": 0},
+                                    ...
+                                ]
                             }
         """
         page_url = f"{self.base_url}?proj={proj_id}&page={page_num}"
@@ -198,11 +201,35 @@ class FIPIScraper:
             assignments_text = []
             downloaded_images = {}
             downloaded_files = {}
+            task_metadata: List[Dict[str, str]] = []
 
             page_assets_dir = run_folder / page_num / "assets"
             page_assets_dir.mkdir(parents=True, exist_ok=True)
 
             for idx, (header_container, qblock) in enumerate(paired_elements):
+                # Step 1: Extract task_id and form_id BEFORE any processing
+                task_id = None
+                form_id = None
+
+                # Extract task_id from <span class="canselect">
+                canselect_span = header_container.find('span', class_='canselect')
+                if canselect_span:
+                    task_id = canselect_span.get_text(strip=True)
+
+                # Extract form_id from <span class="answer-button">
+                answer_button = header_container.find('span', class_='answer-button')
+                if answer_button and answer_button.get('onclick'):
+                    onclick = answer_button['onclick']
+                    form_match = re.search(r"checkButtonClick\(\s*['\"]([^'\"]+)['\"]", onclick)
+                    if form_match:
+                        form_id = form_match.group(1)
+
+                task_metadata.append({
+                    "task_id": task_id or "",
+                    "form_id": form_id or "",
+                    "block_index": idx
+                })
+
                 combined_soup = BeautifulSoup('', 'html.parser')
                 combined_soup.append(qblock.extract())
 
@@ -247,7 +274,7 @@ class FIPIScraper:
                 else:
                     print(f"Warning: No task-header-panel found in header container for assignment pair {idx}")
 
-                # 🔥 Ключевое изменение: применяем UnwantedElementRemover
+                # Apply UnwantedElementRemover AFTER extracting task_id/form_id
                 combined_soup = unwanted_remover.process(combined_soup)
 
                 # Remove all remaining scripts
@@ -266,5 +293,6 @@ class FIPIScraper:
                 "assignments": assignments_text,
                 "blocks_html": processed_blocks_html,
                 "images": downloaded_images,
-                "files": downloaded_files
+                "files": downloaded_files,
+                "task_metadata": task_metadata
             }

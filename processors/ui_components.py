@@ -108,13 +108,17 @@ class AnswerFormRenderer:
         # Use the MathSymbolButtonsRenderer to get the button HTML
         math_buttons_html = self.math_buttons_renderer.render(block_index, active=False)
 
-        return f'''<form class="answer-form" onsubmit="submitAnswer(event, {block_index})">
+        # Используем block_index как placeholder для task_id и form_id.
+        # Эти значения будут заменены в html_renderer при генерации итогового HTML.
+        # Также добавляем div для отображения статуса проверки.
+        return f'''<form class="answer-form" onsubmit="submitAndCheckAnswer(event, {block_index})">
   <label for="answer_{block_index}">Ваш ответ:</label>
   <input type="text" id="answer_{block_index}" name="answer" maxlength="250" size="40" placeholder="Введите/соберите ответ">
   <button type="button" class="toggle-math-btn" onclick="toggleMathButtons(this)">Показать/скрыть математические символы</button>
   {math_buttons_html}
   <button type="submit">Отправить ответ</button>
-</form>'''
+</form>
+<div class="task-status" id="task-status-{block_index}"></div>'''
 
 # Optional: Define common CSS here if not using an external file
 COMMON_CSS = """
@@ -133,6 +137,22 @@ img{max-width:100%;height:auto;}
 .task-info-content td { border: 1px solid #ccc; padding: 5px; vertical-align: top; }
 .task-info-content .param-name { font-weight: bold; width: 150px; background-color: #eee; }
 .toggle-math-btn { margin-bottom: 5px; }
+/* Стили для статуса задания */
+.task-status {
+    margin-top: 5px;
+    padding: 5px;
+    font-weight: bold;
+}
+.task-status-2 { /* Incorrect */
+    background-color: #ffe6e6;
+    color: #d00;
+    border: 1px solid #ffcccc;
+}
+.task-status-3 { /* Correct */
+    background-color: #e6ffe6;
+    color: #080;
+    border: 1px solid #ccffcc;
+}
 """
 
 # Optional: Define common JS functions here if not using an external file
@@ -147,12 +167,70 @@ function insertSymbol(blockIndex, symbol) {
   input.focus();
 }
 
-function submitAnswer(event, blockIndex) {
-  event.preventDefault();
+// ИСПРАВЛЕНО: Новая асинхронная функция для отправки и проверки ответа через backend
+async function submitAndCheckAnswer(event, blockIndex) {
+  event.preventDefault(); // Предотвращаем стандартную отправку формы
+
+  // Находим элемент блока и извлекаем data-атрибуты
+  const blockElement = document.querySelector(`#processed_qblock_` + blockIndex);
+  const taskId = blockElement.getAttribute('data-task-id');
+  const formId = blockElement.getAttribute('data-form-id');
   const input = document.querySelector(`#answer_` + blockIndex);
-  const answer = input.value;
-  alert("Ответ для задания " + blockIndex + " сохранен локально: " + answer);
-  // Here you could add logic to save the answer to JSON or another storage
+  const userAnswer = input.value.trim();
+
+  if (!userAnswer) {
+    alert("Пожалуйста, введите ответ.");
+    return;
+  }
+
+  if (!taskId || !formId) {
+    alert("Ошибка: Не найдены идентификаторы задания или формы.");
+    console.error("Missing taskId or formId for block index:", blockIndex);
+    return;
+  }
+
+  // Показываем статус "проверка"
+  const statusDiv = document.querySelector(`#task-status-` + blockIndex);
+  statusDiv.textContent = "Проверка...";
+  statusDiv.className = "task-status"; // Сбрасываем классы статуса
+
+  try {
+    // Отправляем запрос на ваш backend endpoint
+    // ЗАМЕНИТЕ '/api/check-answer/' на реальный URL вашего endpoint
+    const response = await fetch('/api/check-answer/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        task_id: taskId,
+        form_id: formId,
+        user_answer: userAnswer,
+      }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Обновляем статус в зависимости от ответа от backend
+    if (data.status === 'correct') {
+      statusDiv.textContent = data.message || "ВЕРНО";
+      statusDiv.classList.add('task-status-3'); // Класс для "correct"
+    } else if (data.status === 'incorrect') {
+      statusDiv.textContent = data.message || "НЕВЕРНО";
+      statusDiv.classList.add('task-status-2'); // Класс для "incorrect"
+    } else {
+      statusDiv.textContent = "Неизвестный статус от сервера.";
+      statusDiv.classList.add('task-status-error'); // Можно добавить стиль для ошибки
+    }
+  } catch (error) {
+    console.error("Ошибка при проверке ответа:", error);
+    statusDiv.textContent = "Ошибка сети или сервера при проверке.";
+    statusDiv.classList.add('task-status-error');
+  }
 }
 
 // ИСПРАВЛЕНО: Добавлена функция toggleMathButtons
