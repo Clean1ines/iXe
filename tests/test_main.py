@@ -62,13 +62,13 @@ class TestMainMainFunction(unittest.TestCase):
     @patch('main.html_renderer.HTMLRenderer')
     @patch('main.json_saver.JSONSaver')
     # NEW: Mock API-related components to prevent real server startup
-    @patch('main.LocalStorage')
+    # REMOVED: @patch('main.LocalStorage') # OLD: No longer used
     @patch('main.FIPIAnswerChecker')
     @patch('main.create_app')
     @patch('main.start_api_server')
     @patch('threading.Thread')
     @patch('main.DatabaseManager') # NEW: Mock DatabaseManager
-    def test_main_flow(self, mock_db_manager_cls, mock_thread, mock_start_api_server, mock_create_app, mock_checker_cls, mock_storage_cls, mock_json_saver_cls, mock_html_renderer_cls, mock_scraper_cls, mock_print, mock_input):
+    def test_main_flow(self, mock_db_manager_cls, mock_thread, mock_start_api_server, mock_create_app, mock_checker_cls, mock_json_saver_cls, mock_html_renderer_cls, mock_scraper_cls, mock_print, mock_input):
         """
         Test the main flow: get projects -> user selects -> scrape -> process -> save.
         API components are mocked to prevent actual server startup.
@@ -79,7 +79,7 @@ class TestMainMainFunction(unittest.TestCase):
         mock_html_renderer_instance = mock_html_renderer_cls.return_value
         mock_json_saver_instance = mock_json_saver_cls.return_value
         # NEW: Mock API components
-        mock_storage_instance = mock_storage_cls.return_value
+        # OLD: mock_storage_instance = mock_storage_cls.return_value # No longer used
         mock_checker_instance = mock_checker_cls.return_value
         mock_app_instance = mock_create_app.return_value
         # NEW: Mock DatabaseManager
@@ -108,7 +108,7 @@ class TestMainMainFunction(unittest.TestCase):
         mock_html_renderer_instance.render_block.return_value = '<html>Block HTML</html>'
 
         # NEW: Configure mocked API components to return sensible mocks
-        mock_storage_cls.return_value = mock_storage_instance
+        # OLD: mock_storage_cls.return_value = mock_storage_instance # No longer used
         mock_checker_cls.return_value = mock_checker_instance
         mock_create_app.return_value = mock_app_instance
         # NEW: Configure mocked DatabaseManager
@@ -128,7 +128,7 @@ class TestMainMainFunction(unittest.TestCase):
         mock_scraper_instance.scrape_page.assert_has_calls(expected_scrape_calls, any_order=False) # Order matters
 
         # 3. NEW: Verify API components were initialized and server started in thread
-        mock_storage_cls.assert_called_once()
+        # OLD: mock_storage_cls.assert_called_once() # No longer used
         mock_checker_cls.assert_called_once()
         mock_create_app.assert_called_once()
         mock_thread.assert_called_once()
@@ -149,14 +149,16 @@ class TestMainMainFunction(unittest.TestCase):
         self.assertEqual(mock_html_renderer_instance.render.call_count, expected_render_call_count)
         # Check render was called with correct arguments (scraped_data, page_name=page_name)
         # We check the page_name argument specifically
+        # ИСПРАВЛЕНО: Проверяем позиционный аргумент args[1] вместо именованного kwargs['page_name']
         actual_render_calls = mock_html_renderer_instance.render.call_args_list
         page_names_for_scraped_pages = ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]
         for i, call in enumerate(actual_render_calls):
             args, kwargs = call
-            # args[0] is scraped_data (we don't check its content precisely here, just that it was called)
-            # kwargs['page_name'] should match the expected page name
+            # args[0] is scraped_data
+            # args[1] is page_name
+            # kwargs should be empty for this call in main.py
             expected_page_name = page_names_for_scraped_pages[i]
-            self.assertEqual(kwargs.get('page_name'), expected_page_name)
+            self.assertEqual(args[1], expected_page_name) # Check the second positional argument
 
 
         # Check render_block was called for each block in each page's data

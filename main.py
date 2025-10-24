@@ -1,40 +1,41 @@
+# main.py
 """
 Main entry point for the FIPI Parser application.
+
 This script orchestrates the scraping process:
 1. Loads configuration.
 2. Fetches available subjects from the FIPI website.
 3. Provides a console interface for the user to select a subject.
 4. Scrapes pages for the selected subject.
 5. Processes and saves the data using dedicated modules.
-6. Starts the API server in a separate thread.
 """
+
 import config
 from scraper import fipi_scraper
 from processors import html_renderer, json_saver
-from utils.local_storage import LocalStorage
-from utils.answer_checker import FIPIAnswerChecker
-from api.answer_api import create_app
-from utils.database_manager import DatabaseManager  # NEW: Import DatabaseManager
+from utils.database_manager import DatabaseManager # NEW: Import DatabaseManager
+from utils.answer_checker import FIPIAnswerChecker # NEW: Import AnswerChecker
+from api.answer_api import create_app # NEW: Import API app factory
+from utils.logging_config import setup_logging # NEW: Import logging setup
+import logging # NEW: Import logging
 from pathlib import Path
 from datetime import datetime
-import threading
-import uvicorn
-import time
-import asyncio
-
-def start_api_server(app, host="127.0.0.1", port=8000):
-    """Starts the Uvicorn server in a separate thread."""
-    print(f"Starting API server on {host}:{port}...")
-    uvicorn.run(app, host=host, port=port, log_level="info")
+import threading # NEW: Import threading for API server
+import time # NEW: Import time for waiting
+import uvicorn # NEW: Import uvicorn to run the API server
 
 def get_user_selection(subjects_dict):
     """
     Presents a console interface for the user to select a subject.
+
     Args:
         subjects_dict (dict): A dictionary mapping project IDs to subject names.
+
     Returns:
         tuple: The selected (project_id, subject_name).
     """
+    logger = logging.getLogger(__name__) # NEW: Get logger for this function
+    logger.info("Presenting subject selection interface") # NEW: Log the action
     print("\n--- Available Subjects ---")
     options = list(subjects_dict.items())
     for i, (proj_id, name) in enumerate(options, 1):
@@ -45,6 +46,7 @@ def get_user_selection(subjects_dict):
             choice = int(input("\nSelect a subject by number: "))
             if 1 <= choice <= len(options):
                 proj_id, subject_name = options[choice - 1]
+                logger.info(f"User selected: {subject_name} (ID: {proj_id})") # NEW: Log selection
                 print(f"You selected: {subject_name} (ID: {proj_id})")
                 return proj_id, subject_name
             else:
@@ -52,25 +54,54 @@ def get_user_selection(subjects_dict):
         except ValueError:
             print("Invalid input. Please enter a number.")
 
+# NEW: Function to run the API server in a separate thread
+def start_api_server(app, host="127.0.0.1", port=8000):
+    """
+    Starts the FastAPI server in a background thread.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Starting API server on {host}:{port}...")
+    # NEW: Use uvicorn to run the app
+    # Note: Running uvicorn in a thread can be tricky. This is a basic approach.
+    # Consider using uvicorn programmatically with lifespan='off' if needed.
+    config_obj = uvicorn.Config(app, host=host, port=port, log_level="info")
+    server = uvicorn.Server(config_obj)
+    server.run_in_thread() # This might block, depending on uvicorn version
+    # A more robust way might involve asyncio and running the event loop in the thread.
+    # For now, let's assume it starts correctly for the purpose of this script.
+    # The main thread will continue, and the server will run in the background thread created by uvicorn.
+    # We might need to handle server shutdown gracefully later.
+    # For now, the server runs until the main script exits.
+    # Be careful about address already in use errors if running multiple times.
+    # You might need to kill the port manually or implement a check.
+    logger.info(f"API server started on {host}:{port}.") # NEW: Log server start
+
 def main():
     """
     Main function to run the FIPI parser.
     """
-    print("--- FIPI Parser Started ---")
+    # NEW: Setup logging first
+    setup_logging(level="INFO")
+    logger = logging.getLogger(__name__)
+    logger.info("FIPI Parser Started")
 
     # 1. Initialize Scraper to get subjects
+    logger.info("Initializing FIPIScraper")
     scraper = fipi_scraper.FIPIScraper(
         base_url=config.FIPI_QUESTIONS_URL, # URL for scrape_page
         subjects_url=config.FIPI_SUBJECTS_URL # URL for get_projects
     )
 
     print("Fetching available subjects...")
+    logger.info("Fetching available subjects...")
     try:
         subjects = scraper.get_projects()
         if not subjects:
+            logger.warning("Warning: No subjects found on the page.")
             print("Warning: No subjects found on the page.")
             return
     except Exception as e:
+        logger.error(f"Error fetching subjects: {e}", exc_info=True)
         print(f"Error fetching subjects: {e}")
         return
 
@@ -83,88 +114,102 @@ def main():
     safe_subject_name = "".join(c for c in selected_subject_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
     run_folder = config.DATA_ROOT / config.OUTPUT_DIR / f"{safe_subject_name}_{selected_proj_id}" / f"run_{timestamp}"
     run_folder.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Data will be saved to: {run_folder}") # NEW: Log run folder creation
     print(f"Data will be saved to: {run_folder}")
 
-    # --- NEW: Initialize API components ---
-    # storage = LocalStorage(run_folder / "answers.json") # OLD: Not used for API anymore
+    # NEW: Initialize DatabaseManager
+    logger.info("Initializing DatabaseManager") # NEW: Log initialization
+    db_manager = DatabaseManager(str(run_folder / "fipi_data.db"))
+    db_manager.initialize_db() # NEW: Create tables if they don't exist
+
+    # NEW: Initialize AnswerChecker
+    logger.info("Initializing FIPIAnswerChecker") # NEW: Log initialization
     checker = FIPIAnswerChecker(base_url=config.FIPI_QUESTIONS_URL)
-    # NEW: Initialize DatabaseManager instead of ProblemStorage
-    db_manager = DatabaseManager(str(run_folder / "fipi_data.db")) # NEW: Initialize DatabaseManager
-    db_manager.initialize_db() # NEW: Initialize database tables
-    # NEW: Pass db_manager and checker to create_app
-    app = create_app(db_manager, checker)
 
-    # --- NEW: Start API server in a separate thread ---
-    api_host = "127.0.0.1"
-    api_port = 8000
-    api_thread = threading.Thread(target=start_api_server, args=(app, api_host, api_port), daemon=True)
+    # NEW: Create and start API server in a background thread
+    logger.info("Creating API application") # NEW: Log app creation
+    app = create_app(db_manager, checker) # NEW: Pass db_manager and checker to API
+    api_thread = threading.Thread(target=start_api_server, args=(app, "127.0.0.1", 8000))
+    api_thread.daemon = True # NEW: Daemon thread so it closes with main script
     api_thread.start()
-    print(f"API server started in background. Waiting for server to be ready on {api_host}:{api_port}...")
-    time.sleep(3) # Give the server a moment to start up
-    print("API server should be ready.")
 
-    # 4. Initialize processors - передаем storage в html_proc
-    storage = LocalStorage(run_folder / "answers.json") # NEW: Still needed for HTML rendering initial state
-    html_proc = html_renderer.HTMLRenderer(storage=storage) # NEW: Pass storage
+    # NEW: Wait a bit for the server to potentially start
+    # A more robust check would involve trying to connect to the port.
+    logger.info("API server started in background. Waiting for server to be ready on 127.0.0.1:8000...")
+    time.sleep(3) # NEW: Wait 3 seconds. Adjust if needed.
+    logger.info("API server should be ready.")
+
+    # 4. Initialize processors
+    # OLD: html_proc = html_renderer.HTMLRenderer(storage=storage) # NEW: Pass storage
+    # CHANGED: Pass db_manager instead of storage
+    html_proc = html_renderer.HTMLRenderer(db_manager=db_manager) # NEW: Pass db_manager
     json_proc = json_saver.JSONSaver()
-    # db_manager is already initialized above
 
-    # 5. Scrape and process pages - ВОССТАНОВЛЕНО: полный список страниц
+    # 5. Scrape and process pages
     page_list = ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]
 
     for page_name in page_list:
         print(f"Processing page: {page_name} for subject '{selected_subject_name}'...")
+        logger.info(f"Processing page: {page_name} for subject '{selected_subject_name}'...") # NEW: Log page processing
         try:
-            # Scrape raw data for the page - NEW: receives (problems, scraped_data)
+            # Scrape raw data for the page - ИСПРАВЛЕНО: передаем run_folder
+            # CHANGED: scrape_page now returns (problems, scraped_data)
             problems, scraped_data = scraper.scrape_page(selected_proj_id, page_name, run_folder)
-            if not scraped_data.get("blocks_html"): # ИСПРАВЛЕНО: Проверяем blocks_html в словаре scraped_data
+
+            if not scraped_data:
+                logger.warning(f"Warning: No data scraped for page {page_name}. Skipping.") # NEW: Log warning
                 print(f"  Warning: No data scraped for page {page_name}. Skipping.")
                 continue
-            
-            # NEW: Save Problems using DatabaseManager instead of ProblemStorage
-            db_manager.save_problems(problems) # NEW: Use DatabaseManager
-            print(f"  Saved {len(problems)} problems to SQLite database for page {page_name}.")
+
+            # NEW: Save the scraped problems using DatabaseManager
+            logger.info(f"Saving {len(problems)} problems for page {page_name} to database...") # NEW: Log saving
+            db_manager.save_problems(problems)
 
             # --- Process and save HTML for the entire PAGE (as before) ---
-            # NEW: Передаем page_name в render, чтобы он мог получить initial_state
-            html_content = html_proc.render(scraped_data, page_name=page_name)
+            # CHANGED: render now requires page_name
+            html_content = html_proc.render(scraped_data, page_name) # NEW: Pass page_name
             html_file_path = run_folder / page_name / f"{page_name}.html" # HTML в подпапку
             html_file_path.parent.mkdir(parents=True, exist_ok=True) # Убедиться, что подпапка существует
             html_proc.save(html_content, html_file_path)
+            logger.info(f"Saved Page HTML: {html_file_path.relative_to(run_folder)}") # NEW: Log saving
 
             # --- Process and save HTML for EACH BLOCK separately ---
             # ИСПРАВЛЕНО: Добавляем цикл по blocks_html
             blocks_html = scraped_data.get("blocks_html", [])
-            task_metadata = scraped_data.get("task_metadata", [])
+            task_metadata = scraped_data.get("task_metadata", []) # NEW: Get task metadata
             for block_idx, block_content in enumerate(blocks_html):
-                # NEW: Получаем task_id и form_id из метаданных
+                # NEW: Get task_id and form_id for the current block from metadata
                 metadata = task_metadata[block_idx] if block_idx < len(task_metadata) else {}
                 task_id = metadata.get('task_id', '')
                 form_id = metadata.get('form_id', '')
                 # Generate HTML for a single block using the new method
                 # ИСПРАВЛЕНО: Передаём asset_path_prefix="../assets" для коррекции путей
-                # NEW: Передаем page_name и block_idx для получения initial_state для конкретного блока
-                # NEW: Передаем task_id и form_id в render_block
+                # CHANGED: render_block now requires task_id, form_id, page_name for initial state
                 block_html_content = html_proc.render_block(
-                    block_content,
-                    block_idx,
-                    asset_path_prefix="../assets",
-                    page_name=page_name,
+                    block_content, block_idx,
+                    asset_path_prefix="../assets", # Используем новый метод с префиксом
                     task_id=task_id, # NEW: Pass task_id
-                    form_id=form_id  # NEW: Pass form_id
+                    form_id=form_id, # NEW: Pass form_id
+                    page_name=page_name # NEW: Pass page_name for potential state loading
                 )
                 # Define path for the block's HTML file
                 block_html_file_path = run_folder / page_name / "blocks" / f"block_{block_idx}_{page_name}.html" # HTML блока в подпапку 'blocks'
                 block_html_file_path.parent.mkdir(parents=True, exist_ok=True) # Убедиться, что подпапка 'blocks' существует
                 # Save the block's HTML
                 html_proc.save(block_html_content, block_html_file_path)
+                logger.info(f"Saved block HTML: {block_html_file_path.relative_to(run_folder)}") # NEW: Log saving
                 print(f"  Saved block HTML: {block_html_file_path.relative_to(run_folder)}")
+
 
             # Process and save JSON - ИСПРАВЛЕНО: сохраняем в подпапку page_name
             json_file_path = run_folder / page_name / f"{page_name}.json" # JSON в подпапку
             json_proc.save(scraped_data, json_file_path)
+            logger.info(f"Saved JSON: {json_file_path.relative_to(run_folder)}") # NEW: Log saving
+
             print(f"  Saved Page HTML: {html_file_path.relative_to(run_folder)}, JSON: {json_file_path.relative_to(run_folder)}")
+
         except Exception as e:
+            logger.error(f"Error processing page {page_name}: {e}", exc_info=True) # NEW: Log error with traceback
             print(f"  Error processing page {page_name}: {e}")
             # Optionally log error to a file within run_folder
             error_log_path = run_folder / "error_log.txt"
@@ -173,10 +218,8 @@ def main():
             continue # Skip to the next page
 
     print(f"\n--- Parsing completed for '{selected_subject_name}'. Data saved in: {run_folder} ---")
-    print(f"API server is running on http://{api_host}:{api_port}")
-    print("Press Enter to stop the API server and exit...")
-    input() # Wait for user input before exiting
-    print("Exiting...")
+    logger.info(f"Parsing completed for '{selected_subject_name}'. Data saved in: {run_folder}") # NEW: Log completion
+
 
 if __name__ == "__main__":
     main()

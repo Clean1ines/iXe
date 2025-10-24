@@ -5,6 +5,7 @@ This module provides the `FIPIScraper` class which handles interactions with the
 FIPI website using Playwright to fetch subject listings and assignment pages.
 """
 
+import logging # NEW: Import logging
 import re
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,7 @@ from processors.html_data_processors import (
 )
 from models.problem_schema import Problem
 
+logger = logging.getLogger(__name__) # NEW: Create module logger
 
 class FIPIScraper:
     """
@@ -177,7 +179,7 @@ class FIPIScraper:
                 - A dictionary with the old scraped data structure (page_name, blocks_html, etc.).
         """
         page_url = f"{self.base_url}?proj={proj_id}&page={page_num}"
-        print(f"[Scraping page: {page_num}] Fetching {page_url} ...")
+        logger.info(f"Scraping page {page_num} for project {proj_id}, URL: {page_url}") # NEW: Use logger
 
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=self.headless)
@@ -199,7 +201,7 @@ class FIPIScraper:
             qblocks = page_soup.find_all('div', class_='qblock')
             header_containers = page_soup.find_all('div', id=re.compile(r'^i'))
 
-            print(f"Found {len(qblocks)} qblocks and {len(header_containers)} header containers on page {page_num}.")
+            logger.info(f"Found {len(qblocks)} qblocks and {len(header_containers)} header containers on page {page_num}.") # MODIFIED: Use logger
 
             body_children = page_soup.body.children if page_soup.body else []
             ordered_elements = []
@@ -234,7 +236,7 @@ class FIPIScraper:
                     print(f"Warning: Unpaired element found at index {i}: {ordered_elements[i][0]}")
                     i += 1
 
-            print(f"Paired {len(paired_elements)} header-qblock sets.")
+            logger.info(f"Successfully paired {len(paired_elements)} header-qblock sets.") # MODIFIED: Use logger
 
             # Initialize all processors including UnwantedElementRemover
             image_proc = ImageScriptProcessor(downloader)
@@ -289,7 +291,9 @@ class FIPIScraper:
                                 downloaded_images[clean_img_src] = str(local_img_path.relative_to(run_folder / page_num))
                                 img_relative_path_from_html = local_img_path.relative_to(run_folder / page_num)
                                 img_tag['src'] = str(img_relative_path_from_html)
-                                print(f"Updated img src inside <a> to local file: {img_tag['src']}")
+                                logger.debug(f"Updated img src inside <a> to local file: {img_tag['src']}") # NEW: Use logger
+                            else:
+                                logger.warning(f"Failed to download image {clean_img_src} for assignment pair {idx} on page {page_num}.") # NEW: Log warning
 
                 # Apply all processors
                 combined_soup, new_imgs = image_proc.process(combined_soup, run_folder / page_num)
@@ -313,8 +317,9 @@ class FIPIScraper:
                         header_soup_temp.append(task_header_panel)
                         header_soup_temp = info_proc.process(header_soup_temp)
                         task_header_panel = header_soup_temp.find('div', class_='task-header-panel')
+                        logger.debug(f"Processed task-info for assignment pair {idx}.") # NEW: Log debug
                     combined_soup.append(task_header_panel.extract())
-                    print(f"Appended task-header-panel for assignment pair {idx}")
+                    logger.debug(f"Appended task-header-panel for assignment pair {idx}.") # NEW: Log debug
                 else:
                     print(f"Warning: No task-header-panel found in header container for assignment pair {idx}")
 
@@ -366,6 +371,7 @@ class FIPIScraper:
                 problems.append(problem)
                 # --- Конец создания Problem ---
 
+            logger.info(f"Successfully processed {len(processed_blocks_html)} blocks for page {page_num}.") # NEW: Log success at end of method
             browser.close()
 
             scraped_data = {

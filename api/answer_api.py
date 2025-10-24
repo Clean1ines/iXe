@@ -1,11 +1,14 @@
 # api/answer_api.py
 """API router for interacting with database and answer checking functionality."""
 
+import logging # NEW: Import logging
 from fastapi import FastAPI, HTTPException, Request
 from typing import Dict, Any, Optional
 from utils.answer_checker import FIPIAnswerChecker
 from utils.database_manager import DatabaseManager
 
+
+logger = logging.getLogger(__name__) # NEW: Create module logger
 
 def create_app(db_manager: DatabaseManager, checker: FIPIAnswerChecker) -> FastAPI:
     """Creates a FastAPI application with endpoints for answer storage and checking.
@@ -36,6 +39,7 @@ def create_app(db_manager: DatabaseManager, checker: FIPIAnswerChecker) -> FastA
             A dictionary mapping task IDs (for the given page) to their stored
             answer and status information.
         """
+        logger.info(f"Loading initial state for page: {page_name}") # NEW: Log start of function
         # В реальной реализации DatabaseManager может иметь метод вроде get_answers_for_page
         # или get_all_answers_for_user, и мы фильтруем ответы здесь.
         # Для простоты, если DatabaseManager не поддерживает фильтрацию по page_name напрямую,
@@ -74,8 +78,10 @@ def create_app(db_manager: DatabaseManager, checker: FIPIAnswerChecker) -> FastA
                          "answer": db_answer.user_answer,
                          "status": db_answer.status
                      }
+            logger.debug(f"Returning state for {len(page_data)} tasks for page {page_name}") # NEW: Log end of function
             return page_data
-        except AttributeError:
+        except Exception as e: # MODIFIED: Broader exception catch to log errors
+            logger.error(f"Error loading initial state for page {page_name}: {e}", exc_info=True) # NEW: Log error before raising
             # Если метод get_all_user_answers не существует или не поддерживает фильтрацию,
             # и метод get_answers_for_page_prefix не реализован, возвращаем пустой словарь
             # или вызываем исключение.
@@ -110,11 +116,14 @@ def create_app(db_manager: DatabaseManager, checker: FIPIAnswerChecker) -> FastA
             if not task_id or answer is None:
                  raise HTTPException(status_code=422, detail="task_id and answer are required")
 
+            logger.info(f"Received answer submission for task {task_id}, user answer length: {len(answer)}") # NEW: Log received submission
+
             # Check if the answer already exists in the database
             existing_answer, existing_status = db_manager.get_answer_and_status(task_id)
 
             if existing_answer is not None:
                 # If an answer exists, return the stored status without re-checking
+                logger.info(f"Retrieved cached result for task {task_id}, status: {existing_status}") # NEW: Log cached result
                 return {
                     "status": existing_status,
                     "message": f"Retrieved cached result: {existing_status}",
@@ -128,11 +137,13 @@ def create_app(db_manager: DatabaseManager, checker: FIPIAnswerChecker) -> FastA
 
                 # Save the answer and its status to the database
                 db_manager.save_answer(task_id, answer, status)
+                logger.info(f"Checked and saved new answer for task {task_id}, status: {status}") # NEW: Log new check and save
 
                 # Return the check result
                 return check_result
 
         except Exception as e:
+            logger.error(f"Error processing answer submission for task {task_id}: {e}", exc_info=True) # NEW: Log error before raising
             raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
     @app.post("/save_answer_only")
@@ -157,11 +168,14 @@ def create_app(db_manager: DatabaseManager, checker: FIPIAnswerChecker) -> FastA
             if not task_id or answer is None:
                  raise HTTPException(status_code=422, detail="task_id and answer are required")
 
+            logger.info(f"Received request to save answer only for task {task_id}, answer length: {len(answer)}") # NEW: Log received request
             # Save the answer with the status "not_checked"
             db_manager.save_answer(task_id, answer, "not_checked")
+            logger.info(f"Saved answer for task {task_id} with status 'not_checked'") # NEW: Log save operation
             return {"message": f"Answer for task {task_id} saved successfully with status 'not_checked'."}
 
         except Exception as e:
+            logger.error(f"Error saving answer for task {task_id}: {e}", exc_info=True) # NEW: Log error before raising
             raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
     return app
