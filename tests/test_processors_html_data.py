@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 from bs4 import BeautifulSoup
+from utils.downloader import AssetDownloader
 from processors.html_data_processors import (
     ImageScriptProcessor,
     FileLinkProcessor,
@@ -34,7 +35,7 @@ class TestUnwantedElementRemover(unittest.TestCase):
         '''
         soup = BeautifulSoup(html, 'html.parser')
         processor = UnwantedElementRemover()
-        result_soup = processor.process(soup)
+        result_soup, metadata = processor.process(soup, Path('/fake/page/dir'))
 
         # Check that unwanted elements are removed
         hint_div = result_soup.find('div', attrs={'class': 'hint', 'id': 'hint', 'name': 'hint'}, string='Впишите правильный ответ.')
@@ -74,7 +75,7 @@ class TestUnwantedElementRemover(unittest.TestCase):
         '''
         soup = BeautifulSoup(html, 'html.parser')
         processor = UnwantedElementRemover()
-        result_soup = processor.process(soup)
+        result_soup, metadata = processor.process(soup, Path('/fake/page/dir'))
 
         # Check that specified unwanted elements are removed
         hint_div = result_soup.find('div', attrs={'class': 'hint', 'id': 'hint', 'name': 'hint'}, string='Впишите правильный ответ.')
@@ -108,7 +109,7 @@ class TestUnwantedElementRemover(unittest.TestCase):
         soup = BeautifulSoup(html, 'html.parser')
         processor = UnwantedElementRemover()
         original_html = str(soup)
-        result_soup = processor.process(soup)
+        result_soup, metadata = processor.process(soup, Path('/fake/page/dir'))
         result_html = str(result_soup)
 
         # Check that the HTML remains unchanged
@@ -120,8 +121,7 @@ class TestImageScriptProcessor(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.mock_downloader = MagicMock()
-        self.processor = ImageScriptProcessor(self.mock_downloader)
+        self.processor = ImageScriptProcessor()
 
     def test_process_success(self):
         """Test successful processing and replacement of script tag."""
@@ -135,29 +135,33 @@ class TestImageScriptProcessor(unittest.TestCase):
         """
         soup = BeautifulSoup(html_content, 'html.parser')
         run_folder_page = Path('/fake/path/page1')
-        
-        # Configure mock to return a path
+
+        # Create mock downloader
+        mock_downloader = MagicMock(spec=AssetDownloader)
+        # Expected call: downloader.download('test.jpg', run_folder_page / "assets", ...)
         expected_local_path = run_folder_page / "assets" / "test.jpg"
-        self.mock_downloader.download.return_value = expected_local_path
-        
+        mock_downloader.download.return_value = expected_local_path
+
         # Process the soup
-        updated_soup, downloaded_images = self.processor.process(soup, run_folder_page)
-        
-        # Verify downloader was called correctly
-        self.mock_downloader.download.assert_called_once_with(
+        updated_soup, downloaded_images = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+
+        # Verify downloader was called correctly - assets_dir is run_folder_page / "assets"
+        mock_downloader.download.assert_called_once_with(
             'test.jpg', run_folder_page / "assets", asset_type='image'
         )
-        
+
         # Verify script was replaced with img tag
         scripts = updated_soup.find_all('script', string=True)
         self.assertEqual(len(scripts), 0)
-        
+
         imgs = updated_soup.find_all('img')
         self.assertEqual(len(imgs), 1)
-        self.assertEqual(imgs[0]['src'], 'assets/test.jpg')
-        
+        # Path should be relative to run_folder_page
+        expected_img_src = "assets/test.jpg"
+        self.assertEqual(imgs[0]['src'], expected_img_src)
+
         # Verify downloaded_images dictionary
-        self.assertEqual(downloaded_images, {'test.jpg': 'assets/test.jpg'})
+        self.assertEqual(downloaded_images, {'downloaded_images': {'test.jpg': expected_img_src}})
 
     def test_process_no_match(self):
         """Test processing when no matching scripts are found."""
@@ -173,18 +177,21 @@ class TestImageScriptProcessor(unittest.TestCase):
         soup = BeautifulSoup(html_content, 'html.parser')
         original_html = str(soup)
         run_folder_page = Path('/fake/path/page1')
-        
+
+        # Create mock downloader
+        mock_downloader = MagicMock(spec=AssetDownloader)
+
         # Process the soup
-        updated_soup, downloaded_images = self.processor.process(soup, run_folder_page)
-        
+        updated_soup, downloaded_images = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+
         # Verify downloader was not called
-        self.mock_downloader.download.assert_not_called()
-        
+        mock_downloader.download.assert_not_called()
+
         # Verify soup is unchanged
         self.assertEqual(str(updated_soup), original_html)
-        
+
         # Verify downloaded_images is empty
-        self.assertEqual(downloaded_images, {})
+        self.assertEqual(downloaded_images, {'downloaded_images': {}})
 
     def test_process_download_failure(self):
         """Test processing when image download fails."""
@@ -199,23 +206,45 @@ class TestImageScriptProcessor(unittest.TestCase):
         soup = BeautifulSoup(html_content, 'html.parser')
         original_html = str(soup)
         run_folder_page = Path('/fake/path/page1')
-        
-        # Configure mock to return None (download failure)
-        self.mock_downloader.download.return_value = None
-        
+
+        # Create mock downloader that returns None
+        mock_downloader = MagicMock(spec=AssetDownloader)
+        mock_downloader.download.return_value = None
+
         # Process the soup
-        updated_soup, downloaded_images = self.processor.process(soup, run_folder_page)
-        
-        # Verify downloader was called
-        self.mock_downloader.download.assert_called_once_with(
+        updated_soup, downloaded_images = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+
+        # Verify downloader was called - assets_dir is run_folder_page / "assets"
+        mock_downloader.download.assert_called_once_with(
             'test.jpg', run_folder_page / "assets", asset_type='image'
         )
-        
-        # Verify script was not replaced
-        self.assertEqual(str(updated_soup), original_html)
-        
+
+        # Verify script was not replaced (as img tag is added only if download succeeds)
+        # The script tag should still be present in the HTML
+        scripts = updated_soup.find_all('script', string=True)
+        self.assertEqual(len(scripts), 1)
+        self.assertIn('ShowPicture', str(scripts[0]))
+
         # Verify downloaded_images is empty
-        self.assertEqual(downloaded_images, {})
+        self.assertEqual(downloaded_images, {'downloaded_images': {}})
+
+    def test_process_missing_downloader(self):
+        """Test processing when AssetDownloader is not provided."""
+        html_content = """
+        <html>
+            <body>
+                <script>ShowPicture('test.jpg')</script>
+            </body>
+        </html>
+        """
+        soup = BeautifulSoup(html_content, 'html.parser')
+        run_folder_page = Path('/fake/path/page1')
+
+        # Process without providing downloader
+        with self.assertRaises(ValueError) as context:
+            self.processor.process(soup, run_folder_page)
+
+        self.assertIn("AssetDownloader must be provided", str(context.exception))
 
 
 class TestFileLinkProcessor(unittest.TestCase):
@@ -223,8 +252,7 @@ class TestFileLinkProcessor(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.mock_downloader = MagicMock()
-        self.processor = FileLinkProcessor(self.mock_downloader)
+        self.processor = FileLinkProcessor()
 
     def test_process_javascript_link(self):
         """Test processing JavaScript window.open links."""
@@ -237,26 +265,29 @@ class TestFileLinkProcessor(unittest.TestCase):
         """
         soup = BeautifulSoup(html_content, 'html.parser')
         run_folder_page = Path('/fake/path/page1')
-        
-        # Configure mock to return a path
+
+        # Create mock downloader
+        mock_downloader = MagicMock(spec=AssetDownloader)
+        # Expected call: downloader.download('docs/test.zip', run_folder_page / "assets", ...)
         expected_local_path = run_folder_page / "assets" / "test.zip"
-        self.mock_downloader.download.return_value = expected_local_path
-        
+        mock_downloader.download.return_value = expected_local_path
+
         # Process the soup
-        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page)
-        
-        # Verify downloader was called correctly
-        self.mock_downloader.download.assert_called_once_with(
+        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+
+        # Verify downloader was called correctly (leading ../../ removed) - assets_dir is run_folder_page / "assets"
+        mock_downloader.download.assert_called_once_with(
             'docs/test.zip', run_folder_page / "assets", asset_type='file'
         )
-        
+
         # Verify link was updated
         links = updated_soup.find_all('a')
         self.assertEqual(len(links), 1)
-        self.assertEqual(links[0]['href'], 'assets/test.zip')
-        
+        expected_href = 'assets/test.zip'
+        self.assertEqual(links[0]['href'], expected_href)
+
         # Verify downloaded_files dictionary
-        self.assertEqual(downloaded_files, {'docs/test.zip': 'assets/test.zip'})
+        self.assertEqual(downloaded_files, {'downloaded_files': {'docs/test.zip': expected_href}})
 
     def test_process_direct_link(self):
         """Test processing direct file links."""
@@ -269,26 +300,29 @@ class TestFileLinkProcessor(unittest.TestCase):
         """
         soup = BeautifulSoup(html_content, 'html.parser')
         run_folder_page = Path('/fake/path/page1')
-        
-        # Configure mock to return a path
+
+        # Create mock downloader
+        mock_downloader = MagicMock(spec=AssetDownloader)
+        # Expected call: downloader.download('files/document.pdf', run_folder_page / "assets", ...)
         expected_local_path = run_folder_page / "assets" / "document.pdf"
-        self.mock_downloader.download.return_value = expected_local_path
-        
+        mock_downloader.download.return_value = expected_local_path
+
         # Process the soup
-        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page)
-        
-        # Verify downloader was called correctly
-        self.mock_downloader.download.assert_called_once_with(
+        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+
+        # Verify downloader was called correctly (leading ../../ removed) - assets_dir is run_folder_page / "assets"
+        mock_downloader.download.assert_called_once_with(
             'files/document.pdf', run_folder_page / "assets", asset_type='file'
         )
-        
+
         # Verify link was updated
         links = updated_soup.find_all('a')
         self.assertEqual(len(links), 1)
-        self.assertEqual(links[0]['href'], 'assets/document.pdf')
-        
+        expected_href = 'assets/document.pdf'
+        self.assertEqual(links[0]['href'], expected_href)
+
         # Verify downloaded_files dictionary
-        self.assertEqual(downloaded_files, {'files/document.pdf': 'assets/document.pdf'})
+        self.assertEqual(downloaded_files, {'downloaded_files': {'files/document.pdf': expected_href}})
 
     def test_process_no_file_links(self):
         """Test processing when no file links are found."""
@@ -303,18 +337,21 @@ class TestFileLinkProcessor(unittest.TestCase):
         soup = BeautifulSoup(html_content, 'html.parser')
         original_html = str(soup)
         run_folder_page = Path('/fake/path/page1')
-        
+
+        # Create mock downloader
+        mock_downloader = MagicMock(spec=AssetDownloader)
+
         # Process the soup
-        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page)
-        
+        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+
         # Verify downloader was not called
-        self.mock_downloader.download.assert_not_called()
-        
+        mock_downloader.download.assert_not_called()
+
         # Verify soup is unchanged
         self.assertEqual(str(updated_soup), original_html)
-        
+
         # Verify downloaded_files is empty
-        self.assertEqual(downloaded_files, {})
+        self.assertEqual(downloaded_files, {'downloaded_files': {}})
 
     def test_process_download_failure(self):
         """Test processing when file download fails."""
@@ -326,26 +363,44 @@ class TestFileLinkProcessor(unittest.TestCase):
         </html>
         """
         soup = BeautifulSoup(html_content, 'html.parser')
-        original_html = str(soup)
         run_folder_page = Path('/fake/path/page1')
-        
-        # Configure mock to return None (download failure)
-        self.mock_downloader.download.return_value = None
-        
+
+        # Create mock downloader that returns None
+        mock_downloader = MagicMock(spec=AssetDownloader)
+        mock_downloader.download.return_value = None
+
         # Process the soup
-        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page)
-        
-        # Verify downloader was called
-        self.mock_downloader.download.assert_called_once_with(
+        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+
+        # Verify downloader was called - assets_dir is run_folder_page / "assets"
+        mock_downloader.download.assert_called_once_with(
             'files/test.zip', run_folder_page / "assets", asset_type='file'
         )
-        
-        # Verify link was not updated
+
+        # Verify link was not updated (remains original href)
         links = updated_soup.find_all('a')
         self.assertEqual(links[0]['href'], '../../files/test.zip')
-        
+
         # Verify downloaded_files is empty
-        self.assertEqual(downloaded_files, {})
+        self.assertEqual(downloaded_files, {'downloaded_files': {}})
+
+    def test_process_missing_downloader(self):
+        """Test processing when AssetDownloader is not provided."""
+        html_content = """
+        <html>
+            <body>
+                <a href="../../files/test.zip">Download ZIP</a>
+            </body>
+        </html>
+        """
+        soup = BeautifulSoup(html_content, 'html.parser')
+        run_folder_page = Path('/fake/path/page1')
+
+        # Process without providing downloader
+        with self.assertRaises(ValueError) as context:
+            self.processor.process(soup, run_folder_page)
+
+        self.assertIn("AssetDownloader must be provided", str(context.exception))
 
 
 class TestTaskInfoProcessor(unittest.TestCase):
@@ -366,14 +421,14 @@ class TestTaskInfoProcessor(unittest.TestCase):
         </html>
         """
         soup = BeautifulSoup(html_content, 'html.parser')
-        
+
         # Process the soup
-        updated_soup = self.processor.process(soup)
-        
+        updated_soup, metadata = self.processor.process(soup, Path('/fake/page/dir'))
+
         # Verify info buttons were updated
         info_buttons = updated_soup.find_all('div', class_='info-button')
         self.assertEqual(len(info_buttons), 2)
-        
+
         for button in info_buttons:
             self.assertEqual(button['onclick'], "toggleInfo(this); return false;")
 
@@ -389,10 +444,10 @@ class TestTaskInfoProcessor(unittest.TestCase):
         """
         soup = BeautifulSoup(html_content, 'html.parser')
         original_html = str(soup)
-        
+
         # Process the soup
-        updated_soup = self.processor.process(soup)
-        
+        updated_soup, metadata = self.processor.process(soup, Path('/fake/page/dir'))
+
         # Verify soup is unchanged
         self.assertEqual(str(updated_soup), original_html)
 
@@ -417,14 +472,14 @@ class TestInputFieldRemover(unittest.TestCase):
         </html>
         """
         soup = BeautifulSoup(html_content, 'html.parser')
-        
+
         # Process the soup
-        updated_soup = self.processor.process(soup)
-        
+        updated_soup, metadata = self.processor.process(soup, Path('/fake/page/dir'))
+
         # Verify answer inputs were removed
         answer_inputs = updated_soup.find_all('input', attrs={'name': 'answer'})
         self.assertEqual(len(answer_inputs), 0)
-        
+
         # Verify other inputs remain
         other_inputs = updated_soup.find_all('input', attrs={'name': 'other'})
         self.assertEqual(len(other_inputs), 1)
@@ -442,10 +497,10 @@ class TestInputFieldRemover(unittest.TestCase):
         """
         soup = BeautifulSoup(html_content, 'html.parser')
         original_html = str(soup)
-        
+
         # Process the soup
-        updated_soup = self.processor.process(soup)
-        
+        updated_soup, metadata = self.processor.process(soup, Path('/fake/page/dir'))
+
         # Verify soup is unchanged
         self.assertEqual(str(updated_soup), original_html)
 
@@ -470,14 +525,14 @@ class TestMathMLRemover(unittest.TestCase):
         </html>
         """
         soup = BeautifulSoup(html_content, 'html.parser')
-        
+
         # Process the soup
-        updated_soup = self.processor.process(soup)
-        
+        updated_soup, metadata = self.processor.process(soup, Path('/fake/page/dir'))
+
         # Verify math tags were removed
         math_tags = updated_soup.find_all(['math', 'mml:math'])
         self.assertEqual(len(math_tags), 0)
-        
+
         # Verify regular content remains
         divs = updated_soup.find_all('div')
         self.assertEqual(len(divs), 1)
@@ -495,10 +550,10 @@ class TestMathMLRemover(unittest.TestCase):
         """
         soup = BeautifulSoup(html_content, 'html.parser')
         original_html = str(soup)
-        
+
         # Process the soup
-        updated_soup = self.processor.process(soup)
-        
+        updated_soup, metadata = self.processor.process(soup, Path('/fake/page/dir'))
+
         # Verify soup is unchanged
         self.assertEqual(str(updated_soup), original_html)
 

@@ -12,6 +12,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 from utils.downloader import AssetDownloader
+from utils.element_pairer import ElementPairer
+from utils.metadata_extractor import MetadataExtractor
+from models.problem_builder import ProblemBuilder
 from processors.html_data_processors import (
     ImageScriptProcessor,
     FileLinkProcessor,
@@ -58,6 +61,9 @@ class PageProcessingOrchestrator:
         self.processors = processors or []
         self.metadata_extractor = metadata_extractor
         self.problem_builder = problem_builder
+        self.pairer = ElementPairer() # NEW: Instantiate ElementPairer
+        self.metadata_extractor_instance = MetadataExtractor() # NEW: Instantiate MetadataExtractor
+        self.problem_builder_instance = ProblemBuilder() # NEW: Instantiate ProblemBuilder
 
     def process(
         self,
@@ -89,8 +95,8 @@ class PageProcessingOrchestrator:
         logger.info(f"Starting processing of page {page_num} for project {proj_id}")
         page_soup = BeautifulSoup(page_content, "html.parser")
 
-        # Pair header containers with qblocks
-        paired_elements = self._pair_elements(page_soup)
+        # NEW: Use the injected ElementPairer
+        paired_elements = self.pairer.pair(page_soup)
         logger.info(f"Found and paired {len(paired_elements)} header-qblock sets on page {page_num}.")
 
         # Initialize downloader
@@ -109,8 +115,8 @@ class PageProcessingOrchestrator:
 
         # Process each block pair
         for idx, (header_container, qblock) in enumerate(paired_elements):
-            # Extract metadata
-            metadata = self._extract_metadata_for_block(header_container)
+            # NEW: Use the injected MetadataExtractor
+            metadata = self.metadata_extractor_instance.extract(header_container)
             task_metadata.append({
                 "task_id": metadata["task_id"],
                 "form_id": metadata["form_id"],
@@ -126,28 +132,23 @@ class PageProcessingOrchestrator:
             downloaded_images.update(new_images)
             downloaded_files.update(new_files)
 
-            # Build Problem object (stubbed logic copied from FIPIScraper)
+            # NEW: Use the injected ProblemBuilder
+            # Extract additional metadata using helper methods within this class
             extracted_task_id = metadata["task_id"] or f"unknown_{idx}"
             problem_id = f"{page_num}_{extracted_task_id}"
             subject = "unknown_subject"  # TODO: pass subject or map proj_id
             type_str, difficulty_str = self._determine_task_type_and_difficulty(header_container)
             topics = self._extract_kes_codes(header_container)
+            source_url = f"{base_url}?proj={proj_id}&page={page_num}"
 
-            problem = Problem(
+            problem = self.problem_builder_instance.build(
                 problem_id=problem_id,
                 subject=subject,
-                type=type_str,
+                type_str=type_str,
                 text=assignment_text,
-                options=None,
-                answer="placeholder_answer",
-                solutions=None,
                 topics=topics,
-                skills=None,
                 difficulty=difficulty_str,
-                source_url=f"{base_url}?proj={proj_id}&page={page_num}",
-                raw_html_path=None,
-                created_at=datetime.now(),
-                updated_at=None,
+                source_url=source_url,
                 metadata={"original_block_index": idx, "proj_id": proj_id}
             )
             problems.append(problem)
@@ -164,86 +165,6 @@ class PageProcessingOrchestrator:
 
         logger.info(f"Successfully processed {len(processed_blocks_html)} blocks for page {page_num}.")
         return problems, scraped_data
-
-    def _pair_elements(self, page_soup: BeautifulSoup) -> List[Tuple[Tag, Tag]]:
-        """
-        Finds and pairs 'qblock' divs with their preceding/following 'header container' divs.
-
-        Args:
-            page_soup (BeautifulSoup): The parsed BeautifulSoup object of the page.
-
-        Returns:
-            List[Tuple[Tag, Tag]]: A list of tuples, where each tuple contains
-                                (header_container_tag, qblock_tag).
-        """
-        logger.debug("Starting element pairing process.")
-        qblocks = page_soup.find_all('div', class_='qblock')
-        header_containers = page_soup.find_all('div', id=re.compile(r'^i'))
-        logger.debug(f"Found {len(qblocks)} qblocks and {len(header_containers)} header containers for pairing.")
-
-        body_children = page_soup.body.children if page_soup.body else []
-        ordered_elements = []
-        current_qblock_idx = 0
-        current_header_idx = 0
-
-        for child in body_children:
-            if child.name == 'div':
-                if child.get('class') and 'qblock' in child.get('class'):
-                    if current_qblock_idx < len(qblocks):
-                        ordered_elements.append(('qblock', qblocks[current_qblock_idx]))
-                        current_qblock_idx += 1
-                elif child.get('id') and child.get('id', '').startswith('i'):
-                    if current_header_idx < len(header_containers):
-                        ordered_elements.append(('header', header_containers[current_header_idx]))
-                        current_header_idx += 1
-
-        paired_elements = []
-        i = 0
-        while i < len(ordered_elements):
-            if ordered_elements[i][0] == 'header' and i + 1 < len(ordered_elements) and ordered_elements[i + 1][0] == 'qblock':
-                header_soup = ordered_elements[i][1]
-                qblock_soup = ordered_elements[i + 1][1]
-                paired_elements.append((header_soup, qblock_soup))
-                i += 2
-            elif ordered_elements[i][0] == 'qblock' and i + 1 < len(ordered_elements) and ordered_elements[i + 1][0] == 'header':
-                qblock_soup = ordered_elements[i][1]
-                header_soup = ordered_elements[i + 1][1]
-                paired_elements.append((header_soup, qblock_soup))
-                i += 2
-            else:
-                logger.warning(f"Unpaired element found at index {i}: {ordered_elements[i][0]}")
-                i += 1
-
-        logger.info(f"Successfully paired {len(paired_elements)} header-qblock sets.")
-        return paired_elements
-
-    def _extract_metadata_for_block(self, header_container: Tag) -> Dict[str, str]:
-        """
-        Extracts task-specific metadata (task_id, form_id) from a header container.
-
-        Args:
-            header_container (Tag): The BeautifulSoup Tag representing the header container.
-
-        Returns:
-            Dict[str, str]: A dictionary containing 'task_id' and 'form_id'.
-                            Values are empty strings if not found.
-        """
-        task_id = ""
-        form_id = ""
-        # Extract task_id
-        canselect_span = header_container.find('span', class_='canselect')
-        if canselect_span:
-            task_id = canselect_span.get_text(strip=True)
-        logger.debug(f"Extracted task_id: '{task_id}'")
-        # Extract form_id
-        answer_button = header_container.find('span', class_='answer-button')
-        if answer_button and answer_button.get('onclick'):
-            onclick = answer_button['onclick']
-            form_match = re.search(r"checkButtonClick\(\s*['\"]([^'\"]+)['\"]", onclick)
-            if form_match:
-                form_id = form_match.group(1)
-                logger.debug(f"Extracted form_id: '{form_id}'")
-        return {"task_id": task_id, "form_id": form_id}
 
     def _process_single_block(
         self,

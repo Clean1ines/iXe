@@ -2,14 +2,11 @@
 Module for scraping data from the FIPI website.
 This module provides the `FIPIScraper` class which handles interactions with the
 FIPI website using Playwright to fetch subject listings and assignment pages.
+It delegates the actual HTML processing logic to `PageProcessingOrchestrator`.
 """
 import logging
-import re
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
-from bs4 import BeautifulSoup
-from bs4 import Tag
 from playwright.sync_api import sync_playwright
 from utils.downloader import AssetDownloader
 from processors.page_processor import PageProcessingOrchestrator
@@ -118,35 +115,36 @@ class FIPIScraper:
                 files_location_prefix = '../../'
 
             page_content = page.content()
+
+            # --- Delegate to Orchestrator ---
+            logger.debug("Initializing AssetDownloader and PageProcessingOrchestrator...")
+
+            # Create a simple factory that returns the already-instantiated downloader
+            downloader = AssetDownloader(page=page, base_url=self.base_url, files_location_prefix=files_location_prefix)
+
+            def asset_downloader_factory(page_obj, base_url, prefix):
+                return downloader
+
+            orchestrator = PageProcessingOrchestrator(
+                asset_downloader_factory=asset_downloader_factory,
+                processors=None,
+                metadata_extractor=None,
+                problem_builder=None,
+            )
+
+            logger.info("Delegating page processing to PageProcessingOrchestrator...")
+            problems, scraped_data = orchestrator.process(
+                page_content=page_content,
+                proj_id=proj_id,
+                page_num=page_num,
+                run_folder=run_folder,
+                base_url=self.base_url,
+                files_location_prefix=files_location_prefix,
+                page=page, # Pass the page object for AssetDownloader if needed internally
+            )
+            logger.info("Page processing completed by Orchestrator.")
+            # -------------------------------
+
             browser.close()
-
-        # --- Delegate to Orchestrator ---
-        logger.debug("Initializing AssetDownloader and PageProcessingOrchestrator...")
-
-        # Create a simple factory that returns the already-instantiated downloader
-        downloader = AssetDownloader(page=None, base_url=self.base_url, files_location_prefix=files_location_prefix)
-
-        def asset_downloader_factory(page_obj, base_url, prefix):
-            return downloader
-
-        orchestrator = PageProcessingOrchestrator(
-            asset_downloader_factory=asset_downloader_factory,
-            processors=None,
-            metadata_extractor=None,
-            problem_builder=None,
-        )
-
-        logger.info("Delegating page processing to PageProcessingOrchestrator...")
-        problems, scraped_data = orchestrator.process(
-            page_content=page_content,
-            proj_id=proj_id,
-            page_num=page_num,
-            run_folder=run_folder,
-            base_url=self.base_url,
-            files_location_prefix=files_location_prefix,
-            page=None,  # AssetDownloader already created without needing page
-        )
-        logger.info("Page processing completed by Orchestrator.")
-        # -------------------------------
 
         return problems, scraped_data
