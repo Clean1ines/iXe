@@ -1,0 +1,23 @@
+{% extends "ui_components/base_page.html.j2" %}
+
+{% block title %}FIPI Задание {{ block_data.block_index }}{% endblock %}
+{% block header_title %}Задание {{ block_data.block_index }}{% endblock %}
+
+{% block extra_head %}
+{{ initial_state_js | safe }}
+<script>
+{{ common_js_functions | safe }}
+</script>
+{% endblock %}
+
+{% block content %}
+<section class="single-task-view">
+    <article class="task-item" id="task-{{ block_data.block_index }}">
+        {{ block_data.html | safe }}
+    </article>
+</section>
+{% endblock %}
+
+{% block footer_extra %}
+<p>ID Задания: {{ block_data.task_id }}</p>
+{% endblock %}
