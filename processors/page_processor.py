@@ -223,11 +223,26 @@ class PageProcessingOrchestrator:
         math_remover = MathMLRemover()
         unwanted_remover = UnwantedElementRemover()
 
-        # Передаем downloader как аргумент в process методы
-        combined_soup, new_imgs = image_proc.process(combined_soup, page_assets_dir.parent, downloader=downloader)
-        combined_soup, new_files = file_proc.process(combined_soup, page_assets_dir.parent, downloader=downloader)
-        combined_soup = input_remover.process(combined_soup)
-        combined_soup = math_remover.process(combined_soup)
+        # Accumulate metadata from processors
+        all_new_images = {}
+        all_new_files = {}
+
+        # Передаем downloader как аргумент в process методы и распаковываем возвращаемый кортеж
+        processed_soup, new_imgs = image_proc.process(combined_soup, page_assets_dir.parent, downloader=downloader)
+        combined_soup = processed_soup
+        all_new_images.update(new_imgs)
+
+        processed_soup, new_files = file_proc.process(combined_soup, page_assets_dir.parent, downloader=downloader)
+        combined_soup = processed_soup
+        all_new_files.update(new_files)
+
+        # Apply processors that might return a tuple (soup, metadata) or just soup.
+        # For consistency and to handle potential future changes, we assume they return a tuple.
+        processed_soup, _ = input_remover.process(combined_soup, page_assets_dir.parent)
+        combined_soup = processed_soup
+
+        processed_soup, _ = math_remover.process(combined_soup, page_assets_dir.parent)
+        combined_soup = processed_soup
 
         # Remove duplicate or undefined <img> tags
         for img_tag in combined_soup.find_all('img'):
@@ -241,7 +256,10 @@ class PageProcessingOrchestrator:
             if info_button:
                 header_soup_temp = BeautifulSoup('', 'html.parser')
                 header_soup_temp.append(task_header_panel)
-                header_soup_temp = info_proc.process(header_soup_temp, page_assets_dir.parent)
+                # ПРАВИЛЬНО: Распаковываем кортеж, возвращаемый info_proc.process
+                processed_header_soup, _ = info_proc.process(header_soup_temp, page_assets_dir.parent)
+                # Переназначаем переменную, содержащую BeautifulSoup
+                header_soup_temp = processed_header_soup
                 task_header_panel = header_soup_temp.find('div', class_='task-header-panel')
                 logger.debug(f"Processed task-info for assignment pair {block_index}.")
             combined_soup.append(task_header_panel.extract())
@@ -250,7 +268,8 @@ class PageProcessingOrchestrator:
             logger.warning(f"No task-header-panel found in header container for assignment pair {block_index}")
 
         # Apply UnwantedElementRemover AFTER extracting task_id/form_id
-        combined_soup = unwanted_remover.process(combined_soup, page_assets_dir.parent)
+        processed_soup, _ = unwanted_remover.process(combined_soup, page_assets_dir.parent)
+        combined_soup = processed_soup
 
         # Remove all remaining scripts
         for script_tag in combined_soup.find_all('script'):
@@ -259,7 +278,7 @@ class PageProcessingOrchestrator:
         processed_html_string = str(combined_soup)
         assignment_text = combined_soup.get_text(separator='\n', strip=True)
         logger.debug(f"Finished processing block {block_index}.")
-        return processed_html_string, assignment_text, new_imgs, new_files
+        return processed_html_string, assignment_text, all_new_images, all_new_files
 
     def _extract_task_id(self, header_container: Tag) -> str:
         """Extracts task_id from header container (kept for compatibility)."""

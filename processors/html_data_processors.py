@@ -270,3 +270,4 @@ class UnwantedElementRemover(AssetProcessor):
         # DO NOT remove <span class="answer-button"> — needed for form ID extraction
 
         return soup, {}
+
