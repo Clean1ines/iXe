@@ -45,9 +45,10 @@ class PageProcessingOrchestrator:
         self,
         asset_downloader_factory: Callable[[Any, str, str], AssetDownloader],
         processors: Optional[List[Any]] = None,
-        metadata_extractor: Optional[Any] = None,
-        problem_builder: Optional[Any] = None,
+        metadata_extractor: Optional[MetadataExtractor] = None,
+        problem_builder: Optional[ProblemBuilder] = None,
         block_processor: Optional[BlockProcessor] = None,
+        element_pairer: Optional[ElementPairer] = None,
     ):
         """
         Initializes the orchestrator with required dependencies.
@@ -55,34 +56,41 @@ class PageProcessingOrchestrator:
         Args:
             asset_downloader_factory (Callable): A callable that returns an AssetDownloader instance.
                                                  Expected signature: (page, base_url, files_location_prefix) -> AssetDownloader.
-            processors (List[Any], optional): List of HTML processors to apply. Not used directly here,
-                                              as processors are instantiated internally for now.
-                                              Reserved for future extensibility.
-            metadata_extractor (Any, optional): Component for metadata extraction. Currently unused.
-            problem_builder (Any, optional): Component for building Problem objects. Currently unused.
+            processors (List[Any], optional): List of HTML processors to apply. If not provided,
+                                              a default set will be instantiated.
+            metadata_extractor (MetadataExtractor, optional): Component for metadata extraction.
+            problem_builder (ProblemBuilder, optional): Component for building Problem objects.
             block_processor (BlockProcessor, optional): Instance of BlockProcessor. If not provided,
                                                        one will be created using other dependencies.
+            element_pairer (ElementPairer, optional): Instance of ElementPairer. If not provided,
+                                                     one will be created.
         """
         self.asset_downloader_factory = asset_downloader_factory
-        self.processors = processors or []
-        self.metadata_extractor = metadata_extractor
-        self.problem_builder = problem_builder
+        # Use provided processors or instantiate default ones
+        self.processors = processors or [
+            ImageScriptProcessor(),
+            FileLinkProcessor(),
+            TaskInfoProcessor(),
+            InputFieldRemover(),
+            MathMLRemover(),
+            UnwantedElementRemover()
+        ]
+        self.metadata_extractor = metadata_extractor or MetadataExtractor()
+        self.problem_builder = problem_builder or ProblemBuilder()
 
         if block_processor is None:
-            # Create a default BlockProcessor instance for backward compatibility
-            # The processors list might be empty, in which case BlockProcessor will instantiate them internally
-            bp_metadata_extractor = MetadataExtractor()
-            bp_problem_builder = ProblemBuilder()
+            # Create a default BlockProcessor instance using the provided or default dependencies
             self.block_processor = BlockProcessor(
                 asset_downloader_factory=self.asset_downloader_factory,
                 processors=self.processors,
-                metadata_extractor=bp_metadata_extractor,
-                problem_builder=bp_problem_builder
+                metadata_extractor=self.metadata_extractor,
+                problem_builder=self.problem_builder
             )
         else:
             self.block_processor = block_processor
 
-        self.pairer = ElementPairer() # NEW: Instantiate ElementPairer
+        # Inject ElementPairer dependency
+        self.pairer = element_pairer or ElementPairer()
 
     def process(
         self,
@@ -214,4 +222,5 @@ class PageProcessingOrchestrator:
                     type_str = f"task_{num}"
                     difficulty_str = "medium"
         return type_str, difficulty_str
+
 

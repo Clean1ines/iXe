@@ -10,7 +10,9 @@ It now delegates UI component rendering to `ui_components.py`.
 import json
 import logging
 import re
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+# NEW: Import Problem model
+from models.problem_schema import Problem
 
 # NEW: Import DatabaseManager
 from utils.database_manager import DatabaseManager
@@ -55,34 +57,60 @@ class HTMLRenderer:
         logger.debug(f"Jinja2 Environment for HTMLRenderer initialized with template directory: {self._templates_dir}")
         # --------------------------------------
 
-    def render(self, data: Dict[str, Any], page_name: str) -> str:
+    # CHANGED: Signature now accepts problems list
+    def render(self, data: Optional[Dict[str, Any]], page_name: str, problems: Optional[List[Problem]] = None) -> str:
         """
         Renders the provided data dictionary into an HTML string for the entire page
         using the 'full_page.html.j2' template.
 
         Args:
-            data (Dict[str, Any]): The data dictionary from the scraper.
-                                   Expected keys: 'page_name', 'blocks_html', 'task_metadata'.
+            data (Optional[Dict[str, Any]]): The data dictionary from the scraper.
+                                             Expected keys: 'page_name', 'blocks_html', 'task_metadata'.
+                                             Can be None if problems are provided.
             page_name (str): The name of the current page, used for initial state loading.
+            problems (Optional[List[Problem]]): A list of Problem objects to use for
+                                                generating initial state. If provided,
+                                                takes precedence over data for state.
 
         Returns:
             str: The complete HTML string for the page.
         """
         try:
-            logger.info(f"Rendering HTML page for page_name: {page_name}, blocks_html count: {len(data.get('blocks_html', []))}, task_metadata count: {len(data.get('task_metadata', []))}")
-            # CHANGED: Load initial state from DatabaseManager instead of LocalStorage
-            # NEW: Get task_ids from metadata to fetch specific answers
-            task_metadata = data.get("task_metadata", [])
-            task_ids = [metadata.get('task_id', '') for metadata in task_metadata if metadata.get('task_id')]
-            # NEW: Fetch answers and statuses for the specific task IDs on this page
-            # Assuming DatabaseManager has a method get_answers_for_task_ids
-            # If not, implement it or adapt the call to existing methods like get_answer_and_status for each ID
-            logger.debug(f"Fetching initial state for {len(task_ids)} task IDs for page {page_name}. Task IDs: {task_ids[:5]}...")
-            initial_state = self._get_filtered_initial_state_from_db(task_ids)
-            logger.debug(f"Retrieved initial state for {len(initial_state)} tasks for page {page_name}.")
-
-            blocks_html = data.get("blocks_html", [])
-            # task_metadata is already used above
+            # Determine blocks_html source
+            blocks_html = []
+            task_metadata = []
+            if problems is not None:
+                logger.debug("Using provided List[Problem] for rendering initial state.")
+                # For initial state, we can fetch from DB using problem IDs
+                initial_state = {}
+                for problem in problems:
+                    task_id = problem.problem_id # Assuming problem_id matches task_id
+                    # Fetch from DB for consistency
+                    user_answer, status = self._db_manager.get_answer_and_status(task_id=task_id)
+                    if user_answer is not None or status != "not_checked":
+                        initial_state[task_id] = {"answer": user_answer, "status": status}
+                
+                # For blocks_html and task_metadata, we still rely on 'data' if available
+                # as the renderer needs the processed HTML content.
+                if data is not None:
+                    blocks_html = data.get("blocks_html", [])
+                    task_metadata = data.get("task_metadata", [])
+                else:
+                    logger.warning("data is None and problems do not contain HTML blocks. blocks_html will be empty.")
+            else:
+                logger.warning("List[Problem] not provided to render. Falling back to using 'data' dictionary. Consider passing List[Problem] for future consistency.")
+                # --- Старая логика с data ---
+                if data is None:
+                     raise ValueError("If 'problems' is None, 'data' must be provided.")
+                blocks_html = data.get("blocks_html", [])
+                task_metadata = data.get("task_metadata", [])
+                # NEW: Get task_ids from metadata to fetch specific answers
+                task_ids = [metadata.get('task_id', '') for metadata in task_metadata if metadata.get('task_id')]
+                # NEW: Fetch answers and statuses for the specific task IDs on this page
+                logger.debug(f"Fetching initial state for {len(task_ids)} task IDs for page {page_name}. Task IDs: {task_ids[:5]}...")
+                initial_state = self._get_filtered_initial_state_from_db(task_ids)
+                logger.debug(f"Retrieved initial state for {len(initial_state)} tasks for page {page_name}.")
+                # --------------------------
 
             # Prepare data for the template
             page_data = {"page_name": page_name, "subject_name": "ЕГЭ"} # Assuming a default or parsing page_name for subject
@@ -121,6 +149,80 @@ class HTMLRenderer:
             return result_html
         except Exception as e:
             logger.error(f"Error rendering HTML for page {page_name}: {e}", exc_info=True)
+            raise
+
+    # NEW: Method to render directly from List[Problem]
+    def render_problems(self, problems: List[Problem], page_name: str) -> str:
+        """
+        Renders a list of Problem objects into an HTML string for the entire page
+        using the 'full_page.html.j2' template.
+
+        This method relies on the Problem objects for initial state and
+        assumes they contain their processed HTML content (e.g., in a `processed_html_fragment` attribute).
+        If `processed_html_fragment` is not available, it attempts to render from the `text` attribute.
+
+        Args:
+            problems (List[Problem]): A list of Problem objects to render.
+            page_name (str): The name of the current page, used for initial state loading.
+
+        Returns:
+            str: The complete HTML string for the page.
+        """
+        try:
+            logger.info(f"Rendering HTML page for page_name: {page_name} using List[Problem] (count: {len(problems)}).")
+
+            # Generate initial_state from problems
+            initial_state = {}
+            for problem in problems:
+                task_id = problem.problem_id
+                user_answer, status = self._db_manager.get_answer_and_status(task_id=task_id)
+                if user_answer is not None or status != "not_checked":
+                    initial_state[task_id] = {"answer": user_answer, "status": status}
+
+            # Generate task_blocks_data from problems
+            task_blocks_data = []
+            for idx, problem in enumerate(problems):
+                 # Attempt to get processed HTML from the problem object
+                 # This assumes the Problem model has been updated or processed blocks are stored separately
+                 # For now, we'll use a placeholder based on the text attribute if processed_html_fragment is not available
+                 # In a more robust system, this would be a proper attribute or method on the Problem object
+                 block_html = getattr(problem, 'processed_html_fragment', f"<p>{problem.text}</p>") # Fallback to text if processed_html_fragment not present
+
+                 # Use metadata or generate IDs if available in the problem object
+                 # Assuming task_id and form_id might be part of metadata or problem_id itself
+                 task_id = problem.metadata.get('task_id', problem.problem_id) if hasattr(problem, 'metadata') and problem.metadata else problem.problem_id
+                 # Form ID could be derived similarly, for now, we'll use a convention
+                 form_id = f"form_{task_id}"
+
+                 # Render the answer form for this block
+                 form_html = self._answer_form_renderer.render(idx)
+                 # Create the wrapper HTML for the block
+                 block_wrapper_html = f"<div class='processed_qblock' id='processed_qblock_{idx}' data-task-id='{task_id}' data-form-id='{form_id}'>{block_html}\n{form_html}\n</div>\n<hr>\n"
+                 task_blocks_data.append({"index": idx, "html": block_wrapper_html})
+
+            # Prepare data for the template
+            page_data = {"page_name": page_name, "subject_name": "ЕГЭ"}
+            initial_state_json = json.dumps(initial_state, ensure_ascii=False, indent=2)
+            initial_state_js = f"<script>\nvar INITIAL_PAGE_STATE = {initial_state_json};\n</script>\n"
+
+            # Prepare the context for the Jinja2 template
+            template_context = {
+                "page_data": page_data,
+                "task_blocks": task_blocks_data,
+                "initial_state_js": initial_state_js,
+                "common_css": ui_components.COMMON_CSS,
+                "common_js_functions": ui_components.COMMON_JS_FUNCTIONS,
+                "lang": "ru"
+            }
+
+            # Render the template
+            template = self._jinja_env.get_template("full_page.html.j2")
+            result_html = template.render(template_context)
+
+            logger.info(f"Successfully rendered HTML for page {page_name} using List[Problem], length: {len(result_html)} characters.")
+            return result_html
+        except Exception as e:
+            logger.error(f"Error rendering HTML for page {page_name} using List[Problem]: {e}", exc_info=True)
             raise
 
     def render_block(self, block_html: str, block_index: int, asset_path_prefix: Optional[str] = None, task_id: Optional[str] = "", form_id: Optional[str] = "", page_name: Optional[str] = None) -> str:
@@ -266,3 +368,5 @@ class HTMLRenderer:
         return initial_state
 
     # _get_js_functions and _get_answer_form_html are removed as their logic is now in ui_components
+
+
