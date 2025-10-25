@@ -52,6 +52,10 @@ class ProblemBuilder:
             Problem: A populated Problem instance.
         """
         logger.debug(f"Building Problem instance for ID: {problem_id}")
+        
+        # Конвертируем Path в строку, если он предоставлен
+        raw_html_path_str = str(raw_html_path) if raw_html_path is not None else None
+        
         return Problem(
             problem_id=problem_id,
             subject=subject,
@@ -64,8 +68,9 @@ class ProblemBuilder:
             skills=None,  # Placeholder
             difficulty=difficulty,
             source_url=source_url,
-            raw_html_path=raw_html_path,
+            raw_html_path=raw_html_path_str,  # Передаём строку
             created_at=datetime.now(),
             updated_at=None,  # Placeholder
             metadata=metadata
         )
+
