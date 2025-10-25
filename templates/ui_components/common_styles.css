@@ -1,0 +1,36 @@
+.processed_qblock {margin:20px;padding:10px;border:1px solid #ccc;}
+img{max-width:100%;height:auto;}
+.answer-form { margin-top: 10px; padding: 10px; background-color: #f9f9f9; border: 1px solid #ddd; }
+.math-buttons { margin-top: 5px; display: none; } /* Скрыто по умолчанию */
+.math-buttons.active { display: block; } /* Показывается при добавлении класса 'active' */
+.math-buttons button { margin: 2px; padding: 3px 6px; font-size: 12px; }
+/* Добавим стили для информационного блока */
+.task-info-content { margin-top: 10px; padding: 10px; background-color: #eef; border: 1px solid #ccc; display: none; } /* Скрыт по умолчанию */
+.show-info .task-info-content { display: block; } /* Показывается при добавлении класса show-info */
+.info-button { display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; background-color: #ccc; color: white; border-radius: 50%; cursor: pointer; margin-left: 10px; }
+/* Стили для таблицы информации */
+.task-info-content table { width: 100%; border-collapse: collapse; }
+.task-info-content td { border: 1px solid #ccc; padding: 5px; vertical-align: top; }
+.task-info-content .param-name { font-weight: bold; width: 150px; background-color: #eee; }
+.toggle-math-btn { margin-bottom: 5px; }
+/* Стили для статуса задания */
+.task-status {
+    margin-top: 5px;
+    padding: 5px;
+    font-weight: bold;
+}
+.task-status-2 { /* Incorrect */
+    background-color: #ffe6e6;
+    color: #d00;
+    border: 1px solid #ffcccc;
+}
+.task-status-3 { /* Correct */
+    background-color: #e6ffe6;
+    color: #080;
+    border: 1px solid #ccffcc;
+}
+.task-status-error { /* Error */
+    background-color: #fff0e6;
+    color: #ff6600;
+    border: 1px solid #ffccaa;
+}

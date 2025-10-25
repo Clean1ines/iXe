@@ -1,0 +1,8 @@
+<form class="answer-form" onsubmit="submitAnswerAndCheck(event, {{ block_index }})">
+  <label for="answer_{{ block_index }}">Ваш ответ:</label>
+  <input type="text" id="answer_{{ block_index }}" name="answer" maxlength="250" size="40" placeholder="Введите/соберите ответ">
+  <button type="button" class="toggle-math-btn" onclick="toggleMathButtons(this)">Показать/скрыть математические символы</button>
+  {{ math_buttons_renderer.render(block_index, active=False) | safe }}
+  <button type="submit">Отправить ответ</button>
+</form>
+<div class="task-status" id="task-status-{{ block_index }}"></div>

@@ -1,3 +1,4 @@
+# processors/html_renderer.py
 """
 Module for rendering scraped data into HTML format.
 
@@ -188,7 +189,7 @@ class HTMLRenderer:
                 "<!DOCTYPE html>\n<html lang='ru'>\n<head>\n<meta charset='utf-8'>\n",
                 f"<title>FIPI Block {block_index}</title>\n",  # Different title
                 f"<style>{cleaned_css}</style>\n",
-                "<script src='  https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
+                "<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
                 # Insert the INITIAL_PAGE_STATE variable before COMMON_JS_FUNCTIONS
                 initial_state_js,
                 "<script>\n",
