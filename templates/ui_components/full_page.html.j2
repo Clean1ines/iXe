@@ -1,0 +1,25 @@
+{% extends "base_page.html.j2" %}
+
+{% block title %}FIPI Page {{ page_data.page_name }}{% endblock %}
+{% block header_title %}ЕГЭ: {{ page_data.subject_name | default('Subject') }} (Страница {{ page_data.page_name }}){% endblock %}
+
+{% block extra_head %}
+{{ initial_state_js | safe }}
+<script>
+{{ common_js_functions | safe }}
+</script>
+{% endblock %}
+
+{% block content %}
+<section class="tasks-list">
+    {% for task_block in task_blocks %}
+    <article class="task-item" id="task-{{ task_block.index }}">
+        {{ task_block.html | safe }}
+    </article>
+    {% endfor %}
+</section>
+{% endblock %}
+
+{% block footer_extra %}
+<p>Всего заданий на странице: {{ task_blocks | length }}</p>
+{% endblock %}

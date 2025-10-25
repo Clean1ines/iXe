@@ -3,7 +3,7 @@
 Module for rendering scraped data into HTML format.
 
 This module provides the `HTMLRenderer` class which takes processed data
-from the scraper and generates a complete HTML document.
+from the scraper and generates a complete HTML document using Jinja2 templates.
 It now delegates UI component rendering to `ui_components.py`.
 """
 
@@ -15,17 +15,20 @@ from typing import Dict, Any, Optional
 # NEW: Import DatabaseManager
 from utils.database_manager import DatabaseManager
 from . import ui_components  # Импортируем модуль с компонентами
+# NEW: Import Jinja2 components
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
 class HTMLRenderer:
     """
-    A class to render assignment data into an HTML string.
+    A class to render assignment data into an HTML string using Jinja2 templates.
 
-    This class takes the dictionary of data produced by the scraper and
-    generates a single HTML file containing the assignments, MathJax for
-    rendering formulas, and interactive answer forms.
+    This class takes the dictionary of data produced by the scraper,
+    prepares context data, and renders it using Jinja2 templates to generate
+    complete HTML documents containing assignments, MathJax, and interactive forms.
     """
 
     # CHANGED: Constructor now accepts a DatabaseManager instance
@@ -43,9 +46,19 @@ class HTMLRenderer:
         self._db_manager = db_manager  # NEW: Store the database manager instance
         logger.debug("HTMLRenderer initialized with DatabaseManager instance.")
 
+        # --- Jinja2 Setup for HTMLRenderer ---
+        self._templates_dir = Path(__file__).parent.parent / "templates" / "ui_components"
+        self._jinja_env = Environment(
+            loader=FileSystemLoader(self._templates_dir),
+            autoescape=select_autoescape(['html', 'xml'])
+        )
+        logger.debug(f"Jinja2 Environment for HTMLRenderer initialized with template directory: {self._templates_dir}")
+        # --------------------------------------
+
     def render(self, data: Dict[str, Any], page_name: str) -> str:
         """
-        Renders the provided data dictionary into an HTML string for the entire page.
+        Renders the provided data dictionary into an HTML string for the entire page
+        using the 'full_page.html.j2' template.
 
         Args:
             data (Dict[str, Any]): The data dictionary from the scraper.
@@ -71,49 +84,39 @@ class HTMLRenderer:
             blocks_html = data.get("blocks_html", [])
             # task_metadata is already used above
 
-            # Use the common CSS and JS from ui_components
-            cleaned_css = self._clean_css(ui_components.COMMON_CSS)
-
-            # Generate JS for inserting the global variable INITIAL_PAGE_STATE
+            # Prepare data for the template
+            page_data = {"page_name": page_name, "subject_name": "ЕГЭ"} # Assuming a default or parsing page_name for subject
             initial_state_json = json.dumps(initial_state, ensure_ascii=False, indent=2)
             initial_state_js = f"<script>\nvar INITIAL_PAGE_STATE = {initial_state_json};\n</script>\n"
 
-            # Start building the HTML string
-            html_parts = [
-                "<!DOCTYPE html>\n<html lang='ru'>\n<head>\n<meta charset='utf-8'>\n",
-                f"<title>FIPI Page {page_name}</title>\n",
-                f"<style>{cleaned_css}</style>\n",
-                "<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
-                # Insert the INITIAL_PAGE_STATE variable before COMMON_JS_FUNCTIONS
-                initial_state_js,
-                "<script>\n",
-                ui_components.COMMON_JS_FUNCTIONS,  # Use the common JS functions
-                "</script>\n",
-                "</head>\n<body>\n"
-            ]
-
-            logger.debug(f"Starting to process {len(blocks_html)} blocks for page {page_name}.")
+            # Process each block to create the required structure for the template
+            task_blocks_data = []
             for idx, block_html in enumerate(blocks_html):
                 # Get metadata for the current block
                 metadata = task_metadata[idx] if idx < len(task_metadata) else {}
                 task_id = metadata.get('task_id', '')
                 form_id = metadata.get('form_id', '')
 
-                # Embed task_id and form_id as data attributes in the div.processed_qblock
-                # Also use the id attribute to identify the block
-                block_wrapper_start = f"<div class='processed_qblock' id='processed_qblock_{idx}' data-task-id='{task_id}' data-form-id='{form_id}'>\n"
-
                 # Render the answer form for this block
                 form_html = self._answer_form_renderer.render(idx)
-                # Wrap each block in a div and add the interactive form
-                # The scraper should have already included the info content and button in block_html
-                # We just add the form after the block content
-                full_block_html = f"{block_wrapper_start}{block_html}\n{form_html}\n</div>\n<hr>\n"
-                html_parts.append(full_block_html)
-                logger.debug(f"Processed block {idx} for page {page_name}.")
+                # Create the wrapper HTML for the block
+                block_wrapper_html = f"<div class='processed_qblock' id='processed_qblock_{idx}' data-task-id='{task_id}' data-form-id='{form_id}'>{block_html}\n{form_html}\n</div>\n<hr>\n"
+                task_blocks_data.append({"index": idx, "html": block_wrapper_html})
 
-            html_parts.append("</body>\n</html>")
-            result_html = "".join(html_parts)
+            # Prepare the context for the Jinja2 template
+            template_context = {
+                "page_data": page_data,
+                "task_blocks": task_blocks_data,
+                "initial_state_js": initial_state_js,
+                "common_css": ui_components.COMMON_CSS,
+                "common_js_functions": ui_components.COMMON_JS_FUNCTIONS,
+                "lang": "ru"
+            }
+
+            # Render the template
+            template = self._jinja_env.get_template("full_page.html.j2")
+            result_html = template.render(template_context)
+
             logger.info(f"Successfully rendered HTML for page {page_name}, length: {len(result_html)} characters.")
             return result_html
         except Exception as e:
@@ -122,7 +125,7 @@ class HTMLRenderer:
 
     def render_block(self, block_html: str, block_index: int, asset_path_prefix: Optional[str] = None, task_id: Optional[str] = "", form_id: Optional[str] = "", page_name: Optional[str] = None) -> str:
         """
-        Renders a single assignment block HTML string.
+        Renders a single assignment block HTML string using the 'single_block_page.html.j2' template.
 
         Args:
             block_html (str): The raw HTML content of the assignment block.
@@ -154,14 +157,11 @@ class HTMLRenderer:
 
 
             # Use the common CSS and JS from ui_components
-            cleaned_css = self._clean_css(ui_components.COMMON_CSS)
-
             # Adjust asset paths in block_html if prefix is provided
             processed_block_html = block_html
             if asset_path_prefix:
                 # Example regex for <img src="..."> and <a href="...">
                 # This is a basic example, might need refinement for other tags/attributes
-                import re
                 # FIXED: The regex now carefully captures only the src or href attribute
                 # It looks for src="assets/..." or href="assets/..." (or with single quotes)
                 # (\1) - captures src=" or href=" or src=' or href='
@@ -181,29 +181,32 @@ class HTMLRenderer:
 
                 processed_block_html = re.sub(pattern, replace_path, block_html)
 
-            # Generate JS for inserting the global variable INITIAL_PAGE_STATE
+            # Prepare data for the template
             initial_state_json = json.dumps(initial_state, ensure_ascii=False, indent=2)
             initial_state_js = f"<script>\nvar INITIAL_PAGE_STATE = {initial_state_json};\n</script>\n"
 
-            html_parts = [
-                "<!DOCTYPE html>\n<html lang='ru'>\n<head>\n<meta charset='utf-8'>\n",
-                f"<title>FIPI Block {block_index}</title>\n",  # Different title
-                f"<style>{cleaned_css}</style>\n",
-                "<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML'></script>\n",
-                # Insert the INITIAL_PAGE_STATE variable before COMMON_JS_FUNCTIONS
-                initial_state_js,
-                "<script>\n",
-                ui_components.COMMON_JS_FUNCTIONS,
-                "</script>\n",
-                "</head>\n<body>\n",
-                # Wrap the single block (with potentially adjusted paths)
-                # Embed task_id and form_id as data attributes in the div.processed_qblock
-                f"<div class='processed_qblock' id='processed_qblock_{block_index}' data-task-id='{task_id}' data-form-id='{form_id}'>\n{processed_block_html}\n",
-                # Add the form for this specific block
-                self._answer_form_renderer.render(block_index),
-                "\n</div>\n</body>\n</html>"
-            ]
-            result_html = "".join(html_parts)
+            # Render the answer form for this block
+            form_html = self._answer_form_renderer.render(block_index)
+            # Create the wrapper HTML for the block
+            wrapped_block_html = f"<div class='processed_qblock' id='processed_qblock_{block_index}' data-task-id='{task_id}' data-form-id='{form_id}'>{processed_block_html}\n{form_html}\n</div>"
+
+            # Prepare the context for the Jinja2 template
+            template_context = {
+                "block_data": {
+                    "block_index": block_index,
+                    "task_id": task_id,
+                    "html": wrapped_block_html
+                },
+                "initial_state_js": initial_state_js,
+                "common_css": ui_components.COMMON_CSS,
+                "common_js_functions": ui_components.COMMON_JS_FUNCTIONS,
+                "lang": "ru"
+            }
+
+            # Render the template
+            template = self._jinja_env.get_template("single_block_page.html.j2")
+            result_html = template.render(template_context)
+
             logger.info(f"Successfully rendered HTML for block {block_index}, length: {len(result_html)} characters.")
             return result_html
         except Exception as e:
@@ -263,4 +266,3 @@ class HTMLRenderer:
         return initial_state
 
     # _get_js_functions and _get_answer_form_html are removed as their logic is now in ui_components
-

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="{{ lang | default('ru') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ title | default('FIPI Parser') }}{% endblock %}</title>
+    <style>
+        {{ common_css | safe }}
+        /* Добавим базовые стили для адаптивности и макета */
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background-color: #fff; padding: 20px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+        header, footer { text-align: center; padding: 10px 0; border-bottom: 1px solid #eee; border-top: 1px solid #eee; margin-bottom: 20px; }
+        main { /* Основное содержимое */ }
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .container { padding: 10px; }
+        }
+    </style>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{% block header_title %}{{ header_title | default('FIPI Parser') }}{% endblock %}</h1>
+            {% block header_extra %}{% endblock %}
+        </header>
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+        <footer>
+            <p>&copy; 2025 FIPI Parser. Данные взяты с <a href="https://fipi.ru" target="_blank" rel="noopener noreferrer">fipi.ru</a>.</p>
+            {% block footer_extra %}{% endblock %}
+        </footer>
+    </div>
+    {% block extra_body_end %}{% endblock %}
+</body>
+</html>

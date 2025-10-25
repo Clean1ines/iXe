@@ -123,7 +123,7 @@ class TestHTMLRenderer(unittest.TestCase):
         block_index = 5
         # CHANGED: render_block might now take page_name, task_id, form_id
         result = self.renderer.render_block(block_html, block_index)
-        self.assertIn(f"<title>FIPI Block {block_index}</title>", result)
+        self.assertIn(f"<title>FIPI Задание {block_index}</title>", result)
 
     def test_render_block_includes_mathjax_script(self):
         """Test that the rendered block HTML includes the MathJax script tag."""
