@@ -216,15 +216,16 @@ class PageProcessingOrchestrator:
                         logger.warning(f"Failed to download image {clean_img_src} for assignment pair {block_index} on page {page_num}.")
 
         # Initialize and apply processors
-        image_proc = ImageScriptProcessor(downloader)
-        file_proc = FileLinkProcessor(downloader)
+        image_proc = ImageScriptProcessor() # Создаем экземпляр без аргументов
+        file_proc = FileLinkProcessor()    # Создаем экземпляр без аргументов
         info_proc = TaskInfoProcessor()
         input_remover = InputFieldRemover()
         math_remover = MathMLRemover()
         unwanted_remover = UnwantedElementRemover()
 
-        combined_soup, new_imgs = image_proc.process(combined_soup, page_assets_dir.parent)
-        combined_soup, new_files = file_proc.process(combined_soup, page_assets_dir.parent)
+        # Передаем downloader как аргумент в process методы
+        combined_soup, new_imgs = image_proc.process(combined_soup, page_assets_dir.parent, downloader=downloader)
+        combined_soup, new_files = file_proc.process(combined_soup, page_assets_dir.parent, downloader=downloader)
         combined_soup = input_remover.process(combined_soup)
         combined_soup = math_remover.process(combined_soup)
 
@@ -240,7 +241,7 @@ class PageProcessingOrchestrator:
             if info_button:
                 header_soup_temp = BeautifulSoup('', 'html.parser')
                 header_soup_temp.append(task_header_panel)
-                header_soup_temp = info_proc.process(header_soup_temp)
+                header_soup_temp = info_proc.process(header_soup_temp, page_assets_dir.parent)
                 task_header_panel = header_soup_temp.find('div', class_='task-header-panel')
                 logger.debug(f"Processed task-info for assignment pair {block_index}.")
             combined_soup.append(task_header_panel.extract())
@@ -249,7 +250,7 @@ class PageProcessingOrchestrator:
             logger.warning(f"No task-header-panel found in header container for assignment pair {block_index}")
 
         # Apply UnwantedElementRemover AFTER extracting task_id/form_id
-        combined_soup = unwanted_remover.process(combined_soup)
+        combined_soup = unwanted_remover.process(combined_soup, page_assets_dir.parent)
 
         # Remove all remaining scripts
         for script_tag in combined_soup.find_all('script'):
