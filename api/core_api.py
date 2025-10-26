@@ -10,31 +10,37 @@ from fastapi.responses import JSONResponse
 
 from utils.database_manager import DatabaseManager
 from models.problem_schema import Problem
+from utils.local_storage import LocalStorage
+from utils.answer_checker import FIPIAnswerChecker
 
 logger = logging.getLogger(__name__)
 
 
-def create_core_app(db_manager: DatabaseManager) -> FastAPI:
+def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker: FIPIAnswerChecker) -> FastAPI:
     """
     Factory function to create the core FastAPI application instance.
 
     This app provides MVP endpoints for quizzes, answer checking, and plan generation.
-    It uses dependency injection to access the DatabaseManager.
+    It uses dependency injection to access the DatabaseManager, LocalStorage, and FIPIAnswerChecker.
 
     Args:
         db_manager (DatabaseManager): An instance of DatabaseManager for data access.
+        storage (LocalStorage): An instance of LocalStorage for caching answers.
+        checker (FIPIAnswerChecker): An instance of FIPIAnswerChecker for validating answers.
 
     Returns:
         FastAPI: Configured FastAPI application instance.
     """
     app = FastAPI(
         title="FIPI Core API (MVP)",
-        description="API for quiz generation, answer checking, and study planning. MVP implementation with stubs.",
+        description="API for quiz generation, answer checking, and study planning. MVP implementation.",
         version="0.1.0"
     )
 
-    # Store the injected dependency
+    # Store the injected dependencies
     app.state.db_manager = db_manager
+    app.state.storage = storage
+    app.state.checker = checker
 
     @app.get("/")
     async def root() -> Dict[str, str]:
@@ -153,47 +159,69 @@ def create_core_app(db_manager: DatabaseManager) -> FastAPI:
     @app.post("/answer")
     async def check_answer(request: Request) -> Dict[str, Any]:
         """
-        Checks a single user answer against the correct one.
+        Checks a single user answer against the correct one using FIPIAnswerChecker.
+        Caches the result using LocalStorage.
 
         Args:
             request (Request): The incoming request object containing JSON payload.
-                Expected payload: {"problem_id": "...", "user_answer": "..."}
+                Expected payload: {"problem_id": "...", "user_answer": "...", "form_id": "..."}
 
         Returns:
             Dict[str, Any]: A dictionary containing the verdict, score, hint, evidence, and explanation ID.
-                Format: {"verdict": "correct|incorrect|insufficient_data", "score_float": 0.0, "short_hint": "...", "evidence": [], "deep_explanation_id": null}
+                Format: {"verdict": "correct|incorrect|error", "score_float": 0.0, "short_hint": "...", "evidence": [], "deep_explanation_id": null}
         """
         try:
-            payload = await request.json()
-            problem_id = payload.get("problem_id")
-            user_answer = payload.get("user_answer")
+            request_data = await request.json()
+            problem_id = request_data.get("problem_id")
+            user_answer = request_data.get("user_answer")
+            form_id = request_data.get("form_id") # Required for FIPI checker
 
-            if not problem_id or user_answer is None:
-                raise HTTPException(status_code=422, detail="problem_id and user_answer are required")
+            if not problem_id or user_answer is None or not form_id:
+                raise HTTPException(status_code=422, detail="problem_id, user_answer, and form_id are required")
 
             logger.info(f"Checking answer for problem '{problem_id}'. User answer length: {len(user_answer)}")
 
-            # Placeholder logic for checking answer
-            # In a real implementation, this would fetch the correct answer from the database
-            # and compare it using a more sophisticated method.
-            import random
-            verdict = random.choice(["correct", "incorrect"])
-            score_float = 1.0 if verdict == "correct" else 0.0
-            short_hint = "Ваш ответ верен." if verdict == "correct" else "Ваш ответ неверен."
-            evidence = []  # Placeholder
-            deep_explanation_id = None  # Placeholder
+            # Retrieve dependencies from app state
+            storage: LocalStorage = request.app.state.storage
+            checker: FIPIAnswerChecker = request.app.state.checker
+
+            # Check if the answer is already cached
+            stored_answer, stored_status = storage.get_answer_and_status(problem_id)
+            if stored_answer is not None and stored_status in ["correct", "incorrect"]:
+                logger.info(f"Answer for {problem_id} found in cache: {stored_status}")
+                return {
+                    "verdict": stored_status,
+                    "score_float": 1.0 if stored_status == "correct" else 0.0,
+                    "short_hint": "Ответ загружен из кэша.",
+                    "evidence": [],
+                    "deep_explanation_id": None
+                }
+
+            # If not cached or status is 'not_checked', perform the check
+            check_result = await checker.check_answer(problem_id, form_id, user_answer)
+            status = check_result["status"]
+            message = check_result["message"]
+
+            # Save the result to storage
+            storage.save_answer_and_status(problem_id, user_answer, status)
+
+            # Prepare the response based on the check result
+            score_float = 1.0 if status == "correct" else (0.0 if status == "incorrect" else -1.0)
 
             response = {
-                "verdict": verdict,
+                "verdict": status,
                 "score_float": score_float,
-                "short_hint": short_hint,
-                "evidence": evidence,
-                "deep_explanation_id": deep_explanation_id
+                "short_hint": message,
+                "evidence": [],
+                "deep_explanation_id": None
             }
 
-            logger.info(f"Answer for problem '{problem_id}' checked. Verdict: {verdict}.")
+            logger.info(f"Answer for problem '{problem_id}' checked. Verdict: {status}.")
             return response
 
+        except HTTPException:
+            # Re-raise HTTP exceptions (like 422)
+            raise
         except Exception as e:
             logger.error(f"Error checking answer for problem '{problem_id}': {e}", exc_info=True)
             raise HTTPException(status_code=500, detail="Internal server error while checking answer")

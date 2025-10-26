@@ -4,13 +4,17 @@
 import unittest
 import tempfile
 import os
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import MagicMock
+from unittest.mock import AsyncMock # Импортируем AsyncMock
 
 from fastapi.testclient import TestClient
 from api.core_api import create_core_app
 from utils.database_manager import DatabaseManager
 from models.problem_schema import Problem
 from datetime import datetime
+from utils.local_storage import LocalStorage
+from utils.answer_checker import FIPIAnswerChecker
 
 
 class TestCoreAPI(unittest.TestCase):
@@ -60,14 +64,34 @@ class TestCoreAPI(unittest.TestCase):
         )
         cls.db_manager.save_problems([test_problem_1, test_problem_2])
 
+        # Создаём mock-объекты для LocalStorage и FIPIAnswerChecker
+        # Используем временный файл для LocalStorage, конвертируя строку в Path
+        cls.temp_storage_fd, temp_storage_path_str = tempfile.mkstemp(suffix='.json')
+        os.close(cls.temp_storage_fd)
+        cls.temp_storage_path = Path(temp_storage_path_str)
+        cls.storage = LocalStorage(cls.temp_storage_path)
+
+        # FIPIAnswerChecker мокаем, чтобы не делать реальные HTTP-запросы
+        # Используем AsyncMock для асинхронного метода check_answer
+        cls.checker = MagicMock(spec=FIPIAnswerChecker)
+        # cls.checker.check_answer = MagicMock(return_value=expected_check_result) # СТАРОЕ НЕПРАВИЛЬНОЕ
+        # cls.checker.check_answer = AsyncMock(return_value=expected_check_result) # ПРАВИЛЬНОЕ для Python 3.8+
+        # В Python 3.7 AsyncMock не встроен. Используем AsyncMock из pytest-asyncio или альтернативу.
+        # В Pytest документации есть пример, как обойтись без AsyncMock в простых случаях.
+        # Но для чистоты эксперимента и соответствия реальности, лучше использовать AsyncMock.
+        # Так как unittest.mock в Python 3.8+ включает AsyncMock, и проект использует Python 3.12,
+        # мы можем его использовать напрямую.
+        cls.checker.check_answer = AsyncMock()
+
         # Создаём приложение и клиент
-        cls.app = create_core_app(cls.db_manager)
+        cls.app = create_core_app(cls.db_manager, cls.storage, cls.checker)
         cls.client = TestClient(cls.app)
 
     @classmethod
     def tearDownClass(cls):
-        # Удаляем временный файл базы данных
+        # Удаляем временные файлы базы данных и хранилища
         os.unlink(cls.temp_db_path)
+        os.unlink(cls.temp_storage_path)
 
     def test_root_endpoint(self):
         """Тестирует корневой эндпоинт."""
@@ -123,7 +147,16 @@ class TestCoreAPI(unittest.TestCase):
 
     def test_post_answer(self):
         """Тестирует эндпоинт проверки ответа."""
-        payload = {"problem_id": "p1", "user_answer": "test_answer"}
+        # Подготовим мок, чтобы он возвращал определённый результат
+        expected_check_result = {
+            "status": "correct",
+            "message": "Верно!",
+            "raw_response": "..."  # Не важно для теста
+        }
+        # Устанавливаем возвращаемое значение для мока
+        self.checker.check_answer.return_value = expected_check_result
+
+        payload = {"problem_id": "test_001", "user_answer": "4", "form_id": "form123"}
         response = self.client.post("/answer", json=payload)
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -143,8 +176,18 @@ class TestCoreAPI(unittest.TestCase):
         # deep_explanation_id может быть None или строкой
         self.assertTrue(data["deep_explanation_id"] is None or isinstance(data["deep_explanation_id"], str))
 
-        # Проверяем, что verdict - один из ожидаемых
-        self.assertIn(data["verdict"], ["correct", "incorrect", "insufficient_data"])
+        # Проверяем, что возвращаемые значения соответствуют ожидаемому результату проверки
+        self.assertEqual(data["verdict"], expected_check_result["status"])
+        self.assertEqual(data["score_float"], 1.0)  # Для "correct"
+        self.assertEqual(data["short_hint"], expected_check_result["message"])
+
+        # Проверяем, что мок был вызван с правильными аргументами
+        self.checker.check_answer.assert_called_once_with("test_001", "form123", "4")
+
+        # Проверяем, что ответ был сохранён в storage
+        saved_answer, saved_status = self.storage.get_answer_and_status("test_001")
+        self.assertEqual(saved_answer, "4")
+        self.assertEqual(saved_status, "correct")
 
     def test_post_plan_generate(self):
         """Тестирует эндпоинт генерации плана."""
