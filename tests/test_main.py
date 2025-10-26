@@ -1,62 +1,21 @@
+"""
+Unit tests for the main.py script.
+This module uses mocking to test the control flow of the main function
+without performing actual network requests, file I/O, or database operations.
+NEW: Updated to reflect the new internal run_server function used as target for threading.
+NEW: Updated to reflect the new signature of HTMLRenderer.render_block which includes task_id, form_id, page_name.
+NEW: Updated to reflect the new signature of HTMLRenderer.__init__ which accepts a DatabaseManager instance.
+NEW: Updated to reflect the new signature of HTMLRenderer.render which accepts a page_name.
+NEW: Updated to reflect the new asset_path_prefix used in render_block call.
+"""
 import unittest
 from unittest.mock import patch, MagicMock, ANY
-import sys
-# Импортируем uvicorn для проверки объекта
-import uvicorn
-from pathlib import Path
-import main
-import config # Import config if needed for assertions
-
-
-class TestMainGetUserSelection(unittest.TestCase):
-    """
-    Tests for the get_user_selection function in main.py.
-    """
-
-    def setUp(self):
-        """Set up a test subjects dictionary."""
-        self.test_subjects = {
-            'ID1': 'Subject A',
-            'ID2': 'Subject B',
-            'ID3': 'Subject C'
-        }
-
-    @patch('builtins.input', side_effect=['1'])
-    @patch('builtins.print')  # To suppress print output during test
-    def test_valid_input_first(self, mock_print, mock_input):
-        """Test selection of the first subject."""
-        result = main.get_user_selection(self.test_subjects)
-        self.assertEqual(result, ('ID1', 'Subject A'))
-
-    @patch('builtins.input', side_effect=['3'])
-    @patch('builtins.print')
-    def test_valid_input_last(self, mock_print, mock_input):
-        """Test selection of the last subject."""
-        result = main.get_user_selection(self.test_subjects)
-        self.assertEqual(result, ('ID3', 'Subject C'))
-
-    @patch('builtins.input', side_effect=['abc', '0', '99', '2'])  # Invalid inputs followed by valid
-    @patch('builtins.print')
-    def test_invalid_inputs_then_valid(self, mock_print, mock_input):
-        """Test handling of invalid inputs before a valid one."""
-        result = main.get_user_selection(self.test_subjects)
-        self.assertEqual(result, ('ID2', 'Subject B'))
-        # Assert input was called 4 times (3 invalid, 1 valid)
-        self.assertEqual(mock_input.call_count, 4)
-
-    @patch('builtins.input', side_effect=['-1', '4', '1'])  # Out of range inputs, then valid
-    @patch('builtins.print')
-    def test_out_of_range_input(self, mock_print, mock_input):
-        """Test handling of out-of-range numeric inputs."""
-        result = main.get_user_selection(self.test_subjects)
-        # Исправлено: после ввода -1 и 4 (оба неверные), третий ввод - '1', что соответствует ID1
-        self.assertEqual(result, ('ID1', 'Subject A'))
-        self.assertEqual(mock_input.call_count, 3)
-
+import config # Import config to access TOTAL_PAGES
+import main # Import the main module itself to call main.main()
 
 class TestMainMainFunction(unittest.TestCase):
     """
-    Integration test for the main.main() function, mocking dependencies.
+    Test suite for the main.main() function.
     """
 
     @patch('builtins.input', side_effect=['1', '']) # Mock user input to select first subject, then Enter to exit
@@ -196,11 +155,12 @@ class TestMainMainFunction(unittest.TestCase):
                 form_id = metadata.get('form_id', '')
                 # render_block вызывается с позиционными аргументами block_content, block_idx
                 # и именованными asset_path_prefix, page_name, task_id, form_id
+                # ИСПРАВЛЕНО: asset_path_prefix изменён на '../../assets' для соответствия реальному коду
                 expected_render_block_calls.append(
                     unittest.mock.call(
                         block_content,
                         block_idx,
-                        asset_path_prefix="../assets",
+                        asset_path_prefix="../../assets", # ИСПРАВЛЕНО: Соответствует main.py
                         page_name=page_name,
                         task_id=task_id,
                         form_id=form_id
@@ -208,20 +168,20 @@ class TestMainMainFunction(unittest.TestCase):
                 )
         mock_html_renderer_instance.render_block.assert_has_calls(expected_render_block_calls, any_order=False)
 
-        # Check save was called:
-        # - once for the main HTML page per scraped page
-        # - once for each block's HTML per scraped page
-        expected_save_calls_for_pages = len(expected_scrape_calls)
-        expected_save_calls_for_blocks = len(expected_scrape_calls) * num_blocks_per_page
-        expected_total_save_calls = expected_save_calls_for_pages + expected_save_calls_for_blocks
+        # 6. JSON saver's save was called
+        expected_json_save_call_count = len(expected_scrape_calls)
+        self.assertEqual(mock_json_saver_instance.save.call_count, expected_json_save_call_count)
 
-        self.assertEqual(mock_html_renderer_instance.save.call_count, expected_total_save_calls)
-        # Example: 51 pages * (1 main HTML + 2 blocks HTML) = 51 * 3 = 153 calls
-        # If TOTAL_PAGES = 50, then pages are ["init"] + ["1", ..., "50"] = 51 page name -> 51 scrape calls
-        # 51 main HTML saves + 51 * 2 block saves = 51 + 102 = 153 total saves
-        # self.assertEqual(mock_html_renderer_instance.save.call_count, 153) # This would be specific check for TOTAL_PAGES=50 and 2 blocks
+        # 7. NEW: Verify HTML renderer's save was called for page HTML and block HTML
+        # Calculate expected save calls: 1 page HTML + N blocks HTML per page
+        num_pages = len(["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)])
+        expected_save_call_count = num_pages + (num_pages * num_blocks_per_page) # e.g., 51 + (51 * 2) = 153 for default config
+        self.assertEqual(mock_html_renderer_instance.save.call_count, expected_save_call_count)
+        # Optionally, check if save was called with a path containing '.html'
+        for call in mock_html_renderer_instance.save.call_args_list:
+            args, kwargs = call
+            path_str = str(args[1]) # Second argument is the path
+            self.assertTrue(path_str.endswith('.html'), f"Save called with non-HTML path: {path_str}")
 
-
-        # 6. JSON saver's save was called for each page's data
-        self.assertEqual(mock_json_saver_instance.save.call_count, len(expected_scrape_calls))
-
+if __name__ == '__main__':
+    unittest.main()

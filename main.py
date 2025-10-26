@@ -1,6 +1,5 @@
 """
 Main entry point for the FIPI Parser application.
-
 This script orchestrates the scraping process:
 1. Loads configuration.
 2. Fetches available subjects from the FIPI website.
@@ -8,7 +7,6 @@ This script orchestrates the scraping process:
 4. Scrapes pages for the selected subject.
 5. Processes and saves the data using dedicated modules.
 """
-
 import config
 from scraper import fipi_scraper
 from processors import html_renderer, json_saver
@@ -27,10 +25,8 @@ import os # NEW: Import os for graceful shutdown
 def get_user_selection(subjects_dict):
     """
     Presents a console interface for the user to select a subject.
-
     Args:
         subjects_dict (dict): A dictionary mapping project IDs to subject names.
-
     Returns:
         tuple: The selected (project_id, subject_name).
     """
@@ -135,6 +131,7 @@ def main():
     )
     api_thread.daemon = True # NEW: Daemon thread so it closes with main script
     api_thread.start()
+
     # NEW: Brief wait to allow the thread to attempt startup and potentially log the error before proceeding
     # This wait is minimal as the error (if any) happens almost immediately in the thread
     time.sleep(1)
@@ -148,7 +145,6 @@ def main():
 
     # 5. Scrape and process pages
     page_list = ["init"] + [str(i) for i in range(1, config.TOTAL_PAGES + 1)]
-
     for page_name in page_list:
         print(f"Processing page: {page_name} for subject '{selected_subject_name}'...")
         logger.info(f"Processing page: {page_name} for subject '{selected_subject_name}'...") # NEW: Log page processing
@@ -156,7 +152,6 @@ def main():
             # Scrape raw data for the page - ИСПРАВЛЕНО: передаем run_folder
             # CHANGED: scrape_page now returns (problems, scraped_data)
             problems, scraped_data = scraper.scrape_page(selected_proj_id, page_name, run_folder)
-
             if not scraped_data:
                 logger.warning(f"Warning: No data scraped for page {page_name}. Skipping.") # NEW: Log warning
                 print(f"  Warning: No data scraped for page {page_name}. Skipping.")
@@ -183,12 +178,13 @@ def main():
                 metadata = task_metadata[block_idx] if block_idx < len(task_metadata) else {}
                 task_id = metadata.get('task_id', '')
                 form_id = metadata.get('form_id', '')
+
                 # Generate HTML for a single block using the new method
-                # ИСПРАВЛЕНО: Передаём asset_path_prefix="../assets" для коррекции путей
+                # ИСПРАВЛЕНО: Передаём asset_path_prefix="../../assets" для коррекции путей
                 # CHANGED: render_block now requires task_id, form_id, page_name for initial state
                 block_html_content = html_proc.render_block(
                     block_content, block_idx,
-                    asset_path_prefix="../assets", # Используем новый метод с префиксом
+                    asset_path_prefix="../../assets", # ИСПРАВЛЕНО: Путь относительно init/blocks/
                     task_id=task_id, # NEW: Pass task_id
                     form_id=form_id, # NEW: Pass form_id
                     page_name=page_name # NEW: Pass page_name for potential state loading
@@ -201,12 +197,10 @@ def main():
                 logger.info(f"Saved block HTML: {block_html_file_path.relative_to(run_folder)}") # NEW: Log saving
                 print(f"  Saved block HTML: {block_html_file_path.relative_to(run_folder)}")
 
-
             # Process and save JSON - ИСПРАВЛЕНО: сохраняем в подпапку page_name
             json_file_path = run_folder / page_name / f"{page_name}.json" # JSON в подпапку
             json_proc.save(scraped_data, json_file_path)
             logger.info(f"Saved JSON: {json_file_path.relative_to(run_folder)}") # NEW: Log saving
-
             print(f"  Saved Page HTML: {html_file_path.relative_to(run_folder)}, JSON: {json_file_path.relative_to(run_folder)}")
 
         except Exception as e:
@@ -220,7 +214,6 @@ def main():
 
     print(f"\n--- Parsing completed for '{selected_subject_name}'. Data saved in: {run_folder} ---")
     logger.info(f"Parsing completed for '{selected_subject_name}'. Data saved in: {run_folder}") # NEW: Log completion
-
 
 if __name__ == "__main__":
     main()

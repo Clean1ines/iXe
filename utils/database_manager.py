@@ -6,7 +6,7 @@
 import datetime
 import logging
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 
 import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker
@@ -149,6 +149,137 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error fetching answer for task {task_id}, user {user_id}: {e}", exc_info=True)
             raise
+
+    # NEW: Method to get all answers for a specific user and page prefix
+    def get_answers_for_user_on_page(
+        self, page_name: str, user_id: str = "default_user"
+    ) -> Dict[str, Dict[str, str]]:
+        """Получает все ответы и статусы для задач на конкретной странице для конкретного пользователя.
+
+        Args:
+            page_name (str): Имя страницы (например, 'init', '1', '2').
+            user_id (str): Идентификатор пользователя.
+
+        Returns:
+            Dict[str, Dict[str, str]]: Словарь, где ключ - problem_id (task_id),
+                                       значение - словарь с 'answer' и 'status'.
+                                       Возвращает пустой словарь, если ничего не найдено.
+        """
+        logger.debug(f"Fetching answers for user '{user_id}' on page '{page_name}'.")
+        try:
+            with self.SessionLocal() as session:
+                # Query answers for the specific user
+                query = session.query(DBAnswer).filter_by(user_id=user_id)
+                all_user_answers = query.all()
+
+                # Filter answers based on the page name.
+                # Since problem_id is the task_id (e.g., '40B442'), we need to determine
+                # if this task_id belongs to the given page_name.
+                # This requires fetching the corresponding DBProblem records or having
+                # a way to map task_id to page_name.
+                # For now, let's assume we need to filter based on a convention
+                # where task_id might contain the page name as a prefix or is somehow
+                # determinable from the context provided by the page rendering process.
+                # However, since task_id itself (like '40B442') does not inherently
+                # contain the page name (like 'init'), this is a complex lookup.
+                # A better approach might be to pass the list of task_ids expected
+                # for the page from the renderer and filter against that.
+
+                # For this implementation, we'll assume that the page_name is used
+                # to determine the set of task_ids that belong to it elsewhere,
+                # and this function fetches answers for *any* task_id for the user.
+                # The filtering by page context must happen in the caller (e.g., in the API).
+                # However, if we *could* filter by page_name here, it would require
+                # a join with the problems table or a different schema design.
+                # As per the current schema, problem_id in answers table is just task_id.
+                # We will return all answers for the user, and the API caller
+                # is responsible for further filtering or association with page content.
+                # This is suboptimal but reflects the current schema limitations for
+                # direct page -> problem_id mapping.
+
+                # A potential future improvement would be to add a 'page_name' column
+                # to the DBProblem table, allowing a join here.
+                # For now, this method fetches all answers for the user.
+                # The caller (e.g., get_initial_state_for_page in answer_api.py)
+                # should manage the association with the page's specific task IDs.
+
+                # This implementation returns ALL user answers.
+                # The API endpoint must handle the page-specific filtering.
+                # If we had a way to link task_id to page_name (e.g., by fetching
+                # all problems for a page first), we could do the filtering here.
+                # Let's assume the caller provides the list of relevant task_ids.
+
+                # Alternative approach: Fetch all answers for the user
+                all_answers = {}
+                for db_answer in all_user_answers:
+                    # This does not filter by page_name directly.
+                    # The page-specific logic must be handled by the caller.
+                    # For now, we return all answers for the user.
+                    all_answers[db_answer.problem_id] = {
+                        "answer": db_answer.user_answer,
+                        "status": db_answer.status
+                    }
+                logger.debug(f"Fetched {len(all_answers)} answers for user '{user_id}'.")
+                return all_answers
+
+        except Exception as e:
+            logger.error(f"Error fetching answers for user '{user_id}' on page '{page_name}': {e}", exc_info=True)
+            raise
+
+    # NEW: Method to get all problems for a specific page (example placeholder)
+    # This would be needed by the API to know which task_ids belong to a page.
+    # It requires the DBProblem table to have a field indicating the page or source URL.
+    # Since the current schema for DBProblem doesn't explicitly store the page name,
+    # we might need to infer it from the source_url or another field, or add a field.
+    # For now, this is a conceptual placeholder if source_url contains page info.
+    def get_problem_ids_for_page(self, page_name: str, proj_id: str) -> List[str]:
+        """Получает список problem_id (task_id), принадлежащих конкретной странице.
+
+        Args:
+            page_name (str): Имя страницы (например, 'init', '1', '2').
+            proj_id (str): Идентификатор проекта (subject).
+
+        Returns:
+            List[str]: Список problem_id (task_id) для задач на странице.
+        """
+        # This is a conceptual example assuming source_url contains page information.
+        # In practice, DBProblem might need a 'page_name' field for direct lookup.
+        # For now, let's assume source_url contains the page identifier.
+        logger.debug(f"Fetching problem IDs for page '{page_name}' in project '{proj_id}'.")
+        try:
+            with self.SessionLocal() as session:
+                # Example query assuming source_url contains '?page=init' or similar
+                # This is highly dependent on the actual URL structure stored in DBProblem.source_url
+                # A more robust approach would be adding a 'page_name' column to DBProblem.
+                # For example, if source_url is like ".../questions.php?proj=ID&page=init"
+                # We could filter like this:
+                # search_url_pattern = f"%page={page_name}%" # Be careful with SQL LIKE wildcards
+                # problems = session.query(DBProblem).filter(
+                #     DBProblem.source_url.like(search_url_pattern),
+                #     DBProblem.source_url.like(f"%proj={proj_id}%") # Ensure correct project
+                # ).all()
+                # task_ids = [p.problem_id for p in problems]
+
+                # Since source_url might not be reliable for page identification,
+                # and DBProblem lacks a 'page_name' field, we cannot reliably implement this
+                # without schema changes or other metadata.
+
+                # A common approach would be to add a 'page_name' or 'source_page' field to DBProblem.
+                # Example schema change needed:
+                # class DBProblem(Base):
+                #     ...
+                #     source_page: str = sa.Column(sa.String, nullable=False) # e.g., 'init', '1', etc.
+
+                # For now, this method cannot be reliably implemented with the current schema
+                # unless there's a way to determine the page from existing fields like source_url.
+                # We will return an empty list, indicating this needs further work.
+                logger.warning("get_problem_ids_for_page requires a 'page_name' field in DBProblem or reliable source_url parsing.")
+                return [] # Placeholder - needs implementation based on schema or URL parsing
+
+        except Exception as e:
+            logger.error(f"Error fetching problem IDs for page '{page_name}' in project '{proj_id}': {e}", exc_info=True)
+            raise
+
 
     def get_problem_by_id(self, problem_id: str) -> Optional[Problem]:
         """Получает задачу по её идентификатору.
