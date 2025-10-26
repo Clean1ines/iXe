@@ -30,10 +30,14 @@ class TestProblemSchema(unittest.TestCase):
         self.assertEqual(problem.text, "Solve for x.")
         self.assertEqual(problem.options, ["1", "2", "3", "4"])
         self.assertEqual(problem.answer, "2")
+        self.assertEqual(problem.solutions, [{"id": "sol_1", "text": "Solution text", "author": "author1"}])
         self.assertEqual(problem.difficulty, "medium")
         self.assertEqual(problem.source_url, "http://fipi.ru/test_123")
         self.assertEqual(problem.topics, ["algebra.equations"])
+        self.assertEqual(problem.skills, ["solve_equation"])
         self.assertIsNotNone(problem.created_at)
+        self.assertIsNotNone(problem.updated_at)
+        self.assertEqual(problem.metadata, {"key": "value"})
 
     def test_problem_with_minimal_fields(self):
         """Тест создания задачи только с обязательными полями."""
@@ -57,7 +61,12 @@ class TestProblemSchema(unittest.TestCase):
         self.assertIsNotNone(problem.created_at)
         # Проверяем, что опциональные поля по умолчанию None или []
         self.assertIsNone(problem.options)
+        self.assertIsNone(problem.solutions)
+        self.assertIsNone(problem.skills)
         self.assertIsNone(problem.source_url)
+        self.assertIsNone(problem.raw_html_path)
+        self.assertIsNone(problem.updated_at)
+        self.assertIsNone(problem.metadata)
 
     def test_problem_validation_error(self):
         """Тест ошибки валидации при отсутствии обязательного поля problem_id."""
