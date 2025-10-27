@@ -6,6 +6,8 @@ This script orchestrates the scraping process:
 3. Provides a console interface for the user to select a subject.
 4. Scrapes pages for the selected subject.
 5. Processes and saves the data using dedicated modules.
+OR
+1. Option to run only the API servers without scraping, loading from existing data.
 """
 import config
 from scraper import fipi_scraper
@@ -23,6 +25,7 @@ import threading # NEW: Import threading for API server
 import time # NEW: Import time for waiting
 import uvicorn # NEW: Import uvicorn to run the API server
 import os # NEW: Import os for graceful shutdown
+import glob # NEW: Import glob to find latest run folder
 
 def get_user_selection(subjects_dict):
     """
@@ -52,6 +55,121 @@ def get_user_selection(subjects_dict):
         except ValueError:
             print("Invalid input. Please enter a number.")
 
+def find_latest_run_folder(subject_name):
+    """Finds the latest run folder for a given subject."""
+    logger = logging.getLogger(__name__)
+    safe_subject_name = "".join(c for c in subject_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+    search_pattern = str(config.DATA_ROOT / config.OUTPUT_DIR / f"{safe_subject_name}_*" / "run_*")
+    folders = glob.glob(search_pattern)
+    if not folders:
+        logger.error(f"No run folders found for subject '{subject_name}' matching pattern '{search_pattern}'")
+        print(f"Error: No run folders found for subject '{subject_name}'.")
+        return None
+
+    latest_folder = max(folders, key=os.path.getctime)
+    logger.info(f"Found latest run folder for '{subject_name}': {latest_folder}")
+    return Path(latest_folder)
+
+def run_api_only(selected_subject_name):
+    """
+    Runs the API servers without scraping, loading dependencies from the latest run folder.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Attempting to start API servers for subject: {selected_subject_name}")
+
+    run_folder = find_latest_run_folder(selected_subject_name)
+    if not run_folder:
+        return
+
+    db_path = run_folder / "fipi_data.db"
+    if not db_path.exists():
+        logger.error(f"Database file not found: {db_path}")
+        print(f"Error: Database file not found: {db_path}")
+        return
+
+    # NEW: Initialize DatabaseManager from existing DB
+    logger.info(f"Initializing DatabaseManager from: {db_path}") # NEW: Log initialization
+    db_manager = DatabaseManager(str(db_path))
+    # Note: We assume DB is already initialized from a previous run, so initialize_db() might not be necessary here,
+    # but calling it is safe if it only creates tables if they don't exist.
+    # db_manager.initialize_db()
+
+    # NEW: Initialize LocalStorage from existing file
+    storage_file = run_folder / "answers.json"
+    logger.info(f"Initializing LocalStorage from: {storage_file}") # NEW: Log initialization
+    storage = LocalStorage(storage_file) # NEW: Use run_folder for storage
+
+    # NEW: Initialize AnswerChecker (still needs base URL for API calls, might be okay for checking cached answers too)
+    logger.info("Initializing FIPIAnswerChecker") # NEW: Log initialization
+    checker = FIPIAnswerChecker(base_url=config.FIPI_QUESTIONS_URL)
+
+    # NEW: Create API applications
+    logger.info("Creating Answer API application") # NEW: Log app creation
+    answer_app = create_app(db_manager, checker) # NEW: Pass db_manager and checker to Answer API
+
+    logger.info("Creating Core API application") # NEW: Log app creation
+    core_app = create_core_app(db_manager, storage, checker) # NEW: Pass dependencies to Core API
+
+    # NEW: Define a target function for the thread that handles server startup
+    def run_server(app, host, port, name):
+        try:
+            logger.info(f"Attempting to start {name} server on {host}:{port}...")
+            uvicorn.run(app, host=host, port=port, log_level="info")
+        except OSError as e:
+            if e.errno == 98: # Address already in use
+                logger.error(f"Failed to start {name} server on {host}:{port}: Address already in use ({e.errno}).")
+                print(f"ERROR: Cannot start {name} server on {host}:{port}. Address already in use. Please stop the other process using this port first.")
+                os._exit(1) # Exit the script if port is use
+            else:
+                logger.error(f"Failed to start {name} server on {host}:{port}: {e}")
+                print(f"ERROR: Cannot start {name} server on {host}:{port}. Reason: {e}")
+                os._exit(1) # Exit the script for any other error
+        except Exception as e:
+            logger.error(f"Unexpected error in {name} server thread: {e}", exc_info=True)
+            print(f"ERROR: Unexpected error in {name} server thread: {e}")
+            os._exit(1) # Exit the script for any other error
+
+    # NEW: Start API servers in background threads using the target function
+    # Start Answer API on port 8000
+    logger.info("Starting Answer API server in background thread...")
+    answer_api_thread = threading.Thread(
+        target=run_server,
+        args=(answer_app, "127.0.0.1", 8000, "Answer API")
+    )
+    answer_api_thread.daemon = True # NEW: Daemon thread so it closes with main script
+    answer_api_thread.start()
+
+    # NEW: Brief wait to allow the thread to attempt startup and potentially log the error before proceeding
+    time.sleep(1)
+    logger.info("Answer API server startup process initiated in background thread.")
+
+    # Start Core API on a different port, e.g., 8001
+    logger.info("Starting Core API server in background thread...")
+    core_api_thread = threading.Thread(
+        target=run_server,
+        args=(core_app, "127.0.0.1", 8001, "Core API")
+    )
+    core_api_thread.daemon = True # NEW: Daemon thread so it closes with main script
+    core_api_thread.start()
+
+    # NEW: Brief wait to allow the thread to attempt startup and potentially log the error before proceeding
+    time.sleep(1)
+    logger.info("Core API server startup process initiated in background thread.")
+
+    print(f"\n--- API servers started for '{selected_subject_name}' using data from: {run_folder} ---")
+    logger.info(f"API servers started for '{selected_subject_name}' using data from: {run_folder}")
+
+    # NEW: Keep the main thread alive to allow API servers to run
+    try:
+        print("Press Ctrl+C to stop the API servers and exit.")
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        logger.info("Shutdown signal received.")
+        os._exit(0) # Exit the script when Ctrl+C is pressed
+
+
 def main():
     """
     Main function to run the FIPI parser.
@@ -61,6 +179,19 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info("FIPI Parser Started")
 
+    print("Choose an action:")
+    print("1. Scrape and process a subject (default behavior)")
+    print("2. Run API servers only (using existing data)")
+    choice = input("Enter 1 or 2: ").strip()
+
+    if choice == "2":
+        subject_name = input("Enter the subject name (e.g., 'ЕГЭ Математика'): ").strip()
+        run_api_only(subject_name)
+        return
+    elif choice != "1":
+        print("Invalid choice. Defaulting to scraping (option 1).")
+
+    # --- Original scraping flow starts here ---
     # 1. Initialize Scraper to get subjects
     logger.info("Initializing FIPIScraper")
     scraper = fipi_scraper.FIPIScraper(
@@ -126,7 +257,7 @@ def main():
             else:
                 logger.error(f"Failed to start {name} server on {host}:{port}: {e}")
                 print(f"ERROR: Cannot start {name} server on {host}:{port}. Reason: {e}")
-                os._exit(1) # Exit the script for other OS errors too
+                os._exit(1) # Exit the script for any other error
         except Exception as e:
             logger.error(f"Unexpected error in {name} server thread: {e}", exc_info=True)
             print(f"ERROR: Unexpected error in {name} server thread: {e}")
@@ -250,4 +381,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
