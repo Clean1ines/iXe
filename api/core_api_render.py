@@ -2,12 +2,12 @@
 FastAPI application for Render.com deployment.
 Stateless, read-only version of the core API.
 All user progress is managed by the Telegram Mini App frontend via localStorage.
+Supports fully offline-ready HTML via Problem.offline_html.
 """
 from typing import Any, Dict, List
 import logging
 import uuid
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
 from utils.database_manager import DatabaseManager
 from utils.answer_checker import FIPIAnswerChecker
 from config import FIPI_QUESTIONS_URL
@@ -21,10 +21,14 @@ DB_PATH = "/app/data/fipi_data.db"
 db_manager = DatabaseManager(DB_PATH)
 checker = FIPIAnswerChecker(base_url=FIPI_QUESTIONS_URL)
 
+# Log DB load status at startup
+problem_count = len(db_manager.get_all_problems())
+logger.info(f"✅ Render API started. Loaded {problem_count} problems from {DB_PATH}")
+
 app = FastAPI(
     title="FIPI Core API (Render)",
-    description="Stateless, read-only API for Telegram Mini App. All user data is stored in the client.",
-    version="1.0.0"
+    description="Stateless, read-only API for Telegram Mini App. All user data is stored in the client. Supports offline_html.",
+    version="1.0.1"
 )
 
 @app.get("/")
@@ -34,19 +38,19 @@ async def root() -> Dict[str, str]:
     Returns:
         Dict[str, str]: Simple confirmation that the service is running.
     """
-    return {"message": "FIPI Core API (Render) is running"}
+    return {"message": "FIPI Core API (Render) is running", "problems_loaded": problem_count}
 
 @app.post("/quiz/daily/start")
 async def start_daily_quiz(request: Request) -> Dict[str, Any]:
     """
     Starts a new daily quiz by returning the first 10 problems from the embedded database.
-    This endpoint does not use user context or filters — it's purely read-only.
+    Uses Problem.offline_html if available (for offline-ready rendering), otherwise falls back to Problem.text.
     
     Args:
         request (Request): Incoming request. Payload may contain "page_name" (ignored).
     
     Returns:
-        Dict[str, Any]: Quiz ID and list of quiz items with problem_id, subject, topic, prompt, and input type.
+        Dict[str, Any]: Quiz ID and list of quiz items with problem_id, subject, topic, prompt (HTML), and input type.
     """
     try:
         payload = await request.json()
@@ -60,7 +64,8 @@ async def start_daily_quiz(request: Request) -> Dict[str, Any]:
         items = []
         for problem in problems:
             topic = problem.topics[0] if problem.topics else "general"
-            prompt = problem.text[:200] + "..." if len(problem.text) > 200 else problem.text
+            # Use offline_html if available (base64 images), otherwise fallback to text
+            prompt = problem.offline_html or problem.text
             items.append({
                 "problem_id": problem.problem_id,
                 "subject": problem.subject,

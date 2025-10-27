@@ -222,5 +222,3 @@ class PageProcessingOrchestrator:
                     type_str = f"task_{num}"
                     difficulty_str = "medium"
         return type_str, difficulty_str
-
-

@@ -31,7 +31,7 @@ class ProblemBuilder:
         topics: List[str],
         difficulty: str,
         source_url: str,
-        metadata: Dict[str, Any],
+        meta Dict[str, Any],
         raw_html_path: Optional[Path] = None,
         # --- Поля, добавленные для соответствия модели Problem ---
         options: Optional[List[str]] = None,
@@ -39,6 +39,8 @@ class ProblemBuilder:
         solutions: Optional[List[Dict[str, Any]]] = None,
         skills: Optional[List[str]] = None,
         updated_at: Optional[datetime] = None,
+        # --- NEW: offline-ready HTML fragment ---
+        processed_html_fragment: Optional[str] = None,
         # ----------------------------------------------------------
     ) -> Problem:
         """
@@ -59,11 +61,12 @@ class ProblemBuilder:
             solutions (Optional[List[Dict[str, Any]]]): List of solutions for the problem. Defaults to None.
             skills (Optional[List[str]]): List of skill IDs associated with the problem. Defaults to None.
             updated_at (Optional[datetime]): The last update time for the problem record. Defaults to None.
+            processed_html_fragment (Optional[str]): Self-contained HTML fragment with base64 images for offline use.
 
         Returns:
             Problem: A populated Problem instance.
         """
-        logger.debug(f"Building Problem instance for ID: {problem_id} with all fields, including placeholders for optional data.")
+        logger.debug(f"Building Problem instance for ID: {problem_id} with all fields, including offline_html.")
         
         # Конвертируем Path в строку, если он предоставлен
         raw_html_path_str = str(raw_html_path) if raw_html_path is not None else None
@@ -73,6 +76,7 @@ class ProblemBuilder:
             subject=subject,
             type=type_str,
             text=text,
+            offline_html=processed_html_fragment,
             options=options, # Теперь передаётся из аргументов
             answer=answer, # Теперь передаётся из аргументов
             solutions=solutions, # Теперь передаётся из аргументов

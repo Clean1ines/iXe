@@ -8,6 +8,7 @@ data/**
 !data/fipi_data.db
 problems/
 custom_output/
+frontend/node-modules
 
 # Environment variables file
 .env

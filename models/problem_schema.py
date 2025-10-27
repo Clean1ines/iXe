@@ -16,6 +16,7 @@ class Problem(BaseModel):
         subject (str): Предмет, например, "mathematics", "informatics", "russian".
         type (str): Тип задания по формату ЕГЭ, например, "A", "B", "task_1".
         text (str): Полный текст задачи, включая LaTeX.
+        offline_html (Optional[str]): Self-contained HTML-фрагмент с инлайн-изображениями (base64) для оффлайн-режима.
         options (Optional[List[str]]): Варианты ответа, если применимо. Может быть null.
         answer (str): Эталонный ответ, может быть выражением.
         solutions (Optional[List[Dict[str, Any]]]): Список решений. Каждое решение - это словарь с полями,
@@ -33,6 +34,7 @@ class Problem(BaseModel):
     subject: str
     type: str
     text: str
+    offline_html: Optional[str] = None
     # Поле options может быть null в JSON, поэтому Optional[List[str]] = None корректно.
     options: Optional[List[str]] = None
     answer: str

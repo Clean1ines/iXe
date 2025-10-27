@@ -212,7 +212,8 @@ class BlockProcessor:
             topics=topics,
             difficulty=difficulty_str,
             source_url=source_url,
-            metadata={"original_block_index": block_index, "proj_id": proj_id}
+            metadata={"original_block_index": block_index, "proj_id": proj_id},
+            processed_html_fragment=processed_html_string  # <-- NEW: pass processed HTML for offline use
         )
 
         logger.debug(f"Finished processing block {block_index}.")
@@ -257,4 +258,3 @@ class BlockProcessor:
                     type_str = f"task_{num}"
                     difficulty_str = "medium"
         return type_str, difficulty_str
-

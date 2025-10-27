@@ -7,6 +7,7 @@ All processors implement the `AssetProcessor` interface.
 """
 
 import re
+import base64
 from pathlib import Path
 from typing import Any, Dict, Tuple
 from bs4 import BeautifulSoup
@@ -19,31 +20,30 @@ class ImageScriptProcessor(AssetProcessor):
 
     This processor finds scripts containing ShowPicture function calls,
     downloads the referenced images, and replaces the scripts with img tags.
+    In offline mode, images are embedded as base64 data URIs.
     Implements the `AssetProcessor` interface.
     """
 
     def process(self, soup: BeautifulSoup, assets_dir: Path, **kwargs) -> Tuple[BeautifulSoup, Dict[str, Any]]:
         """
-        Processes script tags containing ShowPicture calls and replaces them with img tags.
+        Processes script tags containing ShowPicture calls and replaces them with img tags containing base64 data.
 
         Args:
             soup (BeautifulSoup): The BeautifulSoup object containing HTML to process.
-            assets_dir (Path): The directory where downloaded assets should be saved.
-                               Relative paths in the returned metadata are relative to
-                               the parent of this directory (i.e., the HTML page directory).
+            assets_dir (Path): Not used for saving, but may be used by downloader for context.
             **kwargs: Must contain 'downloader': an instance of `AssetDownloader`.
 
         Returns:
             Tuple[BeautifulSoup, Dict[str, Any]]: A tuple containing:
-                - Updated BeautifulSoup object with scripts replaced by img tags.
-                - Dictionary mapping original image sources to local relative paths,
-                  under the key 'downloaded_images'.
+                - Updated BeautifulSoup object with scripts replaced by img tags with base64 src.
+                - Dictionary mapping original image sources to data URIs,
+                  under the key 'embedded_images'.
         """
         downloader = kwargs.get('downloader')
         if not downloader:
             raise ValueError("AssetDownloader must be provided via kwargs['downloader']")
 
-        downloaded_images = {}
+        embedded_images = {}
         pattern = re.compile(r'ShowPicture\w*\s*\(\s*[\'"]([^\'"]+)[\'"]', re.IGNORECASE)
 
         for script_tag in soup.find_all('script', string=pattern):
@@ -52,20 +52,44 @@ class ImageScriptProcessor(AssetProcessor):
 
             if match:
                 img_src = match.group(1)
-                # Pass assets_dir / "assets" to downloader
-                local_path = downloader.download(img_src, assets_dir / "assets", asset_type='image')
+                # Download image as bytes using the existing downloader
+                # We use a dummy path since we won't save to disk
+                dummy_path = assets_dir / "assets" / Path(img_src).name
+                local_path = downloader.download(img_src, dummy_path.parent, asset_type='image')
 
-                if local_path:
-                    # Calculate path relative to the HTML file's directory (assets_dir.parent)
-                    path_relative_to_html = str(local_path.relative_to(assets_dir))
+                if local_path and local_path.exists():
+                    # Read image bytes and encode as base64
+                    with open(local_path, 'rb') as f:
+                        img_bytes = f.read()
+                    mime_type = self._guess_mime_type(local_path)
+                    data_uri = f"data:{mime_type};base64,{base64.b64encode(img_bytes).decode('utf-8')}"
 
-                    # Create new img tag
-                    new_img = soup.new_tag('img', src=path_relative_to_html)
+                    # Create new img tag with data URI
+                    new_img = soup.new_tag('img', src=data_uri)
                     script_tag.replace_with(new_img)
 
-                    downloaded_images[img_src] = path_relative_to_html
+                    embedded_images[img_src] = data_uri
 
-        return soup, {"downloaded_images": downloaded_images}
+                    # Optionally remove the temporary file
+                    try:
+                        local_path.unlink()
+                    except OSError:
+                        pass  # Ignore if can't delete
+
+        return soup, {"embedded_images": embedded_images}
+
+    def _guess_mime_type(self, path: Path) -> str:
+        """Guess MIME type based on file extension."""
+        ext = path.suffix.lower()
+        mime_map = {
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.gif': 'image/gif',
+            '.svg': 'image/svg+xml',
+            '.webp': 'image/webp'
+        }
+        return mime_map.get(ext, 'image/png')
 
 
 class FileLinkProcessor(AssetProcessor):
@@ -270,4 +294,3 @@ class UnwantedElementRemover(AssetProcessor):
         # DO NOT remove <span class="answer-button"> — needed for form ID extraction
 
         return soup, {}
-
