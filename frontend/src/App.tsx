@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import QuizPage from './pages/QuizPage';
-import HomePage from './pages/HomePage';
+import MainPage from './pages/MainPage'; // NEW: Import MainPage
 
 /**
  * Главный компонент приложения
@@ -10,7 +10,7 @@ import HomePage from './pages/HomePage';
 const App: React.FC = () => {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<MainPage />} /> {/* NEW: Route to MainPage */}
       <Route path="/quiz/:pageName" element={<QuizPage />} />
     </Routes>
   );

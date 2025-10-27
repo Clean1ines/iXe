@@ -9,7 +9,8 @@ import {
   GeneratePlanResponse
 } from '../types/api';
 
-const API_BASE_URL = 'http://localhost:8001';
+// NEW: Update API_BASE_URL to use the proxy path on your domain
+const API_BASE_URL = '/api'; // Changed from 'http://localhost:8001'
 
 /**
  * Начинает ежедневный квиз для указанной страницы
@@ -18,9 +19,10 @@ const API_BASE_URL = 'http://localhost:8001';
  * @throws Ошибка при неудачном запросе
  */
 export async function startDailyQuiz(pageName?: string): Promise<StartQuizResponse> {
+  // NEW: Construct URL using the proxy path
   const url = pageName ? `${API_BASE_URL}/quiz/daily/start?page_name=${encodeURIComponent(pageName)}` : `${API_BASE_URL}/quiz/daily/start`;
   const response = await fetch(url, {
-    method: 'GET',
+    method: 'POST', // NEW: Changed from GET to POST as per API spec
     headers: {
       'Content-Type': 'application/json',
     },
@@ -40,6 +42,7 @@ export async function startDailyQuiz(pageName?: string): Promise<StartQuizRespon
  * @throws Ошибка при неудачном запросе
  */
 export async function submitAnswer(data: CheckAnswerRequest): Promise<CheckAnswerResponse> {
+  // NEW: Use the proxy path for answer endpoint too
   const response = await fetch(`${API_BASE_URL}/answer`, {
     method: 'POST',
     headers: {
@@ -63,6 +66,7 @@ export async function submitAnswer(data: CheckAnswerRequest): Promise<CheckAnswe
  * @throws Ошибка при неудачном запросе
  */
 export async function finishQuiz(quizId: string, results: FinishQuizRequestItem[]): Promise<FinishQuizResponse> {
+  // NEW: Use the proxy path for finish endpoint too
   const response = await fetch(`${API_BASE_URL}/quiz/finish`, {
     method: 'POST',
     headers: {
@@ -88,6 +92,7 @@ export async function finishQuiz(quizId: string, results: FinishQuizRequestItem[
  * @throws Ошибка при неудачном запросе
  */
 export async function generateStudyPlan(data: GeneratePlanRequest): Promise<GeneratePlanResponse> {
+  // NEW: Use the proxy path for plan generation endpoint too
   const response = await fetch(`${API_BASE_URL}/plan/generate`, {
     method: 'POST',
     headers: {

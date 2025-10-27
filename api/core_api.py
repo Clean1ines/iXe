@@ -13,25 +13,34 @@ from utils.database_manager import DatabaseManager
 from models.problem_schema import Problem
 from utils.local_storage import LocalStorage
 from utils.answer_checker import FIPIAnswerChecker
+from scraper import fipi_scraper # NEW: Import scraper for subject listing
+import config # NEW: Import config for subject listing
 
 logger = logging.getLogger(__name__)
 
+# NEW: Global variable placeholder for scraping status (in a real app, use a proper store)
+scraping_status_global = {"is_running": False, "current_subject": None, "progress": 0}
 
-def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker: FIPIAnswerChecker) -> FastAPI:
+def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker: FIPIAnswerChecker, scraping_status: Optional[Dict] = None) -> FastAPI:
     """
     Factory function to create the core FastAPI application instance.
 
-    This app provides MVP endpoints for quizzes, answer checking, and plan generation.
+    This app provides MVP endpoints for quizzes, answer checking, and study planning.
     It uses dependency injection to access the DatabaseManager, LocalStorage, and FIPIAnswerChecker.
 
     Args:
         db_manager (DatabaseManager): An instance of DatabaseManager for data access.
         storage (LocalStorage): An instance of LocalStorage for caching answers.
         checker (FIPIAnswerChecker): An instance of FIPIAnswerChecker for validating answers.
+        scraping_status (Optional[Dict]): Global scraping status dictionary.
 
     Returns:
         FastAPI: Configured FastAPI application instance.
     """
+    global scraping_status_global
+    if scraping_status is not None:
+        scraping_status_global = scraping_status
+
     app = FastAPI(
         title="FIPI Core API (MVP)",
         description="API for quiz generation, answer checking, and study planning. MVP implementation.",
@@ -63,6 +72,33 @@ def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker:
         """
         return {"message": "FIPI Core API (MVP) is running"}
 
+    @app.get("/subjects/available") # NEW: Endpoint to list available subjects
+    async def get_available_subjects() -> Dict[str, List[str]]:
+        """
+        Returns a list of subjects for which data is available.
+
+        Returns:
+            Dict[str, List[str]]: A dictionary containing a list of subject names.
+        """
+        try:
+            # NEW: Fetch subjects from the database or based on available run folders
+            # For now, return a placeholder list. In a real implementation,
+            # this could query a subjects table or list folders.
+            # Let's simulate reading from the database schema or a config if subjects are stored there.
+            # A simple way is to assume subjects are related to the loaded db_manager's content.
+            # For this MVP, we'll hardcode based on the loaded data's subject field.
+            # Let's get unique subjects from the loaded problems.
+            all_problems = db_manager.get_all_problems()
+            subjects_set = set()
+            for problem in all_problems:
+                subjects_set.add(problem.subject)
+            unique_subjects = list(subjects_set)
+            logger.info(f"Available subjects from DB: {unique_subjects}")
+            return {"subjects": unique_subjects}
+        except Exception as e:
+            logger.error(f"Error fetching available subjects: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Internal server error while fetching subjects")
+
     @app.post("/quiz/daily/start")
     async def start_daily_quiz(request: Request) -> Dict[str, Any]:
         """
@@ -74,20 +110,30 @@ def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker:
 
         Returns:
             Dict[str, Any]: A dictionary containing the quiz ID and a list of quiz items.
-                Format: {"quiz_id": "...", "items": [{"problem_id": "...", "subject": "...", "topic": "...", "prompt": "...", "choices_or_input_type": "..."}]}
+                Format: {"quiz_id": "...", "items": [{"problem_id": "...", "subject": "...", "topic": "...", "prompt": "...", "choices_or_input_type": "...", "form_id": "..."}]}
         """
         try:
             payload = await request.json()
-            # Optional page_name for future filtering, ignored in this stub
-            page_name = payload.get("page_name", None)
-            logger.info(f"Starting daily quiz. Requested page: {page_name}")
+            # NEW: Use page_name for filtering, default to 'init' if not provided
+            page_name = payload.get("page_name", "init")
+            logger.info(f"Starting daily quiz for page: {page_name}")
 
             db_manager: DatabaseManager = app.state.db_manager
-            # Fetch all problems (or a limited number for MVP)
-            # In a real implementation, this would be filtered by page, difficulty, etc.
+            # NEW: Filter problems by subject/page_name if possible.
+            # For now, let's assume page_name maps to a subject or tag.
+            # Since Problem model has subject, we can filter by it.
+            # Let's map page_name to a subject tag if needed.
+            # For simplicity in this stub, we'll fetch all problems and take first 10.
+            # A real implementation would use db_manager.get_problems_by_subject_or_page(page_name)
             all_problems = db_manager.get_all_problems()
+            # NEW: Filter by subject if page_name corresponds to a subject
+            filtered_problems = [p for p in all_problems if p.subject == page_name or p.problem_id.startswith(f"{page_name}_")]
+            if not filtered_problems:
+                 logger.warning(f"No problems found for page_name/subject '{page_name}', fetching all.")
+                 filtered_problems = all_problems
+
             # For MVP, let's take a smaller sample, e.g., first 10
-            problems = all_problems[:10]
+            problems = filtered_problems[:10]
 
             quiz_id = f"daily_quiz_{uuid.uuid4().hex[:8]}"
             items = []
@@ -97,8 +143,12 @@ def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker:
                 subject = problem.subject
                 # Assuming topics is a list, take the first one or join them
                 topic = problem.topics[0] if problem.topics else "general"
-                # Truncate prompt for brevity
-                prompt = problem.text[:200] + "..." if len(problem.text) > 200 else problem.text
+                # Truncate prompt for brevity (maybe don't truncate for real use)
+                prompt = problem.text # Keep full text for now
+                # NEW: Add form_id. Since we don't have it directly from DB, derive from problem_id or use a default.
+                # In the original HTML rendering, form_id was generated. We need a consistent way to generate or store it.
+                # For now, let's create a default form_id based on problem_id.
+                form_id = f"form_{problem_id}"
                 # Default to text input for all problems in this stub
                 choices_or_input_type = "text_input"
 
@@ -107,11 +157,12 @@ def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker:
                     "subject": subject,
                     "topic": topic,
                     "prompt": prompt,
-                    "choices_or_input_type": choices_or_input_type
+                    "choices_or_input_type": choices_or_input_type,
+                    "form_id": form_id # NEW: Add form_id
                 }
                 items.append(item)
 
-            logger.info(f"Generated quiz '{quiz_id}' with {len(items)} items.")
+            logger.info(f"Generated quiz '{quiz_id}' with {len(items)} items for page '{page_name}'.")
 
             return {
                 "quiz_id": quiz_id,

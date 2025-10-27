@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import ProblemBlock from '../components/ProblemBlock';
-import { startDailyQuiz } from '../utils/api';
+import { startDailyQuiz } from '../utils/api'; // Ensure this calls POST
 import { useTelegram } from '../hooks/useTelegram';
 import { QuizItem } from '../types/api';
 
@@ -14,12 +14,13 @@ const QuizPage: React.FC = () => {
   const [quizItems, setQuizItems] = useState<QuizItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { sendNotification } = useTelegram(); // Убрали неиспользуемую переменную tgUser
+  const { sendNotification } = useTelegram(); // Removed tgUser as unused
 
   useEffect(() => {
     const loadQuiz = async () => {
       try {
         setLoading(true);
+        // NEW: Pass pageName to startDailyQuiz which sends it as JSON payload
         const response = await startDailyQuiz(pageName);
         setQuizItems(response.items);
         setLoading(false);
@@ -30,7 +31,7 @@ const QuizPage: React.FC = () => {
     };
 
     loadQuiz();
-  }, [pageName]);
+  }, [pageName]); // NEW: Depend on pageName
 
   if (loading) {
     return <div>Загрузка...</div>;
