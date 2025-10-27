@@ -7,6 +7,7 @@ import logging
 import uuid
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware # NEW: Import CORSMiddleware
 
 from utils.database_manager import DatabaseManager
 from models.problem_schema import Problem
@@ -35,6 +36,16 @@ def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker:
         title="FIPI Core API (MVP)",
         description="API for quiz generation, answer checking, and study planning. MVP implementation.",
         version="0.1.0"
+    )
+
+    # NEW: Add CORS middleware to allow requests from the frontend domain
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["https://ixem.duckdns.org"], # Укажи твой домен
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        # expose_headers=["Access-Control-Allow-Origin"] # Опционально
     )
 
     # Store the injected dependencies
@@ -279,4 +290,3 @@ def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker:
             raise HTTPException(status_code=500, detail="Internal server error while generating study plan")
 
     return app
-
