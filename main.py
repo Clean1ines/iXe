@@ -12,7 +12,9 @@ from scraper import fipi_scraper
 from processors import html_renderer, json_saver
 from utils.database_manager import DatabaseManager # NEW: Import DatabaseManager
 from utils.answer_checker import FIPIAnswerChecker # NEW: Import AnswerChecker
-from api.answer_api import create_app # NEW: Import API app factory
+from utils.local_storage import LocalStorage # NEW: Import LocalStorage
+from api.answer_api import create_app # NEW: Import answer API app factory
+from api.core_api import create_core_app # NEW: Import core API app factory
 from utils.logging_config import setup_logging # NEW: Import logging setup
 import logging # NEW: Import logging
 from pathlib import Path
@@ -96,51 +98,72 @@ def main():
     db_manager = DatabaseManager(str(run_folder / "fipi_data.db"))
     db_manager.initialize_db() # NEW: Create tables if they don't exist
 
+    # NEW: Initialize LocalStorage
+    logger.info("Initializing LocalStorage") # NEW: Log initialization
+    storage = LocalStorage(run_folder / "answers.json") # NEW: Use run_folder for storage
+
     # NEW: Initialize AnswerChecker
     logger.info("Initializing FIPIAnswerChecker") # NEW: Log initialization
     checker = FIPIAnswerChecker(base_url=config.FIPI_QUESTIONS_URL)
 
-    # NEW: Create API application
-    logger.info("Creating API application") # NEW: Log app creation
-    app = create_app(db_manager, checker) # NEW: Pass db_manager and checker to API
+    # NEW: Create API applications
+    logger.info("Creating Answer API application") # NEW: Log app creation
+    answer_app = create_app(db_manager, checker) # NEW: Pass db_manager and checker to Answer API
+
+    logger.info("Creating Core API application") # NEW: Log app creation
+    core_app = create_core_app(db_manager, storage, checker) # NEW: Pass dependencies to Core API
 
     # NEW: Define a target function for the thread that handles server startup
-    def run_server(app, host, port):
+    def run_server(app, host, port, name):
         try:
-            logger.info(f"Attempting to start API server on {host}:{port}...")
+            logger.info(f"Attempting to start {name} server on {host}:{port}...")
             uvicorn.run(app, host=host, port=port, log_level="info")
         except OSError as e:
             if e.errno == 98: # Address already in use
-                logger.error(f"Failed to start API server on {host}:{port}: Address already in use ({e.errno}).")
-                print(f"ERROR: Cannot start API server on {host}:{port}. Address already in use. Please stop the other process using this port first.")
+                logger.error(f"Failed to start {name} server on {host}:{port}: Address already in use ({e.errno}).")
+                print(f"ERROR: Cannot start {name} server on {host}:{port}. Address already in use. Please stop the other process using this port first.")
                 os._exit(1) # Exit the script if port is in use
             else:
-                logger.error(f"Failed to start API server on {host}:{port}: {e}")
-                print(f"ERROR: Cannot start API server on {host}:{port}. Reason: {e}")
+                logger.error(f"Failed to start {name} server on {host}:{port}: {e}")
+                print(f"ERROR: Cannot start {name} server on {host}:{port}. Reason: {e}")
                 os._exit(1) # Exit the script for other OS errors too
         except Exception as e:
-            logger.error(f"Unexpected error in API server thread: {e}", exc_info=True)
-            print(f"ERROR: Unexpected error in API server thread: {e}")
+            logger.error(f"Unexpected error in {name} server thread: {e}", exc_info=True)
+            print(f"ERROR: Unexpected error in {name} server thread: {e}")
             os._exit(1) # Exit the script for any other error
 
-    # NEW: Start API server in a background thread using the target function
-    logger.info("Starting API server in background thread...")
-    api_thread = threading.Thread(
+    # NEW: Start API servers in background threads using the target function
+    # Start Answer API on port 8000
+    logger.info("Starting Answer API server in background thread...")
+    answer_api_thread = threading.Thread(
         target=run_server,
-        args=(app, "127.0.0.1", 8000)
+        args=(answer_app, "127.0.0.1", 8000, "Answer API")
     )
-    api_thread.daemon = True # NEW: Daemon thread so it closes with main script
-    api_thread.start()
+    answer_api_thread.daemon = True # NEW: Daemon thread so it closes with main script
+    answer_api_thread.start()
 
     # NEW: Brief wait to allow the thread to attempt startup and potentially log the error before proceeding
-    # This wait is minimal as the error (if any) happens almost immediately in the thread
     time.sleep(1)
-    logger.info("API server startup process initiated in background thread.")
+    logger.info("Answer API server startup process initiated in background thread.")
+
+    # Start Core API on a different port, e.g., 8001
+    logger.info("Starting Core API server in background thread...")
+    core_api_thread = threading.Thread(
+        target=run_server,
+        args=(core_app, "127.0.0.1", 8001, "Core API")
+    )
+    core_api_thread.daemon = True # NEW: Daemon thread so it closes with main script
+    core_api_thread.start()
+
+    # NEW: Brief wait to allow the thread to attempt startup and potentially log the error before proceeding
+    time.sleep(1)
+    logger.info("Core API server startup process initiated in background thread.")
 
     # 4. Initialize processors
     # OLD: html_proc = html_renderer.HTMLRenderer(storage=storage) # NEW: Pass storage
     # CHANGED: Pass db_manager instead of storage
     html_proc = html_renderer.HTMLRenderer(db_manager=db_manager) # NEW: Pass db_manager
+
     json_proc = json_saver.JSONSaver()
 
     # 5. Scrape and process pages
@@ -215,5 +238,16 @@ def main():
     print(f"\n--- Parsing completed for '{selected_subject_name}'. Data saved in: {run_folder} ---")
     logger.info(f"Parsing completed for '{selected_subject_name}'. Data saved in: {run_folder}") # NEW: Log completion
 
+    # NEW: Keep the main thread alive to allow API servers to run
+    try:
+        print("Press Ctrl+C to stop the API servers and exit.")
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        logger.info("Shutdown signal received.")
+        os._exit(0) # Exit the script when Ctrl+C is pressed
+
 if __name__ == "__main__":
     main()
+
