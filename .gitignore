@@ -4,7 +4,8 @@ venv/
 
 # Data and Assets (если не планируете хранить в репо)
 history/
-data/
+data/**
+!data/fipi_data.db
 problems/
 custom_output/
 
