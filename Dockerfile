@@ -1,20 +1,22 @@
-cat << 'EOF' > Dockerfile
 FROM python:3.11-slim
 
-ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl wget ca-certificates gnupg libnss3 libatk1.0-0 libatk-bridge2.0-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2 libpangocairo-1.0-0 libgtk-3-0 \
- && rm -rf /var/lib/apt/lists/*
+# Install build dependencies (for lxml, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
 
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the pre-scraped database (must exist in ./data/fipi_data.db)
+COPY data/fipi_data.db ./data/fipi_data.db
+
+# Copy source code
 COPY . .
 
-# Установить браузеры для playwright
-RUN python -m playwright install --with-deps
+# Ensure non-buffered output
+ENV PYTHONUNBUFFERED=1
 
-ENTRYPOINT ["python", "iXe/parse_fipi_playwright_dom.py"]
-EOF
+# Render passes PORT at runtime
+CMD ["sh", "-c", "uvicorn api.core_api_render:app --host 0.0.0.0 --port $PORT"]
