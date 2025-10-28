@@ -28,16 +28,19 @@ class Problem(BaseModel):
         created_at (datetime): Дата/время создания записи в формате ISO8601.
         updated_at (Optional[datetime]): Дата/время последнего обновления в формате ISO8601. Может быть null.
         metadata (Optional[Dict[str, Any]]): Дополнительные данные. Может быть null.
+        task_number (int): Номер задачи по ЕГЭ (1-19), обязательное поле.
+        kes_codes (List[str]): Список кодов КЭС из кодификатора, обязательное поле, по умолчанию [].
+        kos_codes (List[str]): Список кодов КОС из кодификатора, обязательное поле, по умолчанию [].
+        exam_part (str): Часть экзамена ("Part 1", "Part 2"), обязательное поле.
+        max_score (int): Максимальный балл за задачу (1-4), обязательное поле.
+        difficulty_level (str): Уровень сложности ("basic", "advanced", "high"), обязательное поле.
     """
     problem_id: str
     subject: str
     type: str
     text: str
-    # Поле options может быть null в JSON, поэтому Optional[List[str]] = None корректно.
     options: Optional[List[str]] = None
     answer: str
-    # Поле solutions в specs описано как [{"solution_id","text","author"}], что соответствует Optional[List[Dict[str, Any]]].
-    # Структура элементов списка уточняется в docstring.
     solutions: Optional[List[Dict[str, Any]]] = None
     topics: List[str]
     skills: Optional[List[str]] = None
@@ -47,3 +50,9 @@ class Problem(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
+    task_number: int
+    kes_codes: List[str] = []
+    kos_codes: List[str] = []
+    exam_part: str
+    max_score: int
+    difficulty_level: str
