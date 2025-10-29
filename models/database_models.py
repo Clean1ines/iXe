@@ -32,7 +32,16 @@ class DBProblem(Base):
     solutions = sa.Column(sa.JSON, nullable=True)  # List[Dict[str, Any]] or None
     topics = sa.Column(sa.JSON, nullable=False)  # List[str]
     skills = sa.Column(sa.JSON, nullable=True)  # List[str] or None
-    difficulty: str = sa.Column(sa.String, nullable=False)
+    # --- Изменено: Заменено 'difficulty' на 'difficulty_level' ---
+    difficulty_level: str = sa.Column(sa.String, nullable=False)
+    # --- Добавлены новые поля ---
+    task_number: int = sa.Column(sa.Integer, nullable=False)
+    kes_codes = sa.Column(sa.JSON, nullable=False)  # List[str], default_factory=list -> nullable=False, default=[]
+    kos_codes = sa.Column(sa.JSON, nullable=False)  # List[str], default_factory=list -> nullable=False, default=[]
+    exam_part: str = sa.Column(sa.String, nullable=False)
+    max_score: int = sa.Column(sa.Integer, nullable=False)
+    form_id: Optional[str] = sa.Column(sa.String, nullable=True) # Сделано опциональным
+    # --- /Новые поля ---
     source_url: Optional[str] = sa.Column(sa.String, nullable=True)
     raw_html_path: Optional[str] = sa.Column(sa.String, nullable=True)
     created_at: datetime.datetime = sa.Column(sa.DateTime, nullable=False)

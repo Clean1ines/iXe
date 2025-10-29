@@ -69,7 +69,16 @@ class DatabaseManager:
                         solutions=prob.solutions,
                         topics=prob.topics,
                         skills=prob.skills,
-                        difficulty=prob.difficulty,
+                        # --- Изменено: Заменено 'difficulty' на 'difficulty_level' ---
+                        difficulty_level=prob.difficulty_level,
+                        # --- Добавлены новые поля ---
+                        task_number=prob.task_number,
+                        kes_codes=prob.kes_codes,
+                        kos_codes=prob.kos_codes,
+                        exam_part=prob.exam_part,
+                        max_score=prob.max_score,
+                        form_id=prob.form_id, # <-- Добавлено: передача form_id
+                        # --- /Новые поля ---
                         source_url=prob.source_url,
                         raw_html_path=prob.raw_html_path,
                         created_at=prob.created_at,
@@ -172,49 +181,11 @@ class DatabaseManager:
                 query = session.query(DBAnswer).filter_by(user_id=user_id)
                 all_user_answers = query.all()
 
-                # Filter answers based on the page name.
-                # Since problem_id is the task_id (e.g., '40B442'), we need to determine
-                # if this task_id belongs to the given page_name.
-                # This requires fetching the corresponding DBProblem records or having
-                # a way to map task_id to page_name.
-                # For now, let's assume we need to filter based on a convention
-                # where task_id might contain the page name as a prefix or is somehow
-                # determinable from the context provided by the page rendering process.
-                # However, since task_id itself (like '40B442') does not inherently
-                # contain the page name (like 'init'), this is a complex lookup.
-                # A better approach might be to pass the list of task_ids expected
-                # for the page from the renderer and filter against that.
-
-                # For this implementation, we'll assume that the page_name is used
-                # to determine the set of task_ids that belong to it elsewhere,
-                # and this function fetches answers for *any* task_id for the user.
-                # The filtering by page context must happen in the caller (e.g., in the API).
-                # However, if we *could* filter by page_name here, it would require
-                # a join with the problems table or a different schema design.
-                # As per the current schema, problem_id in answers table is just task_id.
-                # We will return all answers for the user, and the API caller
-                # is responsible for further filtering or association with page content.
-                # This is suboptimal but reflects the current schema limitations for
-                # direct page -> problem_id mapping.
-
-                # A potential future improvement would be to add a 'page_name' column
-                # to the DBProblem table, allowing a join here.
                 # For now, this method fetches all answers for the user.
-                # The caller (e.g., get_initial_state_for_page in answer_api.py)
-                # should manage the association with the page's specific task IDs.
-
-                # This implementation returns ALL user answers.
+                # The page-specific logic must be handled by the caller.
                 # The API endpoint must handle the page-specific filtering.
-                # If we had a way to link task_id to page_name (e.g., by fetching
-                # all problems for a page first), we could do the filtering here.
-                # Let's assume the caller provides the list of relevant task_ids.
-
-                # Alternative approach: Fetch all answers for the user
                 all_answers = {}
                 for db_answer in all_user_answers:
-                    # This does not filter by page_name directly.
-                    # The page-specific logic must be handled by the caller.
-                    # For now, we return all answers for the user.
                     all_answers[db_answer.problem_id] = {
                         "answer": db_answer.user_answer,
                         "status": db_answer.status
@@ -229,9 +200,6 @@ class DatabaseManager:
     # NEW: Method to get all problems for a specific page (example placeholder)
     # This would be needed by the API to know which task_ids belong to a page.
     # It requires the DBProblem table to have a field indicating the page or source URL.
-    # Since the current schema for DBProblem doesn't explicitly store the page name,
-    # we might need to infer it from the source_url or another field, or add a field.
-    # For now, this is a conceptual placeholder if source_url contains page info.
     def get_problem_ids_for_page(self, page_name: str, proj_id: str) -> List[str]:
         """Получает список problem_id (task_id), принадлежащих конкретной странице.
 
@@ -242,23 +210,19 @@ class DatabaseManager:
         Returns:
             List[str]: Список problem_id (task_id) для задач на странице.
         """
-        # This is a conceptual example assuming source_url contains page information.
-        # In practice, DBProblem might need a 'page_name' field for direct lookup.
-        # For now, let's assume source_url contains the page identifier.
         logger.debug(f"Fetching problem IDs for page '{page_name}' in project '{proj_id}'.")
         try:
             with self.SessionLocal() as session:
-                # Example query assuming source_url contains '?page=init' or similar
+                # Example query assuming source_url contains page information.
                 # This is highly dependent on the actual URL structure stored in DBProblem.source_url
                 # A more robust approach would be adding a 'page_name' column to DBProblem.
                 # For example, if source_url is like ".../questions.php?proj=ID&page=init"
-                # We could filter like this:
-                # search_url_pattern = f"%page={page_name}%" # Be careful with SQL LIKE wildcards
-                # problems = session.query(DBProblem).filter(
-                #     DBProblem.source_url.like(search_url_pattern),
-                #     DBProblem.source_url.like(f"%proj={proj_id}%") # Ensure correct project
-                # ).all()
-                # task_ids = [p.problem_id for p in problems]
+                search_url_pattern = f"%page={page_name}%"
+                problems = session.query(DBProblem).filter(
+                    DBProblem.source_url.like(search_url_pattern),
+                    DBProblem.source_url.like(f"%proj={proj_id}%") # Ensure correct project
+                ).all()
+                task_ids = [p.problem_id for p in problems]
 
                 # Since source_url might not be reliable for page identification,
                 # and DBProblem lacks a 'page_name' field, we cannot reliably implement this
@@ -307,7 +271,16 @@ class DatabaseManager:
                         solutions=db_problem.solutions,
                         topics=db_problem.topics,
                         skills=db_problem.skills,
-                        difficulty=db_problem.difficulty,
+                        # --- Изменено: Заменено 'difficulty' на 'difficulty_level' ---
+                        difficulty_level=db_problem.difficulty_level,
+                        # --- Добавлены новые поля ---
+                        task_number=db_problem.task_number,
+                        kes_codes=db_problem.kes_codes,
+                        kos_codes=db_problem.kos_codes,
+                        exam_part=db_problem.exam_part,
+                        max_score=db_problem.max_score,
+                        form_id=db_problem.form_id, # <-- Добавлено: передача form_id
+                        # --- /Новые поля ---
                         source_url=db_problem.source_url,
                         raw_html_path=db_problem.raw_html_path,
                         created_at=db_problem.created_at,
@@ -343,7 +316,16 @@ class DatabaseManager:
                         solutions=p.solutions,
                         topics=p.topics,
                         skills=p.skills,
-                        difficulty=p.difficulty,
+                        # --- Изменено: Заменено 'difficulty' на 'difficulty_level' ---
+                        difficulty_level=p.difficulty_level,
+                        # --- Добавлены новые поля ---
+                        task_number=p.task_number,
+                        kes_codes=p.kes_codes,
+                        kos_codes=p.kos_codes,
+                        exam_part=p.exam_part,
+                        max_score=p.max_score,
+                        form_id=p.form_id, # <-- Добавлено: передача form_id
+                        # --- /Новые поля ---
                         source_url=p.source_url,
                         raw_html_path=p.raw_html_path,
                         created_at=p.created_at,
@@ -355,4 +337,3 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error fetching all problems: {e}", exc_info=True)
             raise
-

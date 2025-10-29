@@ -1,4 +1,3 @@
-# processors/html_renderer.py
 """
 Module for rendering scraped data into HTML format.
 
@@ -282,6 +281,16 @@ class HTMLRenderer:
                     return f"{match.group(1)}{prefix}{match.group(3)}{match.group(4)}"
 
                 processed_block_html = re.sub(pattern, replace_path, block_html)
+            else:
+                # Если префикс не задан, но мы хотим, чтобы пути к assets были корректны
+                # относительно файла blocks/block_X_Y.html, то путь к assets должен быть ../assets/
+                # Например, если block сохраняется в run_.../1/blocks/block_0_1.html,
+                # то assets находятся в run_.../1/assets/, и путь должен быть ../assets/
+                # Мы можем установить дефолтный префикс здесь.
+                # Однако, лучше передавать его извне, если известна структура.
+                # Для совместимости, оставим как есть, если префикс не задан.
+                # Но добавим логирование, чтобы было понятно.
+                logger.debug("No asset_path_prefix provided for render_block. Paths to assets in block HTML will remain unchanged.")
 
             # Prepare data for the template
             initial_state_json = json.dumps(initial_state, ensure_ascii=False, indent=2)
@@ -368,5 +377,4 @@ class HTMLRenderer:
         return initial_state
 
     # _get_js_functions and _get_answer_form_html are removed as their logic is now in ui_components
-
 
