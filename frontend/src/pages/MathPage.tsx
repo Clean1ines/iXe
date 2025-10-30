@@ -1,25 +1,25 @@
-// frontend/src/pages/MainPage.tsx
+// frontend/src/pages/MathPage.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const MainPage: React.FC = () => {
+const MathPage: React.FC = () => {
   const navigate = useNavigate();
 
-  const handleMathClick = () => {
-    navigate('/math');
+  const handleCalibrate = () => {
+    // Позже: начать квиз на основе калибровки
+    alert('Калибровка навыков — пока заглушка');
   };
 
-  const handleStubClick = (subject: string) => {
-    alert(`Раздел "${subject}" пока недоступен.`);
+  const handleContinue = () => {
+    alert('Продолжить подготовку — пока недоступно');
   };
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '600px', margin: '0 auto' }}>
-      <h1>Подготовка к ЕГЭ</h1>
-      <p>Выберите предмет:</p>
+      <h2>Математика (Профильный Уровень)</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
         <button
-          onClick={handleMathClick}
+          onClick={handleCalibrate}
           style={{
             padding: '14px',
             fontSize: '18px',
@@ -30,10 +30,10 @@ const MainPage: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          Математика (Профильный Уровень)
+          Калибровка навыков
         </button>
         <button
-          onClick={() => handleStubClick('Информатика')}
+          onClick={handleContinue}
           style={{
             padding: '14px',
             fontSize: '18px',
@@ -45,26 +45,25 @@ const MainPage: React.FC = () => {
           }}
           disabled
         >
-          Информатика
+          Продолжить подготовку
         </button>
         <button
-          onClick={() => handleStubClick('Русский язык')}
+          onClick={() => navigate('/')}
           style={{
             padding: '14px',
             fontSize: '18px',
-            backgroundColor: '#9e9e9e',
+            backgroundColor: '#6c757d',
             color: 'white',
             border: 'none',
             borderRadius: '8px',
-            cursor: 'not-allowed',
+            cursor: 'pointer',
           }}
-          disabled
         >
-          Русский язык
+          Вернуться в главное меню
         </button>
       </div>
     </div>
   );
 };
 
-export default MainPage;
+export default MathPage;
