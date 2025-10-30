@@ -1,24 +1,13 @@
-"""
-Module for rendering scraped data into HTML format.
-
-This module provides the `HTMLRenderer` class which takes processed data
-from the scraper and generates a complete HTML document using Jinja2 templates.
-It now delegates UI component rendering to `ui_components.py`.
-"""
-
 import json
 import logging
 import re
 from typing import Dict, Any, Optional, List
-# NEW: Import Problem model
 from models.problem_schema import Problem
-
-# NEW: Import DatabaseManager
 from utils.database_manager import DatabaseManager
 from . import ui_components  # Импортируем модуль с компонентами
-# NEW: Import Jinja2 components
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pathlib import Path
+from utils.task_id_utils import extract_task_id_and_form_id
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +44,46 @@ class HTMLRenderer:
         )
         logger.debug(f"Jinja2 Environment for HTMLRenderer initialized with template directory: {self._templates_dir}")
         # --------------------------------------
+
+    def render_block_from_problem(self, problem: Problem, block_index: int) -> str:
+        """
+        Renders a single assignment block HTML string using the 'single_block_page.html.j2' template,
+        based on the content of a Problem object.
+
+        Args:
+            problem (Problem): The Problem object containing task data.
+            block_index (int): The index of the block for form/ID generation.
+
+        Returns:
+            str: The complete HTML string for the single block, including MathJax and form.
+        """
+        logger.info(f"Rendering HTML block from Problem object for block_index: {block_index}, problem_id: {problem.problem_id}")
+        try:
+            # NEW: Extract task_id and form_id from problem_id
+            task_id, form_id = extract_task_id_and_form_id(problem.problem_id)
+            logger.debug(f"Extracted task_id: {task_id}, form_id: {form_id} from problem_id: {problem.problem_id}")
+
+            # NEW: Use problem.text as the block_html content
+            # You can process problem.text further if needed before passing it
+            processed_block_html_content = problem.text
+            logger.debug(f"Using problem.text as block content for problem_id {problem.problem_id}")
+
+            # NEW: Pass the processed content, along with extracted IDs, to the existing render_block method
+            # This reuses the logic for wrapping content, adding forms, initial state, etc.
+            rendered_html = self.render_block(
+                block_html=processed_block_html_content,
+                block_index=block_index,
+                task_id=task_id,
+                form_id=form_id,
+                page_name=problem.problem_id # Using problem_id as page_name for initial state context
+            )
+
+            logger.info(f"Successfully rendered HTML block from Problem object for block_index {block_index}, length: {len(rendered_html)} characters.")
+            return rendered_html
+        except Exception as e:
+            logger.error(f"Error rendering HTML block from Problem object for block_index {block_index} (problem_id {problem.problem_id}): {e}", exc_info=True)
+            raise
+
 
     # CHANGED: Signature now accepts problems list
     def render(self, data: Optional[Dict[str, Any]], page_name: str, problems: Optional[List[Problem]] = None) -> str:
@@ -377,4 +406,3 @@ class HTMLRenderer:
         return initial_state
 
     # _get_js_functions and _get_answer_form_html are removed as their logic is now in ui_components
-

@@ -6,7 +6,7 @@ from typing import Dict, List, Any, Optional
 import logging
 import uuid
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse # NEW: Import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware # NEW: Import CORSMiddleware
 
 from utils.database_manager import DatabaseManager
@@ -15,6 +15,8 @@ from utils.local_storage import LocalStorage
 from utils.answer_checker import FIPIAnswerChecker
 from scraper import fipi_scraper # NEW: Import scraper for subject listing
 import config # NEW: Import config for subject listing
+from processors.html_renderer import HTMLRenderer # NEW: Import HTMLRenderer
+from utils.task_id_utils import extract_task_id_and_form_id # NEW: Import utils
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +52,11 @@ def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker:
     # NEW: Add CORS middleware to allow requests from the frontend domain
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["https://ixem.duckdns.org"], # Укажи твой домен
+        # Укажи оба источника
+        allow_origins=["https://ixem.duckdns.org", "http://localhost:3000", "http://localhost:5173"], # Добавь нужные
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        # expose_headers=["Access-Control-Allow-Origin"] # Опционально
     )
 
     # Store the injected dependencies
@@ -85,7 +87,6 @@ def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker:
             # For now, return a placeholder list. In a real implementation,
             # this could query a subjects table or list folders.
             # Let's simulate reading from the database schema or a config if subjects are stored there.
-            # A simple way is to assume subjects are related to the loaded db_manager's content.
             # For this MVP, we'll hardcode based on the loaded data's subject field.
             # Let's get unique subjects from the loaded problems.
             all_problems = db_manager.get_all_problems()
@@ -98,6 +99,53 @@ def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker:
         except Exception as e:
             logger.error(f"Error fetching available subjects: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail="Internal server error while fetching subjects")
+
+    # NEW: Endpoint to render a single block from problem_id
+    @app.get("/api/v1/block/{problem_id}", response_class=HTMLResponse)
+    async def get_block_html(request: Request, problem_id: str) -> str:
+        """
+        Generates and returns the HTML for a single task block based on the problem_id.
+
+        Args:
+            request (Request): The incoming request object.
+            problem_id (str): The unique identifier of the problem in the database.
+
+        Returns:
+            str: The complete HTML string for the single block.
+        """
+        logger.info(f"Requesting HTML block for problem_id: {problem_id}")
+        try:
+            # 2. Get db_manager from app.state
+            db_manager_instance: DatabaseManager = request.app.state.db_manager
+
+            # 3. Fetch problem by ID
+            problem = db_manager_instance.get_problem_by_id(problem_id)
+            if not problem:
+                logger.warning(f"Problem with ID {problem_id} not found in database.")
+                # 4. Raise HTTPException if not found
+                raise HTTPException(status_code=404, detail=f"Problem with ID {problem_id} not found.")
+
+            # 5. Initialize HTMLRenderer
+            # The renderer needs db_manager for initial state, which we have from app.state
+            html_renderer = HTMLRenderer(db_manager_instance)
+
+            # 6. Call new method render_block_from_problem
+            # Using a default block_index of 0 for single block requests
+            block_index = 0
+            generated_html = html_renderer.render_block_from_problem(problem, block_index)
+
+            logger.info(f"Successfully generated HTML block for problem_id: {problem_id}")
+            # 7. Return generated HTML
+            return generated_html
+
+        except HTTPException:
+            # Re-raise HTTP exceptions (like 404)
+            raise
+        except Exception as e:
+            logger.error(f"Error generating HTML block for problem_id {problem_id}: {e}", exc_info=True)
+            logger.exception("Full traceback for block generation error:") # Log full traceback
+            raise HTTPException(status_code=500, detail="Internal server error while generating block HTML")
+
 
     @app.post("/quiz/daily/start")
     async def start_daily_quiz(request: Request) -> Dict[str, Any]:
@@ -341,3 +389,13 @@ def create_core_app(db_manager: DatabaseManager, storage: LocalStorage, checker:
             raise HTTPException(status_code=500, detail="Internal server error while generating study plan")
 
     return app
+
+# Для запуска через uvicorn, если нужно запустить этот файл напрямую с фиктивными зависимостями
+# if __name__ == "__main__":
+#     import uvicorn
+#     # Заглушка для зависимостей
+#     fake_db = DatabaseManager(":memory:") # In-memory DB for example
+#     fake_storage = LocalStorage(":memory:")
+#     fake_checker = FIPIAnswerChecker(base_url="http://example.com")
+#     app_instance = create_core_app(fake_db, fake_storage, fake_checker)
+#     uvicorn.run(app_instance, host="0.0.0.0", port=8000)
