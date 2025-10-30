@@ -1,12 +1,9 @@
-# Dockerfile
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Установка системных зависимостей
+# Системные зависимости для Playwright (Chromium)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    gnupg \
     ca-certificates \
     fonts-liberation \
     libappindicator3-1 \
@@ -41,32 +38,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libxss1 \
     libxtst6 \
-    lsb-release \
     wget \
     xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
-
-# Установка Google Chrome (новый способ для Debian >=11)
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
 # Установка Python-зависимостей
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Установка Playwright и браузеров
+# Установка Playwright (браузер)
 RUN playwright install chromium
 
-# Копирование данных и кода
-COPY data/ ./data/
+# Копируем ВЕСЬ проект (включая data/, api/, models/, и т.д.)
 COPY . .
 
-# Переменная окружения для Playwright
+# Переменные окружения
 ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
-
-# Запуск
 ENV PYTHONUNBUFFERED=1
-CMD ["sh", "-c", "uvicorn core_api_render:app --host 0.0.0.0 --port $PORT"]
+
+# Запуск через run.py
+CMD ["python", "run.py"]

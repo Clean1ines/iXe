@@ -1,0 +1,6 @@
+{
+  "name": "ixe-dev",
+  "scripts": {
+    "dev": "concurrently \"python run.py\" \"cd frontend && npm run dev\""
+  }
+}
