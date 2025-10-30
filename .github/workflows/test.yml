@@ -1,0 +1,4 @@
+      - name: Validate OpenAPI spec
+        run: |
+          pip install openapi-spec-validator
+          python -c "import yaml; from openapi_spec_validator import validate_spec; validate_spec(yaml.safe_load(open('openapi.yaml')))"
