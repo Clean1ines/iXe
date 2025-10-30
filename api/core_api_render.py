@@ -7,6 +7,7 @@ Supports fully offline-ready HTML via Problem.offline_html.
 from typing import Any, Dict, List
 import logging
 import uuid
+from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from utils.database_manager import DatabaseManager
 from utils.answer_checker import FIPIAnswerChecker
@@ -19,16 +20,34 @@ DB_PATH = str(Path(__file__).parent / "data" / "fipi_data.db")
 
 # Initialize dependencies once at startup
 db_manager = DatabaseManager(DB_PATH)
-checker = FIPIAnswerChecker(base_url=FIPI_QUESTIONS_URL)
 
-# Log DB load status at startup
-problem_count = len(db_manager.get_all_problems())
-logger.info(f"✅ Render API started. Loaded {problem_count} problems from {DB_PATH}")
+# Проверяем и инициализируем БД при запуске
+try:
+    # Попробуем получить задачи, чтобы проверить, существует ли таблица
+    # и не пуста ли она
+    all_problems = db_manager.get_all_problems()
+    problem_count = len(all_problems)
+    logger.info(f"✅ Render API started. Loaded {problem_count} problems from {DB_PATH}")
+except Exception as e:
+    # Если таблица не существует или другая ошибка БД
+    logger.warning(f"Database load failed or table does not exist: {e}. Attempting to initialize DB.")
+    try:
+        db_manager.initialize_db()
+        logger.info("Database initialized successfully.")
+        # После инициализации таблица существует, но может быть пуста
+        all_problems = db_manager.get_all_problems()
+        problem_count = len(all_problems)
+        logger.info(f"✅ Render API started. DB initialized. Loaded {problem_count} problems from {DB_PATH}")
+    except Exception as init_error:
+        logger.error(f"Failed to initialize database: {init_error}")
+        raise init_error # Прерываем запуск при фатальной ошибке инициализации
+
+checker = FIPIAnswerChecker(base_url=FIPI_QUESTIONS_URL)
 
 app = FastAPI(
     title="FIPI Core API (Render)",
     description="Stateless, read-only API for Telegram Mini App. All user data is stored in the client. Supports offline_html.",
-    version="1.0.1"
+    version="1.0.2" # Увеличим версию, чтобы отразить изменения
 )
 
 @app.get("/")
@@ -39,6 +58,27 @@ async def root() -> Dict[str, str]:
         Dict[str, str]: Simple confirmation that the service is running.
     """
     return {"message": "FIPI Core API (Render) is running", "problems_loaded": problem_count}
+
+@app.get("/health")
+async def health_check() -> Dict[str, Any]:
+    """
+    Health check endpoint with database status.
+    Returns:
+        Dict[str, Any]: Status of the service and database.
+    """
+    try:
+        # Попытка выполнить простой запрос к БД
+        db_problem_count = len(db_manager.get_all_problems())
+        db_status = "ok"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+        db_problem_count = 0
+
+    return {
+        "status": "healthy",
+        "database": db_status,
+        "problems_loaded": db_problem_count
+    }
 
 @app.post("/quiz/daily/start")
 async def start_daily_quiz(request: Request) -> Dict[str, Any]:

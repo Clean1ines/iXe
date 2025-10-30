@@ -28,113 +28,84 @@ const CalibrationPage: React.FC = () => {
   useEffect(() => {
     const loadRandomBlocks = async () => {
       try {
-        // --- НАЧАЛО: Динамическое определение totalCount ---
-        let filenames: string[] = [];
-        let totalCount = 0;
-        let max_Y_from_list = -1;
-        let max_Y = -1; // <-- ВЫНЕСЛИ ОБЪЯВЛЕНИЕ СЮДА
+        // Получаем 10 случайных problem_id через новый эндпоинт
+        // Предполагаем, что эндпоинт /subjects/problems/random?count=10 уже реализован
+        // или эмулируем его через /subjects/available и фильтрацию на фронте
+        // Для начала получим доступные задачи по математике
+        const subject = 'math'; // или другой выбранный предмет
+        const count = 10;
+        // Эмулируем вызов эндпоинта, который возвращает список всех problem_id для subject
+        // const allProblemsRes = await fetch(`/subjects/${subject}/problems`);
+        // const allProblemsData = await allProblemsRes.json();
+        // const allProblemIds = allProblemsData.problem_ids || [];
+        // const shuffled = allProblemIds.sort(() => 0.5 - Math.random());
+        // const selectedProblemIds = shuffled.slice(0, count);
 
-        try {
-          const listFileRes = await fetch('/blocks/math/blocks_list.json');
-          if (listFileRes.ok) {
-            const listData = await listFileRes.json();
-            filenames = listData.files || [];
-            totalCount = filenames.length;
-            max_Y_from_list = listData.max_Y || -1;
-            console.log(`Найдено ${totalCount} файлов блоков из blocks_list.json.`);
-          }
-        } catch (listErr) {
-          console.warn("Не удалось загрузить blocks_list.json, пробуем эвристику.");
+        // Пока используем эмуляцию через /subjects/available + фильтрация на фронте
+        // Предполагаем, что задачи имеют формат {subject}_XXXXXX
+        const availableSubjectsRes = await fetch('/api/v1/subjects/available');
+        const availableSubjectsData = await availableSubjectsRes.json();
+        const availableSubjects = availableSubjectsData.subjects || [];
+
+        if (!availableSubjects.includes(subject)) {
+          throw new Error(`Subject ${subject} not available`);
         }
 
-        if (totalCount === 0) {
-          let max_X = -1;
-          let foundInit = false;
-          for (let x = 0; x <= 20; x++) {
-            const initCheckRes = await fetch(`/blocks/math/block_${x}_init.html`);
-            if (initCheckRes.ok) {
-              foundInit = true;
-              max_X = Math.max(max_X, x);
-            } else {
-              break;
-            }
-          }
+        // Предположим, что у нас есть эндпоинт для получения задач по предмету
+        // const subjectProblemsRes = await fetch(`/api/v1/subjects/${subject}/problems`);
+        // const subjectProblemsData = await subjectProblemsRes.json();
+        // const allProblemIds = subjectProblemsData.problem_ids || [];
 
-          if (max_X >= 0) {
-            for (let y = 1; y <= 100; y++) {
-              const yCheckRes = await fetch(`/blocks/math/block_${max_X}_${y}.html`);
-              if (yCheckRes.ok) {
-                max_Y = y; // <-- ИСПОЛЬЗУЕМ УЖЕ ОБЪЯВЛЁННУЮ ПЕРЕМЕННУЮ
-              } else {
-                break;
-              }
-            }
-          }
-
-          if (foundInit && max_Y >= 0) {
-            totalCount = (max_X + 1) * (max_Y + 1);
-            console.log(`Оценённый totalCount на основе max_X=${max_X}, max_Y=${max_Y}: ${totalCount}`);
+        // Так как эндпоинта пока нет, эмулируем получение списка задач из БД
+        // Для этого создадим временный эндпоинт или используем обходной путь
+        // Пока просто сгенерируем тестовые ID или получим их через другой способ
+        // Используем заглушку для получения списка задач по предмету
+        // Допустим, есть эндпоинт /subjects/{subject}/all_problems
+        const allSubjectProblemsRes = await fetch(`/api/v1/subjects/${subject}/all_problems`);
+        let allSubjectProblemsData = { problem_ids: [] };
+        if (allSubjectProblemsRes.ok) {
+          allSubjectProblemsData = await allSubjectProblemsRes.json();
+        } else {
+          console.warn("Не удалось получить список задач по предмету, используем fallback.");
+          // Fallback: попробуем получить все задачи и отфильтровать
+          const allProblemsRes = await fetch('/api/v1/problems'); // Предполагаем, что такой эндпоинт есть
+          if (allProblemsRes.ok) {
+            const allProblemsData = await allProblemsRes.json();
+            allSubjectProblemsData.problem_ids = allProblemsData.problems.filter((p: any) => p.subject === subject).map((p: any) => p.problem_id);
           } else {
-            console.error("Не удалось определить диапазон файлов. Используем fallback.");
-            totalCount = 1;
+            console.error("Не удалось получить список задач.");
+            return;
           }
         }
-        // --- КОНЕЦ: динамическое определение totalCount ---
+        const allProblemIds = allSubjectProblemsData.problem_ids || [];
 
-        if (totalCount === 0) {
-          console.error("totalCount не удалось определить, прерываем загрузку.");
+        if (allProblemIds.length === 0) {
+          console.warn(`Нет доступных задач для предмета ${subject}.`);
           return;
         }
 
-        const allIds = Array.from({ length: totalCount }, (_, i) => i);
-        const shuffled = allIds.sort(() => 0.5 - Math.random());
-        const selectedIds = shuffled.slice(0, 10);
+        const shuffled = allProblemIds.sort(() => 0.5 - Math.random());
+        const selectedProblemIds = shuffled.slice(0, count);
 
         const loadedBlocks: TaskBlock[] = [];
 
-        for (const id of selectedIds) {
-          if (filenames.length > 0 && id < filenames.length) {
-            const filename = filenames[id];
-            const res = await fetch(`/blocks/math/${filename}`);
-            if (!res.ok) {
-              console.error(`Ошибка загрузки блока ${filename} (id ${id}):`, res.status, res.statusText);
-              continue;
-            }
-            const html = await res.text();
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            const qblock = tempDiv.querySelector('.processed_qblock');
-            const taskId = qblock?.getAttribute('data-task-id') || 'unknown';
-            const formId = qblock?.getAttribute('data-form-id') || '';
-            const blockIndex = filename.replace('block_', '').replace('.html', '');
-            loadedBlocks.push({ html, taskId, formId, blockIndex });
-          } else {
-            // Используем max_Y, объявленный выше
-            const max_Y_evaluated = max_Y_from_list >= 0 ? max_Y_from_list : (max_Y >= 0 ? max_Y : 97);
-            const N = max_Y_evaluated + 1;
-            const X = Math.floor(id / N);
-            const remainder = id % N;
-            let filename;
-            if (remainder === 0) {
-              filename = `block_${X}_init.html`;
-            } else {
-              filename = `block_${X}_${remainder}.html`;
-            }
-
-            const res = await fetch(`/blocks/math/${filename}`);
-            if (!res.ok) {
-              console.error(`Ошибка загрузки блока ${filename} (id ${id}, X=${X}, rem=${remainder}):`, res.status, res.statusText);
-              continue;
-            }
-            const html = await res.text();
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            const qblock = tempDiv.querySelector('.processed_qblock');
-            const taskId = qblock?.getAttribute('data-task-id') || 'unknown';
-            const formId = qblock?.getAttribute('data-form-id') || '';
-            const blockIndex = filename.replace('block_', '').replace('.html', '');
-            loadedBlocks.push({ html, taskId, formId, blockIndex });
+        for (const problemId of selectedProblemIds) {
+          const res = await fetch(`/api/v1/block/${problemId}`);
+          if (!res.ok) {
+            console.error(`Ошибка загрузки блока для problem_id ${problemId}:`, res.status, res.statusText);
+            continue;
           }
+          const html = await res.text();
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = html;
+          const qblock = tempDiv.querySelector('.processed_qblock');
+          // taskId и formId извлекаются из атрибутов .processed_qblock
+          // которые должны быть сгенерированы на бэкенде
+          const taskId = qblock?.getAttribute('data-task-id') || 'unknown';
+          const formId = qblock?.getAttribute('data-form-id') || '';
+          // blockIndex теперь будем использовать problemId
+          const blockIndex = problemId;
+          loadedBlocks.push({ html, taskId, formId, blockIndex });
         }
         setBlocks(loadedBlocks);
       } catch (err) {
@@ -168,7 +139,7 @@ const CalibrationPage: React.FC = () => {
     }
 
     try {
-      const res = await fetch('https://ixe-core.onrender.com/answer', {
+      const res = await fetch('/answer', { // Теперь используем прокси
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ problem_id: taskId, user_answer: userAnswer, form_id: formId }),

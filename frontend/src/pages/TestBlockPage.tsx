@@ -1,144 +1,197 @@
-import React, { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+
+// Глобальные типы для MathJax и insertSymbol
+declare global {
+  interface Window {
+    MathJax?: {
+      Hub: {
+        Queue: (args: any[]) => void;
+      };
+    };
+    insertSymbol?: (blockIndex: number, symbol: string) => void;
+  }
+}
 
 const TestBlockPage: React.FC = () => {
   const blockContainerRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   useEffect(() => {
     const loadAndDisplayBlock = async () => {
       if (!blockContainerRef.current) return;
 
+      setError(null); // Сброс ошибки перед новой попыткой загрузки
+      setLoading(true);
+
+      // 1. Извлечение problem_id из query-параметра
+      const problemId = searchParams.get('problem_id');
+      if (!problemId) {
+        setError('Не указан параметр problem_id в URL.');
+        setLoading(false);
+        return;
+      }
+
       try {
-        // 1. Fetch фрагмента блока с фронтенд-сервера
-        // Используем тот же подход, что и в CalibrationPage, но для одного блока
-        // Предположим, что файл block_6_init.html соответствует задаче 71BC43
-        // (Это нужно проверить вручную, но для теста подставим правильный ID)
-        // В CalibrationPage: blockIndex = qblock?.id?.replace('processed_qblock_', '') || id.toString();
-        // и id = 6, значит файл block_6_init.html
-        // В файле block_6_init.html: id="processed_qblock_6", data-task-id="71BC43"
-        // Значит, чтобы протестировать задачу 71BC43, нужно запросить block_6_init.html
-        // Найдём файл, соответствующий task-id 71BC43
-        // Из примера CalibrationPage: const blockIndex = qblock?.id?.replace('processed_qblock_', '') || id.toString();
-        // Это означает, что id внутри файла (processed_qblock_N) определяет имя файла (block_N_...html).
-        // Мы не знаем это id заранее по task-id.
-        // Лучший способ - это сгенерировать список файлов и сопоставить task-id с именем файла.
-        // Пока что, используем известное сопоставление из примера.
-        const targetTaskId = '71BC43';
-        // Предположим, файл block_6_init.html содержит задачу 71BC43 (как в примере CalibrationPage)
-        // Это нужно будет автоматизировать позже.
-        // Попробуем загрузить block_6_init.html
-        const blockFileName = 'block_6_init.html'; // Заменить на правильный файл для 71BC43
-        console.log(`Загружаем блок из файла: /blocks/math/${blockFileName}`);
-        const res = await fetch(`/blocks/math/${blockFileName}`);
+        // 2. Fetch фрагмента блока с бэкенд-сервера через API
+        console.log(`Загружаем блок для problem_id: ${problemId}`);
+        const res = await fetch(`/api/v1/block/${problemId}`);
+
         if (!res.ok) {
-          console.error(`Ошибка загрузки блока из файла ${blockFileName}: ${res.status} ${res.statusText}`);
+          if (res.status === 404) {
+            setError(`Задача с ID ${problemId} не найдена.`);
+          } else {
+            setError(`Ошибка загрузки блока: ${res.status} ${res.statusText}`);
+          }
+          setLoading(false);
           return;
         }
+
         const htmlFragment = await res.text();
-
-        // 2. Извлечь фрагмент <div class="processed_qblock"> из полученного HTML-фрагмента
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlFragment, 'text/html');
-        const qblockFragment = doc.querySelector('.processed_qblock');
-
-        if (!qblockFragment) {
-          console.error('Фрагмент .processed_qblock не найден в полученном HTML-фрагменте');
-          return;
-        }
-
-        // Проверим, совпадает ли task-id в извлеченном фрагменте с целевым
-        const taskIdInFragment = qblockFragment.getAttribute('data-task-id');
-        if (taskIdInFragment !== targetTaskId) {
-            console.warn(`Предупреждение: task-id в файле (${taskIdInFragment}) не совпадает с целевым (${targetTaskId}). Продолжаем с тем, что есть.`);
-        } else {
-            console.log(`Найден блок для задачи ${taskIdInFragment}`);
-        }
 
         // 3. Очистить контейнер и вставить фрагмент
         blockContainerRef.current.innerHTML = ''; // Очищаем перед вставкой
-        blockContainerRef.current.appendChild(qblockFragment);
+        blockContainerRef.current.innerHTML = htmlFragment; // Вставляем HTML
 
         // 4. Инициализировать MathJax для нового содержимого (если он подключен)
-        if ((window as any).MathJax && (window as any).MathJax.Hub) {
-          (window as any).MathJax.Hub.Queue(['Typeset', (window as any).MathJax.Hub, blockContainerRef.current]);
+        if (window.MathJax && window.MathJax.Hub) {
+          window.MathJax.Hub.Queue(['Typeset', window.MathJax.Hub, blockContainerRef.current]);
         } else {
           console.warn('MathJax не найден на window. Формулы могут не отобразиться.');
         }
 
         // 5. Определить глобальные функции, если они не определены (например, insertSymbol)
-        if (typeof (window as any).insertSymbol !== 'function') {
-          (window as any).insertSymbol = (blockIndex: number, symbol: string) => {
-            const input = document.querySelector<HTMLInputElement>(`#answer_${blockIndex}`);
-            if (!input) return;
-            const start = input.selectionStart || 0;
-            const end = input.selectionEnd || 0;
-            const val = input.value;
-            input.value = val.substring(0, start) + symbol + val.substring(end);
-            input.selectionStart = input.selectionEnd = start + symbol.length;
-            input.focus();
-          };
-        }
+        // Используем логику из CalibrationPage
+        window.insertSymbol = (blockIndex: number, symbol: string) => {
+          const input = document.querySelector<HTMLInputElement>(`#answer_${blockIndex}`);
+          if (!input) return;
+          const start = input.selectionStart || 0;
+          const end = input.selectionEnd || 0;
+          const val = input.value;
+          input.value = val.substring(0, start) + symbol + val.substring(end);
+          input.selectionStart = input.selectionEnd = start + symbol.length;
+          input.focus();
+        };
 
-        // 6. Привязать обработчики событий к вставленным элементам (если они не сработали из HTML)
-        // Пример для кнопки "i"
-        const infoButton = blockContainerRef.current.querySelector('.info-button');
-        if (infoButton) {
-          infoButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            const block = infoButton.closest('.processed_qblock');
-            block?.classList.toggle('show-info');
-          });
-        }
-
-        // Пример для кнопки математических символов
-        const mathToggleBtn = blockContainerRef.current.querySelector('.toggle-math-btn');
-        if (mathToggleBtn) {
-          mathToggleBtn.addEventListener('click', () => {
-            const block = mathToggleBtn.closest('.processed_qblock');
-            const mathButtons = block?.querySelector('.math-buttons');
-            mathButtons?.classList.toggle('active');
-          });
-        }
-
-        // Пример для формы ответа (если onsubmit не сработал)
-        const answerForm = blockContainerRef.current.querySelector('.answer-form') as HTMLFormElement;
-        if (answerForm) {
-          const onSubmitAttr = answerForm.getAttribute('onsubmit');
-          if (onSubmitAttr) {
-            // Извлекаем blockIndex из строки submitAnswerAndCheck(event, X)
-            // Для block_6_init.html blockIndex должен быть '6'
-            const match = onSubmitAttr.match(/submitAnswerAndCheck\(event,\s*(\d+)\)/);
-            if (match) {
-              const blockIndex = parseInt(match[1], 10);
-              console.log(`Найден blockIndex: ${blockIndex} для формы`);
-              answerForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                console.log(`Форма отправлена для blockIndex: ${blockIndex}, taskId: ${taskIdInFragment}`);
-                // Здесь можно вызвать вашу логику отправки ответа, например, handleSubmit
-                // handleSubmit(e, taskIdInFragment, formId, blockIndex);
-              });
-            } else {
-                console.error(`Не удалось извлечь blockIndex из onsubmit: ${onSubmitAttr}`);
-            }
-          } else {
-              console.error('Атрибут onsubmit не найден в .answer-form');
+        // 6. Привязать обработчики событий к вставленным элементам
+        // Используем логику из CalibrationPage с добавлением атрибута data-handled
+        document.querySelectorAll('.info-button').forEach(btn => {
+          if (!btn.hasAttribute('data-handled')) {
+            btn.setAttribute('data-handled', 'true');
+            btn.addEventListener('click', () => {
+              const block = btn.closest('.processed_qblock');
+              block?.classList.toggle('show-info');
+            });
           }
+        });
+
+        document.querySelectorAll('.toggle-math-btn').forEach(btn => {
+          if (!btn.hasAttribute('data-handled')) {
+            btn.setAttribute('data-handled', 'true');
+            btn.addEventListener('click', () => {
+              const block = btn.closest('.processed_qblock');
+              const mathButtons = block?.querySelector('.math-buttons');
+              mathButtons?.classList.toggle('active');
+            });
+          }
+        });
+
+        // Обработчик формы
+        const answerForm = blockContainerRef.current.querySelector<HTMLFormElement>('.answer-form');
+        if (answerForm && !answerForm.hasAttribute('data-handled')) {
+          answerForm.setAttribute('data-handled', 'true');
+          answerForm.addEventListener('submit', function(e: Event) {
+            e.preventDefault();
+            const onSubmitAttr = answerForm.getAttribute('onsubmit');
+            if (onSubmitAttr) {
+              // Извлекаем blockIndex (в данном случае это будет problemId) из строки submitAnswerAndCheck(event, 'problemId')
+              const match = onSubmitAttr.match(/submitAnswerAndCheck\(event,\s*["']([^"']+)["']\)/);
+              if (match) {
+                const blockIndexStr = match[1];
+                // Извлекаем taskId и formId из атрибутов .processed_qblock
+                const qblock = answerForm.closest('.processed_qblock');
+                const taskId = qblock?.getAttribute('data-task-id') || 'unknown';
+                const formId = qblock?.getAttribute('data-form-id') || '';
+
+                // Вызываем handleSubmit, имитируя логику из CalibrationPage
+                // Поскольку у нас один блок, мы можем определить handleSubmit локально
+                const handleSubmit = async (
+                  e: React.FormEvent,
+                  taskId: string,
+                  formId: string,
+                  blockIndex: string
+                ) => {
+                  e.preventDefault();
+                  const input = document.querySelector<HTMLInputElement>(`#answer_${blockIndex}`);
+                  const userAnswer = input?.value.trim();
+                  if (!userAnswer) {
+                    alert('Введите ответ');
+                    return;
+                  }
+
+                  const statusEl = document.querySelector<HTMLDivElement>(`#task-status-${blockIndex}`);
+                  if (statusEl) {
+                    statusEl.textContent = 'Проверка...';
+                    statusEl.className = 'task-status';
+                  }
+
+                  try {
+                    const res = await fetch('/answer', { // Используем прокси
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ problem_id: taskId, user_answer: userAnswer, form_id: formId }),
+                    });
+                    const data = await res.json();
+                    if (statusEl) {
+                      if (data.verdict === 'correct') {
+                        statusEl.textContent = 'ВЕРНО';
+                        statusEl.className = 'task-status task-status-3';
+                      } else if (data.verdict === 'incorrect') {
+                        statusEl.textContent = 'НЕВЕРНО';
+                        statusEl.className = 'task-status task-status-2';
+                      } else {
+                        statusEl.textContent = 'Ошибка';
+                        statusEl.className = 'task-status task-status-error';
+                      }
+                    }
+                  } catch (err) {
+                    console.error('Ошибка:', err);
+                    if (statusEl) {
+                      statusEl.textContent = 'Ошибка сети';
+                      statusEl.className = 'task-status task-status-error';
+                    }
+                  }
+                };
+
+                handleSubmit(e as unknown as React.FormEvent, taskId, formId, blockIndexStr);
+              } else {
+                console.error(`Не удалось извлечь blockIndex из onsubmit: ${onSubmitAttr}`);
+              }
+            } else {
+              console.error('Атрибут onsubmit не найден в .answer-form');
+            }
+          });
         }
 
         console.log('Блок успешно загружен и вставлен.');
       } catch (err) {
         console.error('Ошибка в TestBlockPage:', err);
+        setError('Произошла ошибка при загрузке или обработке блока.');
+      } finally {
+        setLoading(false);
       }
     };
 
     loadAndDisplayBlock();
-  }, []);
+  }, [searchParams]); // Зависимость от searchParams, чтобы перезагружать при изменении параметра
 
   return (
     <div className="container">
       <header>
-        <h1>Тестовый Блок Страница (71BC43)</h1>
+        <h1>Тестовый Блок</h1>
         <button
           onClick={() => navigate('/math')}
           style={{
@@ -155,6 +208,8 @@ const TestBlockPage: React.FC = () => {
         </button>
       </header>
       <main>
+        {loading && <div style={{ padding: '20px', textAlign: 'center' }}>Загрузка задания...</div>}
+        {error && <div style={{ padding: '20px', color: 'red', textAlign: 'center' }}>{error}</div>}
         <div ref={blockContainerRef} id="test-block-container">
           {/* Блок будет вставлен сюда */}
         </div>
