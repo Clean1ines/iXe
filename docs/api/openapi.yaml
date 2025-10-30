@@ -1,0 +1,233 @@
+openapi: 3.0.3
+info:
+  title: FIPI Core API
+  description: |
+    Unified API for ЕГЭ preparation platform.
+    
+    Supports:
+    - Subject listing
+    - Quiz generation
+    - Answer validation via FIPI
+    - Study plan stub
+    
+    All endpoints are prefixed with `/api` except root health check.
+  version: 1.0.0
+  contact:
+    name: iXe Team
+    email: gurovsky90@gmail.com
+servers:
+  - url: https://ixe-core.onrender.com
+    description: Production (Render)
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /:
+    get:
+      summary: Health check
+      operationId: root
+      responses:
+        '200':
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "FIPI API is running"
+
+  /api/subjects/available:
+    get:
+      summary: List available subjects
+      description: Returns subjects for which problem data exists in the database.
+      operationId: get_available_subjects
+      responses:
+        '200':
+          description: List of subjects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subjects:
+                    type: array
+                    items:
+                      type: string
+                      example: "mathematics"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/quiz/daily/start:
+    post:
+      summary: Start a new quiz
+      description: Generates a quiz with up to 10 problems for the given subject/page.
+      operationId: start_daily_quiz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                page_name:
+                  type: string
+                  example: "mathematics"
+                  description: Subject name or page identifier
+      responses:
+        '200':
+          description: Quiz generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quiz_id:
+                    type: string
+                    example: "daily_quiz_a1b2c3d4"
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QuizItem'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/answer:
+    post:
+      summary: Check a single answer
+      description: Validates user answer against FIPI and optionally caches the result.
+      operationId: check_answer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [problem_id, user_answer, form_id]
+              properties:
+                problem_id:
+                  type: string
+                  example: "init_4CBD4E"
+                user_answer:
+                  type: string
+                  example: "42"
+                form_id:
+                  type: string
+                  example: "form_init_4CBD4E"
+      responses:
+        '200':
+          description: Answer checked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verdict:
+                    type: string
+                    enum: [correct, incorrect, error]
+                    example: "correct"
+                  score_float:
+                    type: number
+                    example: 1.0
+                  short_hint:
+                    type: string
+                    example: "Правильный ответ"
+                  evidence:
+                    type: array
+                    items:
+                      type: object
+                    example: []
+                  deep_explanation_id:
+                    type: string
+                    nullable: true
+                    example: null
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/plan/generate:
+    post:
+      summary: Generate study plan (stub)
+      description: Placeholder for future adaptive study plan generation.
+      operationId: generate_study_plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, target_date, time_per_week_hours]
+              properties:
+                user_id:
+                  type: string
+                  example: "default_user"
+                target_date:
+                  type: string
+                  format: date
+                  example: "2026-06-01"
+                time_per_week_hours:
+                  type: integer
+                  example: 5
+      responses:
+        '200':
+          description: Plan generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan_id:
+                    type: string
+                    example: "plan_x9y8z7"
+                  weeks:
+                    type: array
+                    items:
+                      type: object
+        '422':
+          description: Missing required fields
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    QuizItem:
+      type: object
+      required: [problem_id, subject, topic, prompt, choices_or_input_type]
+      properties:
+        problem_id:
+          type: string
+          example: "init_4CBD4E"
+        subject:
+          type: string
+          example: "mathematics"
+        topic:
+          type: string
+          example: "algebra.equations"
+        prompt:
+          type: string
+          description: HTML content (may include base64 images)
+          example: "<div class='qblock'>...<img src='image/png;base64,...'>...</div>"
+        choices_or_input_type:
+          type: string
+          example: "text_input"
+
+  responses:
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "Internal error"
