@@ -10,11 +10,18 @@ router = APIRouter()
 async def start_daily_quiz(
     request: StartQuizRequest,
     service: QuizService = Depends(get_quiz_service)
-):
+) -> StartQuizResponse:
+    """
+    API endpoint to start a new daily quiz.
+
+    This endpoint takes a subject/page name and returns a list of quiz items
+    along with a unique quiz ID.
+    """
     # Эндпоинт теперь тонкая обёртка
     try:
         return service.start_quiz(request)
+    except HTTPException:
+        raise
     except Exception:
-        # Можно оставить обработку здесь, если нужна специфичная логика,
-        # иначе пусть обрабатывается глобально
-        raise # Пробрасываем, чтобы централизованная обработка сработала
+        # Пробрасываем, чтобы централизованная обработка сработала
+        raise

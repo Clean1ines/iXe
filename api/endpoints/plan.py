@@ -1,3 +1,4 @@
+# api/endpoints/plan.py
 from fastapi import APIRouter, Request, HTTPException
 import uuid
 import logging
@@ -7,6 +8,11 @@ router = APIRouter()
 
 @router.post("/plan/generate")
 async def generate_study_plan(request: Request):
+    """
+    API endpoint to generate a study plan (stub).
+
+    This is a placeholder for future adaptive study plan generation.
+    """
     return {
         "plan_id": f"plan_{uuid.uuid4().hex[:8]}",
         "weeks": []

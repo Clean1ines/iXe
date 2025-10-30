@@ -10,14 +10,35 @@ from api.schemas import CheckAnswerRequest, CheckAnswerResponse
 logger = logging.getLogger(__name__)
 
 class AnswerService:
+    """
+    Service class for handling answer validation and caching logic.
+    """
+
     def __init__(self, db: DatabaseManager, checker: FIPIAnswerChecker, storage: Optional[LocalStorage] = None):
+        """
+        Initializes the AnswerService.
+
+        Args:
+            db: The database manager instance for data access.
+            checker: The checker instance for validating answers against an external source.
+            storage: Optional local storage instance for caching answers and statuses.
+        """
         self.db = db
         self.checker = checker
         self.storage = storage
 
     async def check_answer(self, request: CheckAnswerRequest) -> CheckAnswerResponse:
         """
-        Бизнес-логика для проверки ответа.
+        Validates a user's answer against an external source and optionally caches the result.
+
+        Args:
+            request: The request object containing problem_id, user_answer, and form_id.
+
+        Returns:
+            CheckAnswerResponse: The response object containing the validation result.
+
+        Raises:
+            HTTPException: If an error occurs during validation or with the external service.
         """
         problem_id = request.problem_id
         user_answer = request.user_answer

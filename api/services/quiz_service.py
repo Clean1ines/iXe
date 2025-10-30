@@ -9,12 +9,31 @@ from api.schemas import StartQuizRequest, StartQuizResponse, QuizItem
 logger = logging.getLogger(__name__)
 
 class QuizService:
+    """
+    Service class for handling quiz-related business logic.
+    """
+
     def __init__(self, db: DatabaseManager):
+        """
+        Initializes the QuizService with a database manager.
+
+        Args:
+            db: The database manager instance for data access.
+        """
         self.db = db
 
     def start_quiz(self, request: StartQuizRequest) -> StartQuizResponse:
         """
-        Бизнес-логика для старта квиза.
+        Initiates a new quiz based on the provided request.
+
+        Args:
+            request: The request object containing quiz parameters (e.g., page_name).
+
+        Returns:
+            StartQuizResponse: The response object containing the quiz ID and items.
+
+        Raises:
+            HTTPException: If an error occurs during quiz creation.
         """
         logger.info(f"Starting quiz for page: {request.page_name}")
         try:

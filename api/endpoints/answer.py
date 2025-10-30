@@ -8,9 +8,15 @@ router = APIRouter()
 
 @router.post("/answer", response_model=CheckAnswerResponse)
 async def check_answer(
-    request: CheckAnswerRequest, # Pydantic-валидация входных данных!
+    request: CheckAnswerRequest,
     service: AnswerService = Depends(get_answer_service)
-):
+) -> CheckAnswerResponse:
+    """
+    API endpoint to check a user's answer.
+
+    This endpoint validates the user's answer against an external source
+    and returns the result along with a score and potential hint.
+    """
     # Эндпоинт теперь тонкая обёртка
     try:
         return await service.check_answer(request)

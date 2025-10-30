@@ -9,6 +9,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 def create_app() -> FastAPI:
+    """
+    Creates and configures the FastAPI application instance.
+
+    Sets up CORS, exception handlers, and includes API routers.
+
+    Returns:
+        FastAPI: The configured FastAPI application.
+    """
     app = FastAPI(
         title="FIPI Core API",
         description="Unified API for ЕГЭ preparation platform",
@@ -36,6 +44,9 @@ def create_app() -> FastAPI:
     # --- Централизованная обработка исключений ---
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
+        """
+        Handles HTTP exceptions globally.
+        """
         logger.warning(f"HTTPException {exc.status_code}: {exc.detail}")
         return JSONResponse(
             status_code=exc.status_code,
@@ -44,6 +55,9 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
+        """
+        Handles unhandled exceptions globally.
+        """
         logger.error(f"Unhandled exception for {request.method} {request.url}: {exc}", exc_info=True)
         # В production лучше не возвращать traceback
         return JSONResponse(
@@ -59,6 +73,9 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     async def root():
+        """
+        Health check endpoint.
+        """
         return {"message": "FIPI API is running"}
 
     return app
