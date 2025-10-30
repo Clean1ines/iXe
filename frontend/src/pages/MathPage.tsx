@@ -1,19 +1,14 @@
-// frontend/src/pages/MathPage.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const MathPage: React.FC = () => {
   const navigate = useNavigate();
-
   const handleCalibrate = () => {
-    // Позже: начать квиз на основе калибровки
-    alert('Калибровка навыков — пока заглушка');
+    navigate('/math/calibrate');
   };
-
   const handleContinue = () => {
     alert('Продолжить подготовку — пока недоступно');
   };
-
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '600px', margin: '0 auto' }}>
       <h2>Математика (Профильный Уровень)</h2>

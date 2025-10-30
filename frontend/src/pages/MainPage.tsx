@@ -1,14 +1,11 @@
-// frontend/src/pages/MainPage.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const MainPage: React.FC = () => {
   const navigate = useNavigate();
-
   const handleMathClick = () => {
     navigate('/math');
   };
-
   const handleStubClick = (subject: string) => {
     alert(`Раздел "${subject}" пока недоступен.`);
   };
