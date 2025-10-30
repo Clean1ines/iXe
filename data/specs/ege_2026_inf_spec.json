@@ -1,0 +1,257 @@
+{
+  "//": "Спецификация КИМ ЕГЭ 2026 по информатике (профильный уровень).",
+  "//": "Обобщённый план экзаменационной работы: 27 заданий.",
+  "//": "Поля:",
+  "//": "  - task_number: номер задания (1–27)",
+  "//": "  - exam_part: всегда 'Part 1' (в ЕГЭ по информатике нет формального деления на части, но все задания с кратким ответом)",
+  "//": "  - max_score: 1 для заданий 1–25, 2 для заданий 26–27",
+  "//": "  - difficulty: 'basic' (Б), 'advanced' (П) или 'high' (В)",
+  "//": "  - kes_codes: коды элементов содержания (КЭС) из колонки 'Коды проверяемых элементов содержания'",
+  "//": "  - kos_codes: коды требований (КОС) из колонки 'Коды проверяемых предметных требований'",
+  "//": "  - description: краткое описание проверяемого требования",
+  "tasks": [
+    {
+      "task_number": 1,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "basic",
+      "kes_codes": ["2.10"],
+      "kos_codes": ["2.1"],
+      "description": "Умение представлять и считывать данные в разных типах информационных моделей (схемы, карты, таблицы, графики и формулы)"
+    },
+    {
+      "task_number": 2,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "basic",
+      "kes_codes": ["2.7"],
+      "kos_codes": ["2.6"],
+      "description": "Умение строить таблицы истинности и логические схемы"
+    },
+    {
+      "task_number": 3,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "basic",
+      "kes_codes": ["4.5"],
+      "kos_codes": ["1.6"],
+      "description": "Умение поиска информации в реляционных базах данных"
+    },
+    {
+      "task_number": 4,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "basic",
+      "kes_codes": ["2.1"],
+      "kos_codes": ["2.4"],
+      "description": "Умение кодировать и декодировать информацию"
+    },
+    {
+      "task_number": 5,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "basic",
+      "kes_codes": ["3.3"],
+      "kos_codes": ["2.9"],
+      "description": "Формальное исполнение простого алгоритма, записанного на естественном языке, или умение создавать линейный алгоритм для формального исполнителя с ограниченным набором команд, или умение восстанавливать исходные данные линейного алгоритма по результатам его работы"
+    },
+    {
+      "task_number": 6,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "basic",
+      "kes_codes": ["3.3"],
+      "kos_codes": ["2.9"],
+      "description": "Определение возможных результатов работы простейших алгоритмов управления исполнителями и вычислительных алгоритмов"
+    },
+    {
+      "task_number": 7,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "basic",
+      "kes_codes": ["2.6"],
+      "kos_codes": ["2.3"],
+      "description": "Умение определять объём памяти, необходимый для хранения графической и звуковой информации"
+    },
+    {
+      "task_number": 8,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "basic",
+      "kes_codes": ["2.2"],
+      "kos_codes": ["1.3"],
+      "description": "Знание основных понятий и методов, используемых при измерении количества информации"
+    },
+    {
+      "task_number": 9,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "basic",
+      "kes_codes": ["4.2"],
+      "kos_codes": ["2.13"],
+      "description": "Умение обрабатывать числовую информацию в электронных таблицах"
+    },
+    {
+      "task_number": 10,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "basic",
+      "kes_codes": ["4.6"],
+      "kos_codes": ["1.1"],
+      "description": "Информационный поиск средствами текстового процессора"
+    },
+    {
+      "task_number": 11,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "advanced",
+      "kes_codes": ["2.2"],
+      "kos_codes": ["2.3"],
+      "description": "Умение подсчитывать информационный объём сообщения"
+    },
+    {
+      "task_number": 12,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "advanced",
+      "kes_codes": ["3.3"],
+      "kos_codes": ["1.4"],
+      "description": "Умение исполнить алгоритм для конкретного исполнителя с фиксированным набором команд"
+    },
+    {
+      "task_number": 13,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "advanced",
+      "kes_codes": ["1.2"],
+      "kos_codes": ["1.2"],
+      "description": "Умение использовать маску подсети"
+    },
+    {
+      "task_number": 14,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "advanced",
+      "kes_codes": ["2.3"],
+      "kos_codes": ["2.5"],
+      "description": "Знание позиционных систем счисления"
+    },
+    {
+      "task_number": 15,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "advanced",
+      "kes_codes": ["2.7"],
+      "kos_codes": ["2.6"],
+      "description": "Знание основных понятий и законов математической логики"
+    },
+    {
+      "task_number": 16,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "advanced",
+      "kes_codes": ["3.7"],
+      "kos_codes": ["1.8"],
+      "description": "Вычисление рекуррентных выражений"
+    },
+    {
+      "task_number": 17,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "advanced",
+      "kes_codes": ["3.10"],
+      "kos_codes": ["2.12"],
+      "description": "Умение составить алгоритм обработки числовой последовательности и записать его в виде простой программы (10–15 строк) на языке программирования"
+    },
+    {
+      "task_number": 18,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "advanced",
+      "kes_codes": ["4.5"],
+      "kos_codes": ["2.13"],
+      "description": "Умение использовать электронные таблицы для обработки целочисленных данных"
+    },
+    {
+      "task_number": 19,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "basic",
+      "kes_codes": ["2.15"],
+      "kos_codes": ["2.1"],
+      "description": "Умение анализировать алгоритм логической игры"
+    },
+    {
+      "task_number": 20,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "advanced",
+      "kes_codes": ["2.15"],
+      "kos_codes": ["2.1"],
+      "description": "Умение найти выигрышную стратегию игры"
+    },
+    {
+      "task_number": 21,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "high",
+      "kes_codes": ["2.15"],
+      "kos_codes": ["2.1"],
+      "description": "Умение построить дерево игры по заданному алгоритму и найти выигрышную стратегию"
+    },
+    {
+      "task_number": 22,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "advanced",
+      "kes_codes": ["1.1"],
+      "kos_codes": ["1.1"],
+      "description": "Построение математических моделей для решения практических задач. Архитектура современных компьютеров. Многопроцессорные системы"
+    },
+    {
+      "task_number": 23,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "advanced",
+      "kes_codes": ["3.3"],
+      "kos_codes": ["2.11"],
+      "description": "Умение анализировать ход исполнения алгоритма"
+    },
+    {
+      "task_number": 24,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "high",
+      "kes_codes": ["3.9"],
+      "kos_codes": ["2.11"],
+      "description": "Умение создавать собственные программы (10–20 строк) для обработки символьной информации"
+    },
+    {
+      "task_number": 25,
+      "exam_part": "Part 1",
+      "max_score": 1,
+      "difficulty": "high",
+      "kes_codes": ["3.4"],
+      "kos_codes": ["2.12"],
+      "description": "Умение создавать собственные программы (10–20 строк) для обработки целочисленной информации"
+    },
+    {
+      "task_number": 26,
+      "exam_part": "Part 1",
+      "max_score": 2,
+      "difficulty": "high",
+      "kes_codes": ["3.10"],
+      "kos_codes": ["2.12"],
+      "description": "Умение обрабатывать целочисленную информацию с использованием сортировки"
+    },
+    {
+      "task_number": 27,
+      "exam_part": "Part 1",
+      "max_score": 2,
+      "difficulty": "high",
+      "kes_codes": ["4.1"],
+      "kos_codes": ["2.2"],
+      "description": "Умение выполнять последовательность решения задач анализа данных: сбор первичных данных, очистка и оценка качества данных, выбор и построение модели, преобразование данных, визуализация данных, интерпретация результатов"
+    }
+  ]
+}

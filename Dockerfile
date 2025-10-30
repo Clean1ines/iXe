@@ -2,21 +2,30 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install build dependencies (for lxml, etc.)
-RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
+# Установка зависимостей ОС (для Playwright)
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Установка Playwright
+RUN curl -sS https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
+
+# Установка Python-зависимостей
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the pre-scraped database (must exist in ./data/fipi_data.db)
-COPY data/fipi_data.db ./data/fipi_data.db
+# Установка Playwright браузеров
+RUN playwright install chromium
 
-# Copy source code
+# Копирование данных и кода
+COPY data/ ./data/
 COPY . .
 
-# Ensure non-buffered output
 ENV PYTHONUNBUFFERED=1
 
-# Render passes PORT at runtime
-CMD ["sh", "-c", "uvicorn api.core_api_render:app --host 0.0.0.0 --port $PORT"]
+CMD ["sh", "-c", "uvicorn core_api_render:app --host 0.0.0.0 --port $PORT"]

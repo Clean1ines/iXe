@@ -1,18 +1,16 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import MainPage from './pages/MainPage';
 import QuizPage from './pages/QuizPage';
-import MainPage from './pages/MainPage'; // NEW: Import MainPage
 
-/**
- * Главный компонент приложения
- * Обеспечивает маршрутизацию для Telegram Mini App
- */
 const App: React.FC = () => {
   return (
-    <Routes>
-      <Route path="/" element={<MainPage />} /> {/* NEW: Route to MainPage */}
-      <Route path="/quiz/:pageName" element={<QuizPage />} />
-    </Routes>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MainPage />} />
+        <Route path="/quiz" element={<QuizPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 };
 

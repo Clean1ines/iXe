@@ -1,11 +1,40 @@
+<!-- frontend/index.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Telegram Mini App Quiz</title>
-  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <title>ЕГЭ Помощник</title>
+  <link rel="manifest" href="/manifest.json" />
+  <style>
+    /* Общие стили из ваших блоков */
+    .processed_qblock { margin:20px; padding:10px; border:1px solid #ccc; }
+    img { max-width:100%; height:auto; }
+    .answer-form { margin-top:10px; padding:10px; background-color:#f9f9f9; border:1px solid #ddd; }
+    .math-buttons { margin-top:5px; display:none; }
+    .math-buttons.active { display:block; }
+    .math-buttons button { margin:2px; padding:3px 6px; font-size:12px; }
+    .task-info-content { margin-top:10px; padding:10px; background-color:#eef; border:1px solid #ccc; display:none; }
+    .show-info .task-info-content { display:block; }
+    .info-button { display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; background-color:#ccc; color:white; border-radius:50%; cursor:pointer; margin-left:10px; }
+    .task-info-content table { width:100%; border-collapse:collapse; }
+    .task-info-content td { border:1px solid #ccc; padding:5px; vertical-align:top; }
+    .task-info-content .param-name { font-weight:bold; width:150px; background-color:#eee; }
+    .toggle-math-btn { margin-bottom:5px; }
+    .task-status { margin-top:5px; padding:5px; font-weight:bold; }
+    .task-status-2 { background-color:#ffe6e6; color:#d00; border:1px solid #ffcccc; }
+    .task-status-3 { background-color:#e6ffe6; color:#080; border:1px solid #ccffcc; }
+    .task-status-error { background-color:#fff0e6; color:#ff6600; border:1px solid #ffccaa; }
+    body { font-family:Arial,sans-serif; margin:0; padding:20px; background-color:#f5f5f5; }
+    .container { max-width:1200px; margin:0 auto; background-color:#fff; padding:20px; box-shadow:0 0 5px rgba(0,0,0,0.1); }
+    header, footer { text-align:center; padding:10px 0; border-bottom:1px solid #eee; border-top:1px solid #eee; margin-bottom:20px; }
+    @media (max-width:768px) {
+      body { padding:10px; }
+      .container { padding:10px; }
+    }
+  </style>
+  <!-- MathJax -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML" async></script>
 </head>
 <body>
   <div id="root"></div>

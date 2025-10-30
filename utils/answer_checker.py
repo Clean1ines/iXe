@@ -1,126 +1,75 @@
-"""Модуль для проверки ответов пользователя на задания FIPI через API."""
+"""Модуль для проверки ответов через headless-браузер (Playwright) на сайте ФИПИ."""
 
-import logging # NEW: Import logging
-import json
+import logging
 from typing import Dict, Any
+from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 
-import httpx
-
-
-logger = logging.getLogger(__name__) # NEW: Create module logger
+logger = logging.getLogger(__name__)
 
 class FIPIAnswerChecker:
-    """Класс для отправки пользовательских ответов на задания FIPI и получения результата проверки.
-
-    Attributes:
-        base_url (str): Базовый URL сайта FIPI (например, 'https://fipi.ru  ').
-    """
-
-    def __init__(self, base_url: str) -> None:
-        """Инициализирует экземпляр FIPIAnswerChecker.
-
-        Args:
-            base_url (str): Базовый URL сайта FIPI.
-        """
+    def __init__(self, base_url: str = "https://ege.fipi.ru") -> None:
         self.base_url = base_url.rstrip("/")
 
     async def check_answer(self, task_id: str, form_id: str, user_answer: str) -> Dict[str, Any]:
-        """Отправляет пользовательский ответ на задание FIPI и возвращает результат проверки.
-
-        This method logs the attempt, request details, response, and outcome.
-
-        Args:
-            task_id (str): Идентификатор задания (например, '40B442').
-            form_id (str): Идентификатор формы (например, 'checkform40B442').
-            user_answer (str): Ответ, введённый пользователем.
-
-        Returns:
-            Dict[str, Any]: Словарь с ключами:
-                - 'status': 'correct', 'incorrect' или 'error'
-                - 'message': краткое текстовое описание результата
-                - 'raw_response': исходный текст ответа от сервера (для отладки)
-        """
-        logger.info(f"Checking answer for task {task_id} using form {form_id}. Answer length: {len(user_answer)}") # NEW: Log start of check
-        url = f"{self.base_url}/check-answer"  # Предполагаемый эндпоинт
-        data = {
-            "answer": user_answer,
-            "task_id": task_id,
-            "form_id": form_id,
-        }
-        headers = {
-            "Referer": f"{self.base_url}/",
-            "Origin": self.base_url,
-            "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "Mozilla/5.0 (compatible; FIPIParser/1.0)",
-        }
-
+        logger.info(f"Checking answer for task {task_id} via Playwright on FIPI")
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                logger.debug(f"Sending POST request to {url} with data keys: {list(data.keys())} and headers: {list(headers.keys())}") # MODIFIED: Log request details safely
-                response = await client.post(url, data=data, headers=headers)
-                response.raise_for_status()
-                raw_text = response.text
-                logger.debug(f"Received raw response: {raw_text[:200]}...") # NEW: Log raw response snippet
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                page = await browser.new_page()
 
-                # Пробуем распарсить JSON, как выяснили, сайт возвращает JSON
-                try:
-                    json_data = response.json()
-                    logger.debug(f"Parsed JSON response: {json_data}") # NEW: Log parsed JSON
-                    server_status = json_data.get("status")
-                    server_message = json_data.get("message", raw_text)
-                except (json.JSONDecodeError, AttributeError):
-                    # Fallback: анализ текста, если JSON не удался
-                    if "correct" in raw_text.lower() or "верно" in raw_text.lower():
-                        server_status = "correct"
-                        server_message = "Верно"
-                    elif "incorrect" in raw_text.lower() or "неверно" in raw_text.lower():
-                        server_status = "incorrect"
-                        server_message = "Неверно"
-                    else:
-                        server_status = None
-                        server_message = raw_text
+                # Увеличиваем таймауты
+                page.set_default_timeout(30000)  # 30 секунд
 
-                if server_status == "correct":
-                    logger.info(f"Answer for task {task_id} is CORRECT.") # NEW: Log correct result
-                    return {
-                        "status": "correct",
-                        "message": server_message,
-                        "raw_response": raw_text,
-                    }
-                elif server_status == "incorrect":
-                    logger.info(f"Answer for task {task_id} is INCORRECT.") # NEW: Log incorrect result
-                    return {
-                        "status": "incorrect",
-                        "message": server_message,
-                        "raw_response": raw_text,
-                    }
+                proj_id = "AC437B34557F88EA4115D2F374B0A07B"
+                main_url = f"{self.base_url}/bank/index.php?proj={proj_id}"
+                
+                # Ждём полной загрузки сети
+                await page.goto(main_url, wait_until="networkidle", timeout=30000)
+                
+                # Явное ожидание появления хотя бы одного блока
+                await page.wait_for_selector(".processed_qblock", timeout=30000)
+                # 3. Находим нужный блок по data-task-id
+                block_selector = f'div.processed_qblock[data-task-id="{task_id}"]'
+                block = await page.query_selector(block_selector)
+                if not block:
+                    await browser.close()
+                    return {"status": "error", "message": f"Task block {task_id} not found", "raw_response": ""}
+
+                # 4. Вводим ответ в поле внутри этого блока
+                input_selector = f'{block_selector} input[name="answer"]'
+                await page.fill(input_selector, user_answer)
+                logger.debug(f"Filled answer for task {task_id}")
+
+                # 5. Нажимаем кнопку "Ответить" в том же блоке
+                button_selector = f'{block_selector} .answer-button:has-text("Ответить")'
+                await page.click(button_selector)
+                logger.debug(f"Clicked 'Ответить' for task {task_id}")
+
+                # 6. Ждём обновления статуса
+                status_selector = f'{block_selector} .task-status'
+                await page.wait_for_function(
+                    f'document.querySelector("{status_selector}").classList.contains("task-status-2") || '
+                    f'document.querySelector("{status_selector}").classList.contains("task-status-3")',
+                    timeout=8000
+                )
+
+                # 7. Читаем результат
+                status_el = await page.query_selector(status_selector)
+                status_class = await status_el.get_attribute("class") or ""
+                status_text = await status_el.inner_text() or ""
+
+                await browser.close()
+
+                if "task-status-3" in status_class:
+                    return {"status": "correct", "message": "ВЕРНО", "raw_response": status_text}
+                elif "task-status-2" in status_class:
+                    return {"status": "incorrect", "message": "НЕВЕРНО", "raw_response": status_text}
                 else:
-                    logger.warning(f"Could not determine status for task {task_id}. Raw response: {raw_text[:100]}...") # NEW: Log undetermined status
-                    return {
-                        "status": "error",
-                        "message": "Не удалось определить статус ответа.",
-                        "raw_response": raw_text,
-                    }
+                    return {"status": "error", "message": "Неизвестный статус", "raw_response": status_text}
 
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error {e.response.status_code} while checking answer for task {task_id}: {e}", exc_info=True) # MODIFIED: Use logger
-            return {
-                "status": "error",
-                "message": f"HTTP ошибка: {e.response.status_code}",
-                "raw_response": str(e),
-            }
-        except httpx.RequestError as e:
-            logger.error(f"Request error while checking answer for task {task_id}: {type(e).__name__}, {e}", exc_info=True) # MODIFIED: Use logger
-            return {
-                "status": "error",
-                "message": f"Сетевая ошибка: {type(e).__name__}",
-                "raw_response": str(e),
-            }
+        except PlaywrightTimeout as e:
+            logger.error(f"Timeout for task {task_id}: {e}")
+            return {"status": "error", "message": "Таймаут при проверке", "raw_response": str(e)}
         except Exception as e:
-            logger.error(f"Unexpected error while checking answer for task {task_id}: {type(e).__name__}, {e}", exc_info=True) # MODIFIED: Use logger
-            return {
-                "status": "error",
-                "message": f"Неизвестная ошибка: {type(e).__name__}",
-                "raw_response": str(e),
-            }
-
+            logger.error(f"Playwright error for task {task_id}: {e}", exc_info=True)
+            return {"status": "error", "message": f"Ошибка: {type(e).__name__}", "raw_response": str(e)}
