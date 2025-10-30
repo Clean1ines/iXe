@@ -35,6 +35,29 @@ iXe is a **multi-model system** by design. No single database can optimally serv
 - Add TimescaleDB for high-cardinality time-series (e.g., per-user response times)
 - Introduce materialized views for dashboard queries
 
+## Official FIPI Specifications Integration
+
+The system ingests two authoritative JSON documents from FIPI:
+
+1. **`ege_2026_math_spec.json`** — Exam blueprint:
+   - Maps task numbers (1–19) to KES/KOS codes
+   - Defines difficulty, max score, exam part
+   - Serves as the source of truth for quiz generation
+
+2. **`ege_2026_math_kes_kos.json`** — Code definitions:
+   - Full human-readable descriptions of every KES (content element) and KOS (requirement)
+   - Enables explainable feedback: "You missed KOS 3: solving equations with parameters"
+
+These documents are loaded at startup by `SpecificationService` and used to:
+- Validate scraped problems against official taxonomy
+- Generate adaptive study plans aligned with exam structure
+- Provide pedagogically meaningful error explanations
+
+- **Document Collection**: `specifications`
+  - Key: `math_2026`
+  - Contains full `ege_2026_math_spec.json` and `kes_kos` mapping
+  - Used by `SpecificationService` for validation and feedback
+
 ## References
 - [ADR-0001: Polyglot Persistence](../adr/0001-use-polyglot-persistence.md)
 - [ADR-0002: Migrate to ArangoDB](../adr/0002-migrate-to-arangodb.md)
