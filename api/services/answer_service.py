@@ -54,7 +54,8 @@ class AnswerService:
                     score_float=1.0 if cached_status == "correct" else 0.0,
                     short_hint="From cache",
                     evidence=[],
-                    deep_explanation_id=None
+                    deep_explanation_id=None,
+                    feedback=None # <-- Явно добавляем feedback
                 )
 
         # 2. Проверка через внешний API
@@ -77,5 +78,6 @@ class AnswerService:
             score_float=score,
             short_hint=message,
             evidence=[],
-            deep_explanation_id=None
+            deep_explanation_id=None,
+            feedback=None # <-- Явно добавляем feedback
         )

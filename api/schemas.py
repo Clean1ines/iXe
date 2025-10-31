@@ -9,9 +9,8 @@ class StartQuizRequest(BaseModel):
 
     Attributes:
         page_name: The subject or page identifier to start the quiz for.
-                   Defaults to 'init'.
     """
-    page_name: str = Field(default="init", description="Subject or page identifier for the quiz.")
+    page_name: str # <-- Сделаем обязательным для проверки валидации
 
 class CheckAnswerRequest(BaseModel):
     """
@@ -74,6 +73,8 @@ class CheckAnswerResponse(BaseModel):
     short_hint: str
     evidence: List[str]  # пока пустой список
     deep_explanation_id: Optional[str]
+    # Убираем feedback, чтобы избежать потенциального конфликта
+    # feedback: Optional[str] = None
 
 class GeneratePlanResponse(BaseModel):
     """
