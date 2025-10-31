@@ -35,25 +35,26 @@ class Problem(BaseModel):
         updated_at (Optional[datetime]): Дата/время последнего обновления в формате ISO8601. Может быть null.
         metadata (Optional[Dict[str, Any]]): Дополнительные данные. Может быть null.
     """
-problem_id: str
-subject: str
-type: str
-text: str
-offline_html: Optional[str] = None
-options: Optional[List[str]] = None
-answer: str
-solutions: Optional[List[Dict[str, Any]]] = None
-topics: List[str]
-skills: Optional[List[str]] = None
-difficulty_level: str
-task_number: int
-kes_codes: List[str] = Field(default_factory=list)
-kos_codes: List[str] = Field(default_factory=list)
-exam_part: str
-max_score: int
-form_id: Optional[str] = None # Сделано опциональным
-source_url: Optional[str] = None
-raw_html_path: Optional[str] = None
-created_at: datetime
-updated_at: Optional[datetime] = None
-metadata: Optional[Dict[str, Any]] = None
+    problem_id: str
+    subject: str  # <-- Поле subject определено как обязательное
+    type: str
+    text: str
+    offline_html: Optional[str] = None
+    options: Optional[List[str]] = None
+    answer: str
+    solutions: Optional[List[Dict[str, Any]]] = None
+    topics: List[str]
+    skills: Optional[List[str]] = None
+    difficulty_level: str
+    task_number: int
+    kes_codes: List[str] = Field(default_factory=list)
+    kos_codes: List[str] = Field(default_factory=list)
+    exam_part: str
+    max_score: int
+    form_id: Optional[str] = None # Сделано опциональным
+    source_url: Optional[str] = None
+    raw_html_path: Optional[str] = None
+    created_at: datetime # <-- Сделаем поле обязательным
+    updated_at: Optional[datetime] = None
+    metadata: Optional[Dict[str, Any]] = None
+    model_config = {"from_attributes": True} # <-- Это ключевое изменение для V2, заменяет orm_mode=True
