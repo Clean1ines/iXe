@@ -15,7 +15,6 @@ class Problem(BaseModel):
         subject (str): Предмет, например, "mathematics", "informatics", "russian".
         type (str): Тип задания по формату ЕГЭ, например, "A", "B", "task_1".
         text (str): Полный текст задачи, включая LaTeX.
-        offline_html (Optional[str]): HTML-фрагмент задачи с встроенными base64 изображениями для оффлайн-режима. Может быть null.
         options (Optional[List[str]]): Варианты ответа, если применимо. Может быть null.
         answer (str): Эталонный ответ, может быть выражением.
         solutions (Optional[List[Dict[str, Any]]]): Список решений. Каждое решение - это словарь с полями,
@@ -36,10 +35,9 @@ class Problem(BaseModel):
         metadata (Optional[Dict[str, Any]]): Дополнительные данные. Может быть null.
     """
     problem_id: str
-    subject: str  # <-- Поле subject определено как обязательное
+    subject: str
     type: str
     text: str
-    offline_html: Optional[str] = None
     options: Optional[List[str]] = None
     answer: str
     solutions: Optional[List[Dict[str, Any]]] = None
@@ -51,10 +49,10 @@ class Problem(BaseModel):
     kos_codes: List[str] = Field(default_factory=list)
     exam_part: str
     max_score: int
-    form_id: Optional[str] = None # Сделано опциональным
+    form_id: Optional[str] = None
     source_url: Optional[str] = None
     raw_html_path: Optional[str] = None
-    created_at: datetime # <-- Сделаем поле обязательным
+    created_at: datetime
     updated_at: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
-    model_config = {"from_attributes": True} # <-- Это ключевое изменение для V2, заменяет orm_mode=True
+    model_config = {"from_attributes": True}

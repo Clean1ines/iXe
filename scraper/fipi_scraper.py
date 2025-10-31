@@ -10,6 +10,7 @@ from typing import Dict, Any, List, Tuple, Optional
 from playwright.sync_api import sync_playwright
 from utils.downloader import AssetDownloader
 from processors.page_processor import PageProcessingOrchestrator
+import re
 
 # Импорты для зависимостей
 from processors.html_data_processors import (
@@ -132,6 +133,34 @@ class FIPIScraper:
         print(f"[Fetched subjects] Found {len(projects)} subjects.")
         return projects
 
+    def get_total_pages(self, proj_id: str) -> int:
+        """Extract total pages from pagination links on the 'init' page."""
+        init_url = f"{self.base_url}?proj={proj_id}&page=init"
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=self.headless)
+            context = browser.new_context(user_agent=self.user_agent, ignore_https_errors=True)
+            page = context.new_page()
+            page.goto(init_url, wait_until="networkidle")
+
+            max_page = 1
+            try:
+                # Ищем все ссылки с page= в href
+                page_links = page.query_selector_all("a[href*='page=']")
+                for link in page_links:
+                    href = link.get_attribute("href")
+                    if href:
+                        match = re.search(r'page=(\d+)', href)
+                        if match:
+                            page_num = int(match.group(1))
+                            if page_num > max_page:
+                                max_page = page_num
+            except Exception as e:
+                print(f"Warning: Failed to parse pagination: {e}")
+
+            browser.close()
+            print(f"🔢 Detected {max_page} pages for project {proj_id}")
+            return max_page
+
     def scrape_page(self, proj_id: str, page_num: str, run_folder: Path) -> Tuple[List[Any], Dict[str, Any]]:
         """
         Scrapes a specific page of assignments for a given subject by delegating
@@ -167,19 +196,17 @@ class FIPIScraper:
 
             # --- Delegate to Orchestrator ---
             logger.debug("Initializing AssetDownloader and PageProcessingOrchestrator...")
-            # Create a simple factory that returns the already-instantiated downloader
             downloader = AssetDownloader(page=page, base_url=self.base_url, files_location_prefix=files_location_prefix)
 
             def asset_downloader_factory(page_obj, base_url, prefix):
                 return downloader
 
-            # Создаём PageProcessingOrchestrator, передавая внедрённые зависимости
             orchestrator = PageProcessingOrchestrator(
                 asset_downloader_factory=asset_downloader_factory,
-                processors=self._processors, # <- Используем внедрённые
-                metadata_extractor=self._extractor, # <- Используем внедрённые
-                problem_builder=self._builder, # <- Используем внедрённые
-                element_pairer=self._pairer # <- Используем внедрённые
+                processors=self._processors,
+                metadata_extractor=self._extractor,
+                problem_builder=self._builder,
+                element_pairer=self._pairer
             )
 
             logger.info("Delegating page processing to PageProcessingOrchestrator...")
@@ -190,12 +217,10 @@ class FIPIScraper:
                 run_folder=run_folder,
                 base_url=self.base_url,
                 files_location_prefix=files_location_prefix,
-                page=page, # Pass the page object for AssetDownloader if needed internally
+                page=page,
             )
             logger.info("Page processing completed by Orchestrator.")
             # -------------------------------
 
             browser.close()
         return problems, scraped_data
-
-

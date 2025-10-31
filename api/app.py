@@ -70,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(quiz.router, prefix="/api")
     app.include_router(answer.router, prefix="/api")
     app.include_router(plan.router, prefix="/api")
+app.include_router(block.router, prefix="/api")
 
     @app.get("/")
     async def root():
