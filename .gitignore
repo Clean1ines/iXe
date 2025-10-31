@@ -5,13 +5,10 @@ venv/
 # Data and Assets (если не планируете хранить в репо)
 history/
 data/**
-!data/fipi_data.db
+!data/promath/2026/fipi_data.db
 !data/specs/
 !data/specs/**
 problems/
-!problems/Математика__Профильный_уровень/
-!problems/Математика__Профильный_уровень/**
-
 
 custom_output/
 frontend/node_modules/

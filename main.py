@@ -1,8 +1,19 @@
 """
 Main entry point for the FIPI Parser application.
-Scrapes subjects from FIPI and saves structured Problem data to SQLite.
-Uses ITERATIVE SCRAPING and maps Russian subject names to Latin aliases.
-Saves data to data/{alias}/{year}/ (e.g., data/promath/2026/).
+
+This script orchestrates the scraping process of educational tasks (problems)
+from the FIPI website. It provides an interactive command-line interface
+to select subjects and initiate scraping. Data is saved in a structured
+format (SQLite database and HTML files) to a designated directory.
+
+The scraping is iterative: it starts from the 'init' page and then
+proceeds through numbered pages (1, 2, ...) until a specified number
+of consecutive empty pages is encountered.
+
+Attributes:
+    SUBJECT_ALIAS_MAP (dict): Maps official Russian subject names
+                              to shorter Latin aliases for directory names.
+    EXAM_YEAR (str): The target exam year for scraped data (currently hardcoded).
 """
 
 import asyncio
@@ -38,7 +49,19 @@ SUBJECT_ALIAS_MAP = {
 EXAM_YEAR = "2026"
 
 def get_subject_output_dir(subject_name: str) -> Path:
-    """Returns output directory as data/{alias}/{year}/"""
+    """
+    Returns the output directory path for a given subject.
+
+    Constructs the path as data/{alias}/{year}/ based on the subject name.
+    If the subject name is not found in the alias map, it creates an alias
+    by sanitizing the name.
+
+    Args:
+        subject_name (str): The official Russian name of the subject.
+
+    Returns:
+        Path: The pathlib.Path object representing the output directory.
+    """
     alias = SUBJECT_ALIAS_MAP.get(subject_name)
     if not alias:
         # Fallback: sanitize and use latinized version
@@ -47,6 +70,14 @@ def get_subject_output_dir(subject_name: str) -> Path:
     return Path("data") / alias / EXAM_YEAR
 
 async def main():
+    """
+    The main asynchronous function providing the CLI loop for scraping.
+
+    It initializes logging, displays a menu, fetches available subjects
+    from FIPI, allows the user to select a subject, handles existing data
+    (prompting for restart), creates the output directory, initializes
+    the database, and then iteratively scrapes pages for the selected subject.
+    """
     setup_logging(level="INFO")
     logger = logging.getLogger(__name__)
     logger.info("FIPI Parser Started (Scraping Mode)")
