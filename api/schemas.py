@@ -10,7 +10,7 @@ class StartQuizRequest(BaseModel):
     Attributes:
         page_name: The subject or page identifier to start the quiz for.
     """
-    page_name: str # <-- Сделаем обязательным для проверки валидации
+    page_name: str
 
 class CheckAnswerRequest(BaseModel):
     """
@@ -30,15 +30,21 @@ class GeneratePlanRequest(BaseModel):
     Schema for requesting the generation of a study plan.
     Currently empty, can be extended with parameters like user goals, time, etc.
     """
-    # Пока пустой, можно расширить параметрами генерации
     pass
+
+# --- Feedback model ---
+class Feedback(BaseModel):
+    """
+    Pedagogical feedback based on FIPI specifications.
+    """
+    kos_explanation: str
+    kes_topics: List[str]
+    next_steps: List[str]
 
 # --- Ответы ---
 class QuizItem(BaseModel):
     """
     Schema representing a single item within a quiz.
-
-    Contains the problem details required for display and interaction.
     """
     problem_id: str
     subject: str
@@ -49,10 +55,6 @@ class QuizItem(BaseModel):
 class StartQuizResponse(BaseModel):
     """
     Schema for the response to a quiz start request.
-
-    Attributes:
-        quiz_id: Unique identifier for the started quiz.
-        items: List of quiz items to be presented to the user.
     """
     quiz_id: str
     items: List[QuizItem]
@@ -60,58 +62,34 @@ class StartQuizResponse(BaseModel):
 class CheckAnswerResponse(BaseModel):
     """
     Schema for the response to an answer check request.
-
-    Attributes:
-        verdict: The result of the check ('correct', 'incorrect', 'error').
-        score_float: A numerical score (e.g., 1.0 for correct, 0.0 for incorrect).
-        short_hint: A brief hint or message from the checker.
-        evidence: A list of evidence items (currently empty).
-        deep_explanation_id: Optional ID for a detailed explanation (currently null).
     """
-    verdict: str  # "correct", "incorrect", "pending"
+    verdict: str  # "correct", "incorrect", "error"
     score_float: float
     short_hint: str
-    evidence: List[str]  # пока пустой список
+    evidence: List[str]
     deep_explanation_id: Optional[str]
-    # Убираем feedback, чтобы избежать потенциального конфликта
-    # feedback: Optional[str] = None
+    feedback: Optional[Feedback] = None  # <-- Добавлено
 
 class GeneratePlanResponse(BaseModel):
     """
     Schema for the response to a study plan generation request.
-
-    Attributes:
-        plan_id: Unique identifier for the generated plan.
-        weeks: List of weeks/days in the plan (currently empty list).
     """
     plan_id: str
-    weeks: List[dict]  # или более конкретная схема для недели
+    weeks: List[dict]
 
 class AvailableSubjectsResponse(BaseModel):
     """
     Schema for the response listing available subjects.
-
-    Attributes:
-        subjects: List of subject names available in the system.
     """
     subjects: List[str]
 
-# --- Модель задачи (для возврата из API, может быть подмножеством Problem из models) ---
 class ProblemResponse(BaseModel):
     """
     Schema representing a problem for API responses.
-
-    Attributes:
-        problem_id: Unique identifier of the problem.
-        subject: Subject the problem belongs to.
-        text: The text of the problem.
-        topics: List of topics covered by the problem.
-        offline_html: Optional HTML content for offline use.
     """
     problem_id: str
     subject: str
     text: str
     topics: List[str]
     offline_html: Optional[str]
-    # ... добавить другие нужные поля
-    model_config = {"from_attributes": True} # <-- Используем новый способ
+    model_config = {"from_attributes": True}
