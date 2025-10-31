@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from config import FRONTEND_URL
-from api.endpoints import subjects, quiz, answer, plan
+from api.endpoints import subjects, quiz, answer, plan, block
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,8 @@ def create_app() -> FastAPI:
     )
 
     origins = [
-        "https://ixe.onrender.com",      # фронтенд на Render
-        "https://ixe-core.onrender.com", # сам себя (health-check)
+        "https://ixe.onrender.com",
+        "https://ixe-core.onrender.com",
         "http://localhost:3000",
         "http://localhost:5173",
     ]
@@ -59,7 +59,6 @@ def create_app() -> FastAPI:
         Handles unhandled exceptions globally.
         """
         logger.error(f"Unhandled exception for {request.method} {request.url}: {exc}", exc_info=True)
-        # В production лучше не возвращать traceback
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal server error"}
@@ -70,7 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(quiz.router, prefix="/api")
     app.include_router(answer.router, prefix="/api")
     app.include_router(plan.router, prefix="/api")
-app.include_router(block.router, prefix="/api")
+    app.include_router(block.router, prefix="/api")
 
     @app.get("/")
     async def root():
