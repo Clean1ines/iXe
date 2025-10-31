@@ -27,7 +27,6 @@ class DBProblem(Base):
     subject: str = sa.Column(sa.String, nullable=False)
     type: str = sa.Column(sa.String, nullable=False)
     text: str = sa.Column(sa.Text, nullable=False)
-    offline_html: Optional[str] = sa.Column(sa.Text, nullable=True)
     options = sa.Column(sa.JSON, nullable=True)
     answer: str = sa.Column(sa.Text, nullable=False)
     solutions = sa.Column(sa.JSON, nullable=True)
