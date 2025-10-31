@@ -64,10 +64,8 @@ class InMemorySkillGraph:
         # Populate skill_descriptions from spec_service
         # Assuming spec_service has a method to get descriptions for KES/KOS codes
         # This requires spec_service to have loaded the ege_2026_math_kes_kos.json
-        # For now, we'll assume spec_service has a method get_skill_description(code)
-        # If not, we might need to add this method or access the internal mapping
-        # Let's assume spec_service has an attribute kes_kos_data containing the mapping
-        kes_kos_mapping = spec_service.kes_kos_data  # Assuming this exists
+        # Let's assume spec_service has an attribute kes_kos_map containing the mapping
+        kes_kos_mapping = spec_service.kes_kos_map  # Исправлено: используем правильное имя атрибута
         for code, details in kes_kos_mapping.items():
             skill_descriptions[code] = details.get("description", f"Описание для {code}")
 

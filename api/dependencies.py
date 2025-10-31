@@ -56,7 +56,7 @@ def get_storage() -> LocalStorage | None:
         LocalStorage | None: An instance of local storage if enabled and not stateless, otherwise None.
     """
     if USE_LOCAL_STORAGE and not is_stateless(): # Не использовать storage в stateless режиме
-        return LocalStorage("answers.json")
+        return LocalStorage(Path("answers.json")) # Исправлено: передаём Path
     return None
 
 def get_answer_checker() -> FIPIAnswerChecker:
