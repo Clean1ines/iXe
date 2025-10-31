@@ -1,4 +1,3 @@
-# api/services/answer_service.py
 from fastapi import HTTPException
 import logging
 from typing import Optional
@@ -7,6 +6,7 @@ from utils.local_storage import LocalStorage
 from utils.answer_checker import FIPIAnswerChecker
 from api.schemas import CheckAnswerRequest, CheckAnswerResponse, Feedback
 from services.specification import SpecificationService
+from utils.skill_graph import InMemorySkillGraph
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -23,10 +23,11 @@ class AnswerService:
     Service class for handling answer validation and caching logic.
     """
 
-    def __init__(self, db: DatabaseManager, checker: FIPIAnswerChecker, storage: Optional[LocalStorage] = None):
+    def __init__(self, db: DatabaseManager, checker: FIPIAnswerChecker, storage: Optional[LocalStorage] = None, skill_graph: InMemorySkillGraph = None):
         self.db = db
         self.checker = checker
         self.storage = storage
+        self.skill_graph = skill_graph
 
     async def check_answer(self, request: CheckAnswerRequest) -> CheckAnswerResponse:
         problem_id = request.problem_id
@@ -71,11 +72,37 @@ class AnswerService:
 
         # 4. Формирование ответа
         score = 1.0 if verdict == "correct" else (0.0 if verdict == "incorrect" else -1.0)
+
+        # --- НОВОЕ: Адаптивные рекомендации ---
+        next_steps = []
+        if self.skill_graph and verdict == "incorrect":
+            missing_skills = self.skill_graph.get_prerequisites_for_task(task_number)
+            if missing_skills:
+                # Ограничиваем количество навыков в рекомендации
+                relevant_skills = missing_skills[:2]
+                skill_descriptions_list = [self.skill_graph.skill_descriptions.get(code, f"Навык {code}") for code in relevant_skills]
+                next_steps.append(f"Повторите: {', '.join(skill_descriptions_list)}")
+                
+                task_spec = SPEC_SERVICE.get_task_spec(task_number)
+                if task_spec:
+                    task_desc = task_spec.get("description", "данной теме")
+                    next_steps.append(f"Решите 2 задачи по теме '{task_desc[:40]}...'")
+                else:
+                    next_steps.append(f"Решите 2 задачи по теме задания {task_number}")
+
+
+        # Обновляем feedback с next_steps, если они есть
+        if next_steps:
+            updated_feedback = feedback.copy()
+            updated_feedback.next_steps = next_steps
+        else:
+            updated_feedback = feedback
+
         return CheckAnswerResponse(
             verdict=verdict,
             score_float=score,
             short_hint=message,
             evidence=[],
             deep_explanation_id=None,
-            feedback=feedback
+            feedback=updated_feedback
         )
