@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 from utils.database_manager import DatabaseManager
 from utils.local_storage import LocalStorage
 from utils.answer_checker import FIPIAnswerChecker
@@ -9,6 +9,7 @@ from services.specification import SpecificationService
 from pathlib import Path
 from config import DB_PATH, USE_LOCAL_STORAGE, FIPI_QUESTIONS_URL, is_stateless
 
+
 def get_db_manager() -> DatabaseManager:
     """
     Dependency to provide an instance of DatabaseManager.
@@ -17,6 +18,7 @@ def get_db_manager() -> DatabaseManager:
         DatabaseManager: An instance of the database manager.
     """
     return DatabaseManager(DB_PATH)
+
 
 def get_spec_service() -> SpecificationService:
     """
@@ -30,6 +32,7 @@ def get_spec_service() -> SpecificationService:
         spec_path=SPEC_DIR / "ege_2026_math_spec.json",
         kes_kos_path=SPEC_DIR / "ege_2026_math_kes_kos.json"
     )
+
 
 def get_skill_graph(
     db: DatabaseManager = Depends(get_db_manager),
@@ -47,7 +50,7 @@ def get_skill_graph(
     """
     return InMemorySkillGraph.build_from_db_and_specs(db, spec_service)
 
-# --- Зависимости для сервисов ---
+
 def get_storage() -> LocalStorage | None:
     """
     Dependency to provide an instance of LocalStorage or None.
@@ -55,9 +58,10 @@ def get_storage() -> LocalStorage | None:
     Returns:
         LocalStorage | None: An instance of local storage if enabled and not stateless, otherwise None.
     """
-    if USE_LOCAL_STORAGE and not is_stateless(): # Не использовать storage в stateless режиме
-        return LocalStorage(Path("answers.json")) # Исправлено: передаём Path
+    if USE_LOCAL_STORAGE and not is_stateless():
+        return LocalStorage(Path("answers.json"))
     return None
+
 
 def get_answer_checker() -> FIPIAnswerChecker:
     """
@@ -68,7 +72,7 @@ def get_answer_checker() -> FIPIAnswerChecker:
     """
     return FIPIAnswerChecker(base_url=FIPI_QUESTIONS_URL)
 
-# --- Сервисы ---
+
 def get_quiz_service(db: DatabaseManager = Depends(get_db_manager)) -> QuizService:
     """
     Dependency to provide an instance of QuizService.
@@ -81,11 +85,13 @@ def get_quiz_service(db: DatabaseManager = Depends(get_db_manager)) -> QuizServi
     """
     return QuizService(db)
 
+
 def get_answer_service(
     db: DatabaseManager = Depends(get_db_manager),
     checker: FIPIAnswerChecker = Depends(get_answer_checker),
     storage: LocalStorage | None = Depends(get_storage),
-    skill_graph: InMemorySkillGraph = Depends(get_skill_graph)
+    skill_graph: InMemorySkillGraph = Depends(get_skill_graph),
+    spec_service: SpecificationService = Depends(get_spec_service)
 ) -> AnswerService:
     """
     Dependency to provide an instance of AnswerService.
@@ -95,8 +101,9 @@ def get_answer_service(
         checker: The answer checker instance.
         storage: Optional local storage instance.
         skill_graph: The in-memory skill graph instance.
+        spec_service: The specification service instance.
 
     Returns:
         AnswerService: An instance of the answer service.
     """
-    return AnswerService(db, checker, storage, skill_graph)
+    return AnswerService(db, checker, storage, skill_graph, spec_service)

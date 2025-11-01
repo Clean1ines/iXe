@@ -27,8 +27,8 @@ def create_app() -> FastAPI:
     )
 
     origins = [
-        "https://ixe.onrender.com",
-        "https://ixe-core.onrender.com",
+        "https://ixe.onrender.com  ",
+        "https://ixe-core.onrender.com  ",
         "http://localhost:3000",
         "http://localhost:5173",
     ]
@@ -65,9 +65,10 @@ def create_app() -> FastAPI:
         )
     # ---
 
+    # Убедимся, что все роутеры подключены
     app.include_router(subjects.router, prefix="/api")
     app.include_router(quiz.router, prefix="/api")
-    app.include_router(answer.router, prefix="/api")
+    app.include_router(answer.router, prefix="/api")  # Убедимся, что этот роутер подключен
     app.include_router(plan.router, prefix="/api")
     app.include_router(block.router, prefix="/api")
 

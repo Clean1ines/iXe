@@ -1,6 +1,6 @@
 """
-Модуль для управления подключением к SQLite и выполнения CRUD-операций
-над задачами и ответами с использованием SQLAlchemy ORM.
+Module for managing SQLite connections and performing CRUD operations
+on tasks and answers using SQLAlchemy ORM.
 """
 
 import datetime
@@ -19,17 +19,17 @@ logger = logging.getLogger(__name__)
 
 class DatabaseManager:
     """
-    Класс для управления базой данных SQLite с использованием SQLAlchemy ORM.
+    Class for managing SQLite database using SQLAlchemy ORM.
 
-    Инкапсулирует подключение к БД, создание таблиц и основные операции:
-    сохранение задач и ответов, получение задач и статусов ответов.
+    Encapsulates database connection, table creation, and core operations:
+    saving tasks and answers, retrieving tasks and answer statuses.
     """
 
     def __init__(self, db_path: str):
-        """Инициализирует менеджер с указанным путём к файлу SQLite.
+        """Initializes the manager with the specified path to the SQLite file.
 
         Args:
-            db_path (str): Путь к файлу базы данных SQLite.
+            db_path (str): Path to the SQLite database file.
         """
         self.db_path = db_path
         self.engine = sa.create_engine(f"sqlite:///{db_path}", echo=False)
@@ -37,7 +37,7 @@ class DatabaseManager:
         logger.debug(f"DatabaseManager initialized with path: {db_path}")
 
     def initialize_db(self) -> None:
-        """Создаёт таблицы в базе данных, если они ещё не существуют."""
+        """Creates database tables if they do not exist yet."""
         logger.info("Initializing database tables...")
         try:
             Base.metadata.create_all(self.engine)
@@ -47,18 +47,18 @@ class DatabaseManager:
             raise
 
     def save_problems(self, problems: List[Problem]) -> None:
-        """Сохраняет список задач в базу данных.
+        """Saves a list of tasks to the database.
 
-        Если задача с таким `problem_id` уже существует, она будет заменена.
+        If a task with the same `problem_id` already exists, it will be replaced.
 
         Args:
-            problems (List[Problem]): Список Pydantic-моделей задач.
+            problems (List[Problem]): List of Pydantic task models.
         """
         logger.info(f"Saving {len(problems)} problems to database...")
         try:
             with self.SessionLocal() as session:
                 for prob in problems:
-                    # Преобразуем Pydantic -> ORM
+                    # Convert Pydantic -> ORM
                     db_problem = DBProblem(
                         problem_id=prob.problem_id,
                         subject=prob.subject,
@@ -96,7 +96,7 @@ class DatabaseManager:
         status: str = "not_checked",
         user_id: str = "default_user",
     ) -> None:
-        """Сохраняет или обновляет ответ пользователя на задачу."""
+        """Saves or updates a user's answer to a task."""
         logger.info(f"Saving answer for task {task_id}, user {user_id}, status {status}.")
         try:
             with self.SessionLocal() as session:
@@ -117,7 +117,7 @@ class DatabaseManager:
     def get_answer_and_status(
         self, task_id: str, user_id: str = "default_user"
     ) -> Tuple[Optional[str], str]:
-        """Получает ответ и статус по идентификатору задачи."""
+        """Gets the answer and status by task identifier."""
         try:
             with self.SessionLocal() as session:
                 db_answer = (
@@ -133,7 +133,7 @@ class DatabaseManager:
             raise
 
     def get_problem_by_id(self, problem_id: str) -> Optional[Problem]:
-        """Получает задачу по её идентификатору."""
+        """Gets a task by its identifier."""
         try:
             with self.SessionLocal() as session:
                 db_problem = session.query(DBProblem).filter_by(problem_id=problem_id).first()
@@ -167,7 +167,7 @@ class DatabaseManager:
             raise
 
     def get_all_problems(self) -> List[Problem]:
-        """Получает все задачи из базы данных."""
+        """Gets all tasks from the database."""
         try:
             with self.SessionLocal() as session:
                 db_problems = session.query(DBProblem).all()
@@ -202,7 +202,7 @@ class DatabaseManager:
             raise
 
     def get_all_subjects(self) -> List[str]:
-        """Возвращает список всех уникальных предметов в базе."""
+        """Returns a list of all unique subjects in the database."""
         try:
             with self.SessionLocal() as session:
                 result = session.execute(sa.text("SELECT DISTINCT subject FROM problems WHERE subject IS NOT NULL"))
@@ -212,7 +212,7 @@ class DatabaseManager:
             raise
 
     def get_random_problem_ids(self, subject: str, count: int = 10) -> List[str]:
-        """Возвращает `count` случайных problem_id для заданного предмета."""
+        """Returns `count` random problem_ids for the given subject."""
         try:
             with self.SessionLocal() as session:
                 result = session.execute(

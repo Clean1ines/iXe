@@ -4,7 +4,7 @@ from utils.database_manager import DatabaseManager
 from processors.html_renderer import HTMLRenderer
 from api.dependencies import get_db_manager
 
-router = APIRouter(prefix="/api/v1", tags=["blocks"])
+router = APIRouter(tags=["blocks"])
 
 def get_html_renderer(db: DatabaseManager = Depends(get_db_manager)) -> HTMLRenderer:
     """
@@ -18,8 +18,8 @@ async def get_block_html(
     renderer: HTMLRenderer = Depends(get_html_renderer)
 ):
     """
-    Возвращает HTML-блок задания, срендеренный на лету из модели Problem.
-    Использует ТОЛЬКО problem.text — offline_html больше не поддерживается.
+    Returns an HTML block for a given problem, rendered on the fly from the Problem model.
+    Uses ONLY problem.text — the offline_html field is no longer supported.
     """
     problem = renderer._db_manager.get_problem_by_id(problem_id)
     if problem is None:

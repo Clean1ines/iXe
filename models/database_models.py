@@ -1,8 +1,7 @@
 """
 SQLAlchemy ORM-модели для хранения задач и пользовательских ответов.
 
-Эти модели заменяют текущее хранение в JSON-файлах и обеспечивают
-типизированное, надёжное и масштабируемое взаимодействие с SQLite.
+Соответствуют обновлённой Pydantic-модели Problem и текущему воркфлоу.
 """
 
 import datetime
@@ -18,8 +17,7 @@ class DBProblem(Base):
     """
     ORM-модель задачи из ЕГЭ.
 
-    Соответствует Pydantic-модели `Problem`, но адаптирована под реляционную БД.
-    Используется для хранения метаданных и содержимого задачи.
+    Соответствует обновлённой Pydantic-модели `Problem`.
     """
     __tablename__ = "problems"
 
@@ -28,10 +26,8 @@ class DBProblem(Base):
     type: str = sa.Column(sa.String, nullable=False)
     text: str = sa.Column(sa.Text, nullable=False)
     options = sa.Column(sa.JSON, nullable=True)
-    answer: str = sa.Column(sa.Text, nullable=False)
-    solutions = sa.Column(sa.JSON, nullable=True)
-    topics = sa.Column(sa.JSON, nullable=False)
-    skills = sa.Column(sa.JSON, nullable=True)
+    answer: Optional[str] = sa.Column(sa.Text, nullable=True)  # Может быть NULL
+    topics = sa.Column(sa.JSON, nullable=False)  # Синоним kes_codes
     difficulty_level: str = sa.Column(sa.String, nullable=False)
     task_number: int = sa.Column(sa.Integer, nullable=False)
     kes_codes = sa.Column(sa.JSON, nullable=False)
@@ -43,7 +39,6 @@ class DBProblem(Base):
     raw_html_path: Optional[str] = sa.Column(sa.String, nullable=True)
     created_at: datetime.datetime = sa.Column(sa.DateTime, nullable=False)
     updated_at: Optional[datetime.datetime] = sa.Column(sa.DateTime, nullable=True)
-    metadata_ = sa.Column("metadata", sa.JSON, nullable=True)
 
     answers = relationship("DBAnswer", back_populates="problem", cascade="all, delete-orphan")
 
@@ -51,9 +46,6 @@ class DBProblem(Base):
 class DBAnswer(Base):
     """
     ORM-модель пользовательского ответа на задачу.
-
-    Хранит ответ, статус проверки и временную метку.
-    Предполагается один пользователь (user_id опционален и может быть константой).
     """
     __tablename__ = "answers"
 
