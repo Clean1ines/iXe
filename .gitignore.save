@@ -1,0 +1,68 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Data and Assets (если не планируете хранить в репо)
+history/
+data/**
+!data/promath/2026/fipi_data.db
+!data/specs/
+!data/specs/**
+problems/
+
+custom_output/
+frontend/node_modules/
+frontend/node_modules/**
+
+
+
+# Environment variables file
+.env
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+
+
+# IDE
+.vscode/
+.idea/
+
+# Shell history
+.bash_history
+.bash_logout
+.bashrc
+.profile
+.python_history
+
+# Cache directories
+.cache/
+.pki/
