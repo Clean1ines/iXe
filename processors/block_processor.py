@@ -1,3 +1,4 @@
+# processors/block_processor.py
 """
 Module for processing individual blocks of HTML content from FIPI pages.
 
@@ -10,6 +11,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Tuple, Optional
+from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
@@ -42,7 +44,7 @@ class BlockProcessor:
 
     def __init__(
         self,
-        asset_downloader_factory: Callable[[Any, str, str], AssetDownloader],
+        asset_downloader_factory: Callable[[Any], AssetDownloader],
         processors: List[Any],
         metadata_extractor: MetadataExtractor,
         problem_builder: ProblemBuilder,
@@ -85,7 +87,7 @@ class BlockProcessor:
         combined_soup.append(qblock.extract())
 
         # Get downloader instance
-        downloader = self.asset_downloader_factory(page, base_url, files_location_prefix)
+        downloader = self.asset_downloader_factory(page)
 
         # Extract metadata from header_container
         metadata = self.metadata_extractor.extract(header_container)
@@ -110,14 +112,16 @@ class BlockProcessor:
         else:
             processors_to_apply = self.processors
 
-        # Process images inside <a> tags
+        # Process images inside <a> tags - construct full URL here
         for a_tag in combined_soup.find_all('a'):
             img_tag = a_tag.find('img')
             if img_tag:
                 img_src = img_tag.get('src')
                 if img_src:
-                    clean_img_src = img_src.lstrip('../../')
-                    local_img_path = downloader.download(clean_img_src, page_assets_dir / "assets", asset_type='image')
+                    # Construct full asset URL in BlockProcessor
+                    full_asset_path = files_location_prefix + img_src
+                    asset_url = urljoin(base_url, full_asset_path)
+                    local_img_path = downloader.download(asset_url, page_assets_dir / "assets", asset_type='image')
                     if local_img_path:
                         img_relative_path_from_html = local_img_path.relative_to(page_assets_dir)
                         img_tag['src'] = str(img_relative_path_from_html)
@@ -128,7 +132,8 @@ class BlockProcessor:
         for processor in processors_to_apply:
             if hasattr(processor, 'process') and callable(processor.process):
                 if processor.__class__.__name__ in ['ImageScriptProcessor', 'FileLinkProcessor']:
-                    processed_soup, proc_metadata = processor.process(combined_soup, page_assets_dir.parent, downloader=downloader)
+                    # Pass the constructed base URL and prefix to processors that need them
+                    processed_soup, proc_metadata = processor.process(combined_soup, page_assets_dir.parent, downloader=downloader, base_url=base_url, files_location_prefix=files_location_prefix)
                 else:
                     processed_soup, proc_metadata = processor.process(combined_soup, page_assets_dir.parent)
                 combined_soup = processed_soup
@@ -230,4 +235,3 @@ class BlockProcessor:
         if "Развёрнутый" in text or "Развернутый" in text:
             return "extended"
         return "short"
-
