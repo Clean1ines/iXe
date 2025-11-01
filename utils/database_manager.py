@@ -57,32 +57,33 @@ class DatabaseManager:
         logger.info(f"Saving {len(problems)} problems to database...")
         try:
             with self.SessionLocal() as session:
-                for prob in problems:
-                    # Convert Pydantic -> ORM
-                    db_problem = DBProblem(
-                        problem_id=prob.problem_id,
-                        subject=prob.subject,
-                        type=prob.type,
-                        text=prob.text,
-                        options=prob.options,
-                        answer=prob.answer,
-                        solutions=prob.solutions,
-                        topics=prob.topics,
-                        skills=prob.skills,
-                        difficulty_level=prob.difficulty_level,
-                        task_number=prob.task_number,
-                        kes_codes=prob.kes_codes,
-                        kos_codes=prob.kos_codes,
-                        exam_part=prob.exam_part,
-                        max_score=prob.max_score,
-                        form_id=prob.form_id,
-                        source_url=prob.source_url,
-                        raw_html_path=prob.raw_html_path,
-                        created_at=prob.created_at,
-                        updated_at=prob.updated_at,
-                        metadata_=prob.metadata,
-                    )
-                    session.merge(db_problem)
+                problem_mappings = [
+                    {
+                        'problem_id': prob.problem_id,
+                        'subject': prob.subject,
+                        'type': prob.type,
+                        'text': prob.text,
+                        'options': prob.options,
+                        'answer': prob.answer,
+                        'solutions': prob.solutions,
+                        'topics': prob.topics,
+                        'skills': prob.skills,
+                        'difficulty_level': prob.difficulty_level,
+                        'task_number': prob.task_number,
+                        'kes_codes': prob.kes_codes,
+                        'kos_codes': prob.kos_codes,
+                        'exam_part': prob.exam_part,
+                        'max_score': prob.max_score,
+                        'form_id': prob.form_id,
+                        'source_url': prob.source_url,
+                        'raw_html_path': prob.raw_html_path,
+                        'created_at': prob.created_at,
+                        'updated_at': prob.updated_at,
+                        'metadata_': prob.metadata,
+                    }
+                    for prob in problems
+                ]
+                session.bulk_insert_mappings(DBProblem, problem_mappings)
                 session.commit()
             logger.info(f"Successfully saved {len(problems)} problems to database.")
         except Exception as e:
@@ -92,9 +93,9 @@ class DatabaseManager:
     def save_answer(
         self,
         task_id: str,
+        user_id: str,
         user_answer: str,
         status: str = "not_checked",
-        user_id: str = "default_user",
     ) -> None:
         """Saves or updates a user's answer to a task."""
         logger.info(f"Saving answer for task {task_id}, user {user_id}, status {status}.")
@@ -115,7 +116,7 @@ class DatabaseManager:
             raise
 
     def get_answer_and_status(
-        self, task_id: str, user_id: str = "default_user"
+        self, task_id: str, user_id: str
     ) -> Tuple[Optional[str], str]:
         """Gets the answer and status by task identifier."""
         try:
