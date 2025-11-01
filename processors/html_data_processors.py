@@ -19,8 +19,8 @@ class ImageScriptProcessor(AssetProcessor):
     A class to process image-related scripts in HTML content.
 
     This processor finds scripts containing ShowPicture function calls,
-    downloads the referenced images, and replaces the scripts with img tags.
-    In offline mode, images are embedded as base64 data URIs.
+    downloads the referenced images as bytes, and replaces the scripts with img tags
+    containing base64-encoded data URIs. No temporary files are created.
     Implements the `AssetProcessor` interface.
     """
 
@@ -30,7 +30,7 @@ class ImageScriptProcessor(AssetProcessor):
 
         Args:
             soup (BeautifulSoup): The BeautifulSoup object containing HTML to process.
-            assets_dir (Path): Not used for saving, but may be used by downloader for context.
+            assets_dir (Path): Not used by this processor, as images are embedded directly as base64.
             **kwargs: Must contain 'downloader': an instance of `AssetDownloader`.
 
         Returns:
@@ -52,16 +52,12 @@ class ImageScriptProcessor(AssetProcessor):
 
             if match:
                 img_src = match.group(1)
-                # Download image as bytes using the existing downloader
-                # We use a dummy path since we won't save to disk
-                dummy_path = assets_dir / "assets" / Path(img_src).name
-                local_path = downloader.download(img_src, dummy_path.parent, asset_type='image')
+                # Download image as bytes using the existing downloader's download_bytes method
+                img_bytes = downloader.download_bytes(img_src)
 
-                if local_path and local_path.exists():
-                    # Read image bytes and encode as base64
-                    with open(local_path, 'rb') as f:
-                        img_bytes = f.read()
-                    mime_type = self._guess_mime_type(local_path)
+                if img_bytes:
+                    # Encode image bytes as base64
+                    mime_type = self._guess_mime_type_from_url(img_src)
                     data_uri = f"data:{mime_type};base64,{base64.b64encode(img_bytes).decode('utf-8')}"
 
                     # Create new img tag with data URI
@@ -70,16 +66,11 @@ class ImageScriptProcessor(AssetProcessor):
 
                     embedded_images[img_src] = data_uri
 
-                    # Optionally remove the temporary file
-                    try:
-                        local_path.unlink()
-                    except OSError:
-                        pass  # Ignore if can't delete
-
         return soup, {"embedded_images": embedded_images}
 
-    def _guess_mime_type(self, path: Path) -> str:
-        """Guess MIME type based on file extension."""
+    def _guess_mime_type_from_url(self, url: str) -> str:
+        """Guess MIME type based on file extension from URL."""
+        path = Path(url)
         ext = path.suffix.lower()
         mime_map = {
             '.png': 'image/png',
