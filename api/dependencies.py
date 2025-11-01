@@ -1,4 +1,5 @@
 from fastapi import Depends
+from qdrant_client import QdrantClient
 from utils.database_manager import DatabaseManager
 from utils.local_storage import LocalStorage
 from utils.answer_checker import FIPIAnswerChecker
@@ -6,8 +7,9 @@ from api.services.quiz_service import QuizService
 from api.services.answer_service import AnswerService
 from utils.skill_graph import InMemorySkillGraph
 from services.specification import SpecificationService
+from utils.retriever import QdrantProblemRetriever
 from pathlib import Path
-from config import DB_PATH, USE_LOCAL_STORAGE, FIPI_QUESTIONS_URL
+from config import DB_PATH, USE_LOCAL_STORAGE, FIPI_QUESTIONS_URL, QDRANT_HOST, QDRANT_PORT
 
 
 class Config:
@@ -25,6 +27,37 @@ def get_db_manager() -> DatabaseManager:
         DatabaseManager: An instance of the database manager.
     """
     return DatabaseManager(DB_PATH)
+
+
+def get_qdrant_client() -> QdrantClient:
+    """
+    Dependency to provide an instance of QdrantClient.
+
+    Returns:
+        QdrantClient: An instance of the Qdrant client.
+    """
+    return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+
+
+def get_problem_retriever(
+    qdrant_client: QdrantClient = Depends(get_qdrant_client),
+    db_manager: DatabaseManager = Depends(get_db_manager)
+) -> QdrantProblemRetriever:
+    """
+    Dependency to provide an instance of QdrantProblemRetriever.
+
+    Args:
+        qdrant_client: The Qdrant client instance.
+        db_manager: The database manager instance.
+
+    Returns:
+        QdrantProblemRetriever: An instance of the problem retriever.
+    """
+    return QdrantProblemRetriever(
+        qdrant_client=qdrant_client,
+        collection_name="problems",  # Укажите актуальное имя коллекции
+        db_manager=db_manager
+    )
 
 
 def get_spec_service(subject: str, year: str) -> SpecificationService:
@@ -84,17 +117,19 @@ def get_answer_checker() -> FIPIAnswerChecker:
     return FIPIAnswerChecker(base_url=FIPI_QUESTIONS_URL)
 
 
-def get_quiz_service(db: DatabaseManager = Depends(get_db_manager)) -> QuizService:
+def get_quiz_service(
+    problem_retriever: QdrantProblemRetriever = Depends(get_problem_retriever)
+) -> QuizService:
     """
     Dependency to provide an instance of QuizService.
 
     Args:
-        db: The database manager instance.
+        problem_retriever: The problem retriever instance.
 
     Returns:
         QuizService: An instance of the quiz service.
     """
-    return QuizService(db)
+    return QuizService(problem_retriever)
 
 
 def get_answer_service(
