@@ -7,7 +7,14 @@ from api.services.answer_service import AnswerService
 from utils.skill_graph import InMemorySkillGraph
 from services.specification import SpecificationService
 from pathlib import Path
-from config import DB_PATH, USE_LOCAL_STORAGE, FIPI_QUESTIONS_URL, is_stateless
+from config import DB_PATH, USE_LOCAL_STORAGE, FIPI_QUESTIONS_URL
+
+
+class Config:
+    @staticmethod
+    def is_stateless() -> bool:
+        import os
+        return os.getenv("STATELESS", "false").lower() == "true"
 
 
 def get_db_manager() -> DatabaseManager:
@@ -20,17 +27,21 @@ def get_db_manager() -> DatabaseManager:
     return DatabaseManager(DB_PATH)
 
 
-def get_spec_service() -> SpecificationService:
+def get_spec_service(subject: str, year: str) -> SpecificationService:
     """
     Dependency to provide an instance of SpecificationService.
+
+    Args:
+        subject: The subject name (e.g., 'math', 'informatics').
+        year: The year for the specifications (e.g., '2026').
 
     Returns:
         SpecificationService: An instance of the specification service.
     """
     SPEC_DIR = Path(__file__).parent.parent / "data" / "specs"
     return SpecificationService(
-        spec_path=SPEC_DIR / "ege_2026_math_spec.json",
-        kes_kos_path=SPEC_DIR / "ege_2026_math_kes_kos.json"
+        spec_path=SPEC_DIR / f"ege_{year}_{subject}_spec.json",
+        kes_kos_path=SPEC_DIR / f"ege_{year}_{subject}_kes_kos.json"
     )
 
 
@@ -58,7 +69,7 @@ def get_storage() -> LocalStorage | None:
     Returns:
         LocalStorage | None: An instance of local storage if enabled and not stateless, otherwise None.
     """
-    if USE_LOCAL_STORAGE and not is_stateless():
+    if USE_LOCAL_STORAGE and not Config.is_stateless():
         return LocalStorage(Path("answers.json"))
     return None
 
