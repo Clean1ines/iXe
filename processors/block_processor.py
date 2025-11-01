@@ -73,6 +73,7 @@ class BlockProcessor:
         page_assets_dir: Path,
         proj_id: str,
         base_url: str,
+        subject: str,
         page: Any = None,
         files_location_prefix: str = "../../"
     ) -> Tuple[str, str, Dict[str, str], Dict[str, str], Problem, Dict[str, Any]]:
@@ -162,19 +163,23 @@ class BlockProcessor:
         kos_codes = self._extract_kos_codes_reliable(header_container)
         answer_type = self._determine_answer_type(header_container)
 
-        # Infer task_number using official specification
-        task_number = self.task_inferer.infer(kes_codes, answer_type)
+        # Infer task_number and other attributes using official specification
+        inference_result = self.task_inferer.infer(kes_codes, answer_type, subject)
+        task_number = inference_result.get('task_number')
+        difficulty_level = inference_result.get('difficulty_level', 'basic')
+        max_score = inference_result.get('max_score', 1)
+        type_str = inference_result.get('type_str', 'short' if answer_type == 'short' else 'extended')
 
         # Build Problem
         problem_id = f"{page_num}_{extracted_task_id}"
         source_url = f"{base_url}?proj={proj_id}&page={page_num}"
         problem = self.problem_builder.build(
             problem_id=problem_id,
-            subject="mathematics",
-            type_str="short" if answer_type == "short" else "extended",
+            subject=subject,
+            type_str=type_str,
             text=assignment_text,
             topics=kes_codes,
-            difficulty="basic",  # Will be overridden by spec if needed
+            difficulty=difficulty_level,
             source_url=source_url,
             form_id=qblock_id,
             meta={"original_block_index": block_index, "proj_id": proj_id},
@@ -182,8 +187,8 @@ class BlockProcessor:
             kes_codes=kes_codes,
             kos_codes=kos_codes,
             exam_part="Part 1" if task_number <= 12 else "Part 2",
-            max_score=1,  # Will be overridden by spec
-            difficulty_level="basic"  # Will be overridden by spec
+            max_score=max_score,
+            difficulty_level=difficulty_level
         )
 
         logger.debug(f"Finished processing block {block_index} with task_number={task_number}.")
@@ -225,3 +230,4 @@ class BlockProcessor:
         if "Развёрнутый" in text or "Развернутый" in text:
             return "extended"
         return "short"
+
