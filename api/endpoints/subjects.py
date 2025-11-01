@@ -11,6 +11,7 @@ router = APIRouter()
 async def get_available_subjects(db: DatabaseManager = Depends(get_db_manager)):
     """
     API endpoint to get a list of available subjects.
+    The list reflects subjects present in the database, typically determined by DISTINCT subject names from problem entries.
     """
     try:
         subjects = db.get_all_subjects()
