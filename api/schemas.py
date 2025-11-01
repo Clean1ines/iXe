@@ -9,8 +9,12 @@ class StartQuizRequest(BaseModel):
 
     Attributes:
         page_name: The subject or page identifier to start the quiz for.
+        user_id: Optional identifier for the user. Defaults to 'anonymous'.
+        strategy: Optional strategy for quiz generation ('calibration', 'adaptive', 'final'). Defaults to 'adaptive'.
     """
     page_name: str
+    user_id: Optional[str] = "anonymous"
+    strategy: Optional[str] = "adaptive"
 
 class CheckAnswerRequest(BaseModel):
     """

@@ -9,7 +9,8 @@ data/**
 !data/specs/
 !data/specs/**
 problems/
-
+refactoring/
+refactoring/**
 custom_output/
 frontend/node_modules/
 frontend/node_modules/**
