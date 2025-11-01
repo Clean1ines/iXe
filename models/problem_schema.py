@@ -1,51 +1,51 @@
 """
-Pydantic модель для представления задачи из ЕГЭ, спарсенной с сайта ФИПИ.
-Содержит все необходимые атрибуты задачи в унифицированном формате.
+Pydantic model representing an EGE problem scraped from the FIPI website.
+Contains all necessary attributes of a problem in a unified format.
 """
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
+
 class Problem(BaseModel):
     """
-    Модель задачи из ЕГЭ.
+    Model representing an EGE problem.
 
     Attributes:
-        problem_id (str): Уникальный идентификатор задачи, например, 'init_0_40B442'.
-        subject (str): Предмет, например, "mathematics", "informatics", "russian".
-        type (str): Тип задания по формату ЕГЭ, например, "A", "B", "task_1".
-        text (str): Полный текст задачи, включая LaTeX.
-        options (Optional[List[str]]): Варианты ответа, если применимо. Может быть null.
-        answer (str): Эталонный ответ, может быть выражением.
-        solutions (Optional[List[Dict[str, Any]]]): Список решений. Каждое решение - это словарь с полями,
-        такими как 'solution_id', 'text', 'author'. Может быть null.
-        topics (List[str]): Список идентификаторов тем, например, ["algebra.equations"].
-        skills (Optional[List[str]]): Список идентификаторов навыков. Может быть null.
-        difficulty_level (str): Уровень сложности по официальной шкале ЕГЭ: "basic", "advanced", "high".
-        task_number (int): Номер задачи в экзаменационной работе (1–19).
-        kes_codes (List[str]): Список кодов КЭС (кодификатора элементов содержания).
-        kos_codes (List[str]): Список кодов КОС (кодификатора требований к уровню подготовки).
-        exam_part (str): Часть экзамена: "Part 1" или "Part 2".
-        max_score (int): Максимальный балл за выполнение задачи (1–4).
-        form_id (Optional[str]): Идентификатор формы отправки ответа, извлекается из кнопки на странице FIPI. Может быть null для задач без формы.
-        source_url (Optional[str]): URL оригинальной задачи на сайте ФИПИ. Может быть null.
-        raw_html_path (Optional[str]): Путь к файлу с оригинальным HTML, если сохраняется. Может быть null.
-        created_at (datetime): Дата/время создания записи в формате ISO8601.
-        updated_at (Optional[datetime]): Дата/время последнего обновления в формате ISO8601. Может быть null.
-        metadata (Optional[Dict[str, Any]]): Дополнительные данные. Может быть null.
+        problem_id (str): Unique problem identifier, e.g., 'init_0_40B442'.
+        subject (str): Subject name, e.g., "mathematics", "informatics", "russian".
+        type (str): Problem type according to EGE format, e.g., "A", "B", "task_1".
+        text (str): Full problem statement, including LaTeX markup.
+        options (Optional[List[str]]): Multiple-choice options if applicable. May be null.
+        answer (Optional[str]): Canonical answer string; may be null for open-ended or unsolved problems.
+        solutions (Optional[List[Dict[str, Any]]]): List of solution dictionaries, each containing fields like
+            'solution_id', 'text', 'author'. May be null.
+        kes_codes (List[str]): List of KES codes (Content Elements Classifier) identifying curriculum topics,
+            e.g., ["1.2.3", "2.1"].
+        skills (Optional[List[str]]): List of skill identifiers. May be null.
+        difficulty_level (str): Official EGE difficulty level: "basic", "advanced", or "high".
+        task_number (int): Position of the problem in the exam paper (1–19).
+        kos_codes (List[str]): List of KOS codes (Requirements Classifier) specifying expected competencies.
+        exam_part (str): Exam section: "Part 1" or "Part 2".
+        max_score (int): Maximum score achievable for this problem (typically 1–4).
+        form_id (Optional[str]): Identifier of the answer submission form extracted from FIPI page. May be null.
+        source_url (Optional[str]): Original FIPI URL of the problem. May be null.
+        raw_html_path (Optional[str]): Path to saved raw HTML file, if preserved. May be null.
+        created_at (datetime): ISO8601 timestamp when the record was created.
+        updated_at (Optional[datetime]): ISO8601 timestamp of last update. May be null.
+        metadata (Optional[Dict[str, Any]]): Arbitrary additional data. May be null.
     """
     problem_id: str
     subject: str
     type: str
     text: str
     options: Optional[List[str]] = None
-    answer: str
+    answer: Optional[str] = None
     solutions: Optional[List[Dict[str, Any]]] = None
-    topics: List[str]
+    kes_codes: List[str] = Field(default_factory=list)
     skills: Optional[List[str]] = None
     difficulty_level: str
     task_number: int
-    kes_codes: List[str] = Field(default_factory=list)
     kos_codes: List[str] = Field(default_factory=list)
     exam_part: str
     max_score: int
@@ -55,4 +55,5 @@ class Problem(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
+
     model_config = {"from_attributes": True}
