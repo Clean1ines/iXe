@@ -1,54 +1,8 @@
 <div class="math-buttons{{ ' active' if active else '' }}">
-    <!-- Основные символы -->
-    <button type="button" onclick="insertSymbol({{ block_index }}, '+')">+</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '−')">−</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '×')">×</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '÷')">÷</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '=')">=</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '<')"><</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '>')">></button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '≠')">≠</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '≤')">≤</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '≥')">≥</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '%')">%</button>
+  {% for row in math_symbols %}
+    {% for btn in row %}
+      <button type="button" onclick="insertSymbol({{ block_index }}, {{ btn.value | tojson | replace('\"', '&quot;') }})">{{ btn.label | e }}</button>
+    {% endfor %}
     <br>
-    <!-- Степень и корень -->
-    <button type="button" onclick="insertSymbol({{ block_index }}, '^')">x^y</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '√')">√x</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '∛')">∛x</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '∜')">∜x</button>
-    <br>
-    <!-- Греческие буквы -->
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'α')">α</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'β')">β</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'γ')">γ</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'π')">π</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'θ')">θ</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'φ')">φ</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '∞')">∞</button>
-    <br>
-    <!-- Функции -->
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'sin')">sin</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'cos')">cos</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'tan')">tan</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'log')">log</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'ln')">ln</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, 'lg')">lg</button>
-    <br>
-    <!-- Конструкции (LaTeX-подобные, понятные MathJax) -->
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\sqrt{{}}{% endraw %}')">√( )</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}{{}}^{{}}{% endraw %}')">^( , )</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\frac{{}}{{}}{% endraw %}')">frac</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\log_{{}}{{}}{% endraw %}')">log_b( )</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\lim_{x \to }{% endraw %}')">lim</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, "f'(x)")">f'(x)</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\int {{}} dx{% endraw %}')">∫ dx</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\sum{% endraw %}')">∑</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\in{% endraw %}')">∈</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\cup{% endraw %}')">∪</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\cap{% endraw %}')">∩</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\emptyset{% endraw %}')">∅</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\to{% endraw %}')">→</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\Rightarrow{% endraw %}')">⇒</button>
-    <button type="button" onclick="insertSymbol({{ block_index }}, '{% raw %}\Leftrightarrow{% endraw %}')">⇔</button>
-  </div>
+  {% endfor %}
+</div>
