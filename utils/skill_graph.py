@@ -67,8 +67,23 @@ class InMemorySkillGraph:
         logger.info("✅ InMemorySkillGraph built successfully")
         return graph
 
-    def get_prerequisites_for_task(self, task_number: int) -> List[str]:
+    def get_codes_for_task(self, task_number: int) -> List[str]:
         return self.task_to_skills.get(task_number, [])
 
     def get_tasks_by_kes(self, kes_code: str) -> List[str]:
         return self.skill_to_tasks.get(kes_code, [])
+
+
+# Global cache variable
+_skill_graph_cache: InMemorySkillGraph | None = None
+
+
+def get_skill_graph_cached(db: DatabaseManager, spec_service: SpecificationService) -> InMemorySkillGraph:
+    """
+    Returns a cached instance of InMemorySkillGraph.
+    Builds it on the first call using the provided dependencies.
+    """
+    global _skill_graph_cache
+    if _skill_graph_cache is None:
+        _skill_graph_cache = InMemorySkillGraph.build_from_db_and_specs(db, spec_service)
+    return _skill_graph_cache

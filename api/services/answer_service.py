@@ -99,7 +99,7 @@ class AnswerService:
         # --- Adaptive Recommendations ---
         next_steps = []
         if self.skill_graph and verdict == "incorrect":
-            missing_skills = self.skill_graph.get_prerequisites_for_task(task_number)
+            missing_skills = self.skill_graph.get_codes_for_task(task_number)
             if missing_skills:
                 # Limit the number of skills in the recommendation
                 relevant_skills = missing_skills[:2]
@@ -118,8 +118,8 @@ class AnswerService:
 
         # Update feedback with next_steps if they exist
         if next_steps:
-            updated_feedback = feedback.copy()
-            updated_feedback["next_steps"] = next_steps
+            updated_feedback = feedback.model_copy()
+            updated_feedback = feedback.model_copy(update={"next_steps": next_steps})
         else:
             updated_feedback = feedback
 
