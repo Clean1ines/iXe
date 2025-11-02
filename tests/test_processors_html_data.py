@@ -138,7 +138,7 @@ class TestImageScriptProcessor(unittest.TestCase):
 
         # Create mock downloader
         mock_downloader = MagicMock(spec=AssetDownloader)
-        # Expected call: downloader.download('test.jpg', run_folder_page / "assets", ...)
+        # Expected call: await downloader.download('test.jpg', run_folder_page / "assets", ...)
         expected_local_path = run_folder_page / "assets" / "test.jpg"
         mock_downloader.download.return_value = expected_local_path
 
@@ -268,7 +268,7 @@ class TestFileLinkProcessor(unittest.TestCase):
 
         # Create mock downloader
         mock_downloader = MagicMock(spec=AssetDownloader)
-        # Expected call: downloader.download('docs/test.zip', run_folder_page / "assets", ...)
+        # Expected call: await downloader.download('docs/test.zip', run_folder_page / "assets", ...)
         expected_local_path = run_folder_page / "assets" / "test.zip"
         mock_downloader.download.return_value = expected_local_path
 
@@ -303,7 +303,7 @@ class TestFileLinkProcessor(unittest.TestCase):
 
         # Create mock downloader
         mock_downloader = MagicMock(spec=AssetDownloader)
-        # Expected call: downloader.download('files/document.pdf', run_folder_page / "assets", ...)
+        # Expected call: await downloader.download('files/document.pdf', run_folder_page / "assets", ...)
         expected_local_path = run_folder_page / "assets" / "document.pdf"
         mock_downloader.download.return_value = expected_local_path
 

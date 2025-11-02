@@ -112,13 +112,13 @@
 │       module __main__: Pydantic model representing an EGE problem scraped from the FIPI website. Contains all necessary ...
 │       class Problem: Model representing an EGE problem.  Attributes:     problem_id (str): Unique problem identifier, ...
 ├── processors/
-│   ├── __init__.py (299.0 B)
+│   ├── __init__.py (129.0 B)
 │   ├── asset_processor_interface.py (2.2 KB)
 │   │   module __main__: Module defining the abstract interface for HTML asset processors.  This module provides the `Asse...
 │   │   class AssetProcessor: Abstract base class defining the interface for asset processors.  All concrete asset processors (...
 │   │   method AssetProcessor.process: Process the BeautifulSoup object, potentially downloading or transforming assets.  Args:     soup...
 │   │   function process: Process the BeautifulSoup object, potentially downloading or transforming assets.  Args:     soup...
-│   ├── block_processor.py (10.0 KB)
+│   ├── block_processor.py (10.3 KB)
 │   │   module __main__: Module for processing individual blocks of HTML content from FIPI pages.  This module provides th...
 │   │   class BlockProcessor: A class responsible for processing a single block of HTML content.  This processor handles the tr...
 │   │   method BlockProcessor.__init__: Initializes the BlockProcessor with required dependencies.  Args:     asset_downloader_factory (C...
@@ -153,10 +153,6 @@
 │   │   function process: Removes answer input fields from the HTML.  Args:     soup (BeautifulSoup): The BeautifulSoup obj...
 │   │   function process: Removes MathML elements from the HTML.  Args:     soup (BeautifulSoup): The BeautifulSoup object ...
 │   │   function process: Removes unwanted elements from the HTML.  Args:     soup (BeautifulSoup): The BeautifulSoup objec...
-│   ├── html_renderer.py (10.4 KB)
-│   │   class HTMLRenderer: A class to render assignment data into an HTML string using Jinja2 templates. This class takes th...
-│   │   method HTMLRenderer.render_block_from_problem: Renders a single assignment block HTML string using the 'single_block_page.html.j2' template, bas...
-│   │   function render_block_from_problem: Renders a single assignment block HTML string using the 'single_block_page.html.j2' template, bas...
 │   ├── json_saver.py (3.0 KB)
 │   │   module __main__: Module for saving parsed data into JSON format.  This module provides the `JSONSaver` class, whic...
 │   │   class JSONSaver: A class responsible for saving data structures to JSON files.  This class provides a method to se...
@@ -221,379 +217,6 @@
 │   └── ui_components/
 │       └── common_scripts.js (6.8 KB)
 ├── tests/
-│   ├── api/
-│   │   ├── services/
-│   │   │   └── test_answer_service.py (15.0 KB)
-│   │   ├── test_answer.py (9.9 KB)
-│   │   │   function test_check_answer_success_correct: 4. Проверка ответа (/api/answer) - корректный ответ (с кэшированием) Описание: Проверить, что кор...
-│   │   │   function test_check_answer_success_incorrect: 5. Проверка ответа - некорректный ответ Описание: Проверить, что некорректный ответ возвращается ...
-│   │   │   function test_check_answer_external_error: 6. Проверка ответа - ошибка при проверке с внешним API Описание: Проверить обработку ошибок при в...
-│   │   │   function test_check_answer_missing_fields: 7. Проверка ответа - отсутствие обязательных полей Описание: Проверить валидацию обязательных пол...
-│   │   │   function test_check_answer_internal_error: 9. Обработка внутренней ошибки сервера Описание: Проверить, что непредвиденные ошибки в сервисах ...
-│   │   ├── test_cors.py (2.1 KB)
-│   │   │   function test_cors_headers_options: 10. Проверка CORS заголовков Описание: Убедиться, что сервер корректно устанавливает заголовки CO...
-│   │   ├── test_plan.py (3.3 KB)
-│   │   │   function test_generate_plan_success: 8. Генерация учебного плана (/api/plan/generate) Описание: Проверить создание учебного плана. Шаг...
-│   │   │   function test_generate_plan_internal_error: 9. Обработка внутренней ошибки сервера Описание: Проверить, что непредвиденные ошибки в сервисах ...
-│   │   ├── test_quiz.py (5.5 KB)
-│   │   │   function test_start_quiz_success: 2. Начало ежедневного квиза (/api/quiz/daily/start) - успешный сценарий Описание: Проверить созда...
-│   │   │   function test_start_quiz_invalid_request: 3. Начало ежедневного квиза - неверный формат запроса Описание: Проверить валидацию входных данны...
-│   │   │   function test_start_quiz_internal_error: 9. Обработка внутренней ошибки сервера Описание: Проверить, что непредвиденные ошибки в сервисах ...
-│   │   └── test_subjects.py (4.7 KB)
-│   │       function test_get_available_subjects_success: 1. Получение списка доступных предметов (/api/subjects/available) Описание: Проверить, что эндпои...
-│   │       function test_get_available_subjects_error: 9. Обработка внутренней ошибки сервера Описание: Проверить, что непредвиденные ошибки в сервисах ...
-│   ├── utils/
-│   │   └── test_database_manager.py (16.9 KB)
-│   │       function temp_db_path: Creates a temporary database file path.
-│   │       function database_manager: Creates a DatabaseManager instance with a temporary database.
-│   │       function sample_problem_data: Provides sample data for creating a Problem object that passes validation.
-│   │       function sample_problem: Provides a valid Problem instance.
-│   │       class TestDatabaseManagerInitialization: Tests for database initialization.
-│   │       method TestDatabaseManagerInitialization.test_database_initialization: Test that initialize_db creates the necessary tables.
-│   │       class TestDatabaseManagerSaveProblems: Tests for the save_problems method.
-│   │       method TestDatabaseManagerSaveProblems.test_save_problems_empty_list: Test saving an empty list of problems.
-│   │       method TestDatabaseManagerSaveProblems.test_save_problems_single_problem: Test saving a single problem.
-│   │       method TestDatabaseManagerSaveProblems.test_save_problems_multiple_problems: Test saving multiple problems at once.
-│   │       method TestDatabaseManagerSaveProblems.test_save_problems_updates_existing: Test that saving a problem with an existing ID updates the record.
-│   │       class TestDatabaseManagerSaveAndGetAnswer: Tests for save_answer and get_answer_and_status methods.
-│   │       method TestDatabaseManagerSaveAndGetAnswer.test_save_answer_and_get_with_user_id: Test saving an answer for a specific user and retrieving it.
-│   │       method TestDatabaseManagerSaveAndGetAnswer.test_get_answer_and_status_defaults_for_nonexistent_user_task: Test that get_answer_and_status returns defaults if no record exists for user/task.
-│   │       method TestDatabaseManagerSaveAndGetAnswer.test_save_answer_makes_user_id_mandatory: Test that save_answer requires user_id.
-│   │       method TestDatabaseManagerSaveAndGetAnswer.test_get_answer_and_status_makes_user_id_mandatory: Test that get_answer_and_status requires user_id.
-│   │       method TestDatabaseManagerSaveAndGetAnswer.test_save_answer_and_get_isolated_by_user: Test that answers for the same task but different users are isolated.
-│   │       class TestDatabaseManagerGetAllProblemsAndSubjects: Tests for get_all_problems and get_all_subjects methods.
-│   │       method TestDatabaseManagerGetAllProblemsAndSubjects.test_get_all_problems_empty: Test get_all_problems returns empty list when no problems exist.
-│   │       method TestDatabaseManagerGetAllProblemsAndSubjects.test_get_all_problems_populated: Test get_all_problems returns all saved problems.
-│   │       method TestDatabaseManagerGetAllProblemsAndSubjects.test_get_all_subjects_empty: Test get_all_subjects returns empty list when no problems exist.
-│   │       method TestDatabaseManagerGetAllProblemsAndSubjects.test_get_all_subjects_populated: Test get_all_subjects returns distinct subjects.
-│   │       method TestDatabaseManagerGetAllProblemsAndSubjects.test_get_all_subjects_ignores_null: Test that get_all_subjects correctly handles NULL subject values if they exist.
-│   │       class TestDatabaseManagerGetRandomProblemIds: Tests for get_random_problem_ids method.
-│   │       method TestDatabaseManagerGetRandomProblemIds.test_get_random_problem_ids_empty_subject: Test get_random_problem_ids returns empty list for a subject with no problems.
-│   │       method TestDatabaseManagerGetRandomProblemIds.test_get_random_problem_ids_specific_subject: Test get_random_problem_ids returns correct IDs for a specific subject.
-│   │       method TestDatabaseManagerGetRandomProblemIds.test_get_random_problem_ids_count_limit: Test that the count parameter limits the number of returned IDs.
-│   │       function test_database_initialization: Test that initialize_db creates the necessary tables.
-│   │       function test_save_problems_empty_list: Test saving an empty list of problems.
-│   │       function test_save_problems_single_problem: Test saving a single problem.
-│   │       function test_save_problems_multiple_problems: Test saving multiple problems at once.
-│   │       function test_save_problems_updates_existing: Test that saving a problem with an existing ID updates the record.
-│   │       function test_save_answer_and_get_with_user_id: Test saving an answer for a specific user and retrieving it.
-│   │       function test_get_answer_and_status_defaults_for_nonexistent_user_task: Test that get_answer_and_status returns defaults if no record exists for user/task.
-│   │       function test_save_answer_makes_user_id_mandatory: Test that save_answer requires user_id.
-│   │       function test_get_answer_and_status_makes_user_id_mandatory: Test that get_answer_and_status requires user_id.
-│   │       function test_save_answer_and_get_isolated_by_user: Test that answers for the same task but different users are isolated.
-│   │       function test_get_all_problems_empty: Test get_all_problems returns empty list when no problems exist.
-│   │       function test_get_all_problems_populated: Test get_all_problems returns all saved problems.
-│   │       function test_get_all_subjects_empty: Test get_all_subjects returns empty list when no problems exist.
-│   │       function test_get_all_subjects_populated: Test get_all_subjects returns distinct subjects.
-│   │       function test_get_all_subjects_ignores_null: Test that get_all_subjects correctly handles NULL subject values if they exist.
-│   │       function test_get_random_problem_ids_empty_subject: Test get_random_problem_ids returns empty list for a subject with no problems.
-│   │       function test_get_random_problem_ids_specific_subject: Test get_random_problem_ids returns correct IDs for a specific subject.
-│   │       function test_get_random_problem_ids_count_limit: Test that the count parameter limits the number of returned IDs.
-│   ├──  __init__.py (0 B)
-│   ├── conftest.py (554.0 B)
-│   │   module __main__: Pytest configuration file.  This file is automatically loaded by pytest and can be used to config...
-│   ├── test_api_core_api.py (10.0 KB)
-│   │   module __main__: Тесты для api/core_api.py с использованием TestClient.
-│   │   method TestCoreAPI.test_root_endpoint: Тестирует корневой эндпоинт.
-│   │   method TestCoreAPI.test_post_quiz_daily_start: Тестирует эндпоинт запуска ежедневного квиза.
-│   │   method TestCoreAPI.test_post_quiz_finish: Тестирует эндпоинт завершения квиза.
-│   │   method TestCoreAPI.test_post_answer: Тестирует эндпоинт проверки ответа.
-│   │   method TestCoreAPI.test_post_plan_generate: Тестирует эндпоинт генерации плана.
-│   │   function test_root_endpoint: Тестирует корневой эндпоинт.
-│   │   function test_post_quiz_daily_start: Тестирует эндпоинт запуска ежедневного квиза.
-│   │   function test_post_quiz_finish: Тестирует эндпоинт завершения квиза.
-│   │   function test_post_answer: Тестирует эндпоинт проверки ответа.
-│   │   function test_post_plan_generate: Тестирует эндпоинт генерации плана.
-│   ├── test_config.py (5.7 KB)
-│   │   class TestConfigDefaults: Tests that configuration variables load default values when environment variables are not set.
-│   │   method TestConfigDefaults.test_default_values: Test default values for all config variables.
-│   │   class TestConfigFromEnv: Tests that configuration variables correctly load from environment variables.
-│   │   method TestConfigFromEnv.test_values_from_env: Test loading values from environment variables.
-│   │   method TestConfigFromEnv.test_total_pages_type_conversion: Test that TOTAL_PAGES is correctly converted from string to int.
-│   │   method TestConfigFromEnv.test_browser_headless_boolean_conversion: Test that BROWSER_HEADLESS correctly converts string to boolean.
-│   │   function test_default_values: Test default values for all config variables.
-│   │   function test_values_from_env: Test loading values from environment variables.
-│   │   function test_total_pages_type_conversion: Test that TOTAL_PAGES is correctly converted from string to int.
-│   │   function test_browser_headless_boolean_conversion: Test that BROWSER_HEADLESS correctly converts string to boolean.
-│   ├── test_html_renderer.py (14.2 KB)
-│   │   class TestHTMLRenderer: Tests for the HTMLRenderer class in processors/html_renderer.py.
-│   │   method TestHTMLRenderer.setUp: Set up the HTMLRenderer instance for tests.
-│   │   method TestHTMLRenderer.test_render_returns_string: Test that the render method returns a string.
-│   │   method TestHTMLRenderer.test_render_includes_page_name_in_title: Test that the rendered HTML includes the page name in the title.
-│   │   method TestHTMLRenderer.test_render_includes_mathjax_script: Test that the rendered HTML includes the MathJax script tag.
-│   │   method TestHTMLRenderer.test_render_includes_blocks_content: Test that the rendered HTML includes the content from blocks_html.
-│   │   method TestHTMLRenderer.test_render_includes_answer_form: Test that the rendered HTML includes the answer form structure.
-│   │   method TestHTMLRenderer.test_render_includes_data_attributes_from_metadata: Test that the rendered HTML includes data-task-id and data-form-id from metadata.
-│   │   method TestHTMLRenderer.test_render_block_returns_string: Test that the render_block method returns a string.
-│   │   method TestHTMLRenderer.test_render_block_includes_block_index_in_title: Test that the rendered block HTML includes the block index in the title.
-│   │   method TestHTMLRenderer.test_render_block_includes_mathjax_script: Test that the rendered block HTML includes the MathJax script tag.
-│   │   method TestHTMLRenderer.test_render_block_includes_passed_content: Test that the rendered block HTML includes the passed block_html.
-│   │   method TestHTMLRenderer.test_render_block_includes_answer_form: Test that the rendered block HTML includes the answer form for that block.
-│   │   method TestHTMLRenderer.test_render_block_includes_data_attributes: Test that the rendered block HTML includes data-task-id and data-form-id.
-│   │   method TestHTMLRenderer.test_render_block_handles_asset_prefix: Test that the render_block method correctly adjusts asset paths if prefix is provided.
-│   │   method TestHTMLRenderer.test_save_writes_to_file: Test that the save method writes the HTML string to a file.
-│   │   method TestHTMLRenderer.test_clean_css_removes_empty_rules: Test that the _clean_css method removes empty CSS rules.
-│   │   class TestUIComponents: Tests for the UI components in processors/ui_components.py.
-│   │   method TestUIComponents.test_math_symbol_buttons_renderer_returns_string: Test that MathSymbolButtonsRenderer.render returns a string.
-│   │   method TestUIComponents.test_math_symbol_buttons_renderer_includes_index: Test that MathSymbolButtonsRenderer.render includes the correct block index.
-│   │   method TestUIComponents.test_math_symbol_buttons_renderer_active_class: Test that MathSymbolButtonsRenderer.render includes active class when requested.
-│   │   method TestUIComponents.test_answer_form_renderer_returns_string: Test that AnswerFormRenderer.render returns a string.
-│   │   method TestUIComponents.test_answer_form_renderer_includes_index: Test that AnswerFormRenderer.render includes the correct block index.
-│   │   method TestUIComponents.test_common_css_is_string: Test that the COMMON_CSS constant is a string.
-│   │   method TestUIComponents.test_common_js_functions_is_string: Test that the COMMON_JS_FUNCTIONS constant is a string.
-│   │   function setUp: Set up the HTMLRenderer instance for tests.
-│   │   function test_render_returns_string: Test that the render method returns a string.
-│   │   function test_render_includes_page_name_in_title: Test that the rendered HTML includes the page name in the title.
-│   │   function test_render_includes_mathjax_script: Test that the rendered HTML includes the MathJax script tag.
-│   │   function test_render_includes_blocks_content: Test that the rendered HTML includes the content from blocks_html.
-│   │   function test_render_includes_answer_form: Test that the rendered HTML includes the answer form structure.
-│   │   function test_render_includes_data_attributes_from_metadata: Test that the rendered HTML includes data-task-id and data-form-id from metadata.
-│   │   function test_render_block_returns_string: Test that the render_block method returns a string.
-│   │   function test_render_block_includes_block_index_in_title: Test that the rendered block HTML includes the block index in the title.
-│   │   function test_render_block_includes_mathjax_script: Test that the rendered block HTML includes the MathJax script tag.
-│   │   function test_render_block_includes_passed_content: Test that the rendered block HTML includes the passed block_html.
-│   │   function test_render_block_includes_answer_form: Test that the rendered block HTML includes the answer form for that block.
-│   │   function test_render_block_includes_data_attributes: Test that the rendered block HTML includes data-task-id and data-form-id.
-│   │   function test_render_block_handles_asset_prefix: Test that the render_block method correctly adjusts asset paths if prefix is provided.
-│   │   function test_save_writes_to_file: Test that the save method writes the HTML string to a file.
-│   │   function test_clean_css_removes_empty_rules: Test that the _clean_css method removes empty CSS rules.
-│   │   function test_math_symbol_buttons_renderer_returns_string: Test that MathSymbolButtonsRenderer.render returns a string.
-│   │   function test_math_symbol_buttons_renderer_includes_index: Test that MathSymbolButtonsRenderer.render includes the correct block index.
-│   │   function test_math_symbol_buttons_renderer_active_class: Test that MathSymbolButtonsRenderer.render includes active class when requested.
-│   │   function test_answer_form_renderer_returns_string: Test that AnswerFormRenderer.render returns a string.
-│   │   function test_answer_form_renderer_includes_index: Test that AnswerFormRenderer.render includes the correct block index.
-│   │   function test_common_css_is_string: Test that the COMMON_CSS constant is a string.
-│   │   function test_common_js_functions_is_string: Test that the COMMON_JS_FUNCTIONS constant is a string.
-│   ├── test_json_saver.py (5.9 KB)
-│   │   class TestJSONSaver: Unit tests for the JSONSaver class.
-│   │   method TestJSONSaver.setUp: Set up a temporary directory for test files. This directory will be automatically cleaned up afte...
-│   │   method TestJSONSaver.tearDown: Clean up the temporary directory after each test.
-│   │   method TestJSONSaver.test_save_dict_data: Test saving a dictionary to a JSON file.
-│   │   method TestJSONSaver.test_save_list_data: Test saving a list to a JSON file.
-│   │   method TestJSONSaver.test_save_with_cyrillic_characters: Test saving data containing Cyrillic characters.
-│   │   method TestJSONSaver.test_save_creates_directories: Test that save creates parent directories if they don't exist.
-│   │   method TestJSONSaver.test_save_overwrites_existing_file: Test that save overwrites an existing file.
-│   │   method TestJSONSaver.test_save_with_pathlib_path: Test saving data when the path is provided as a pathlib.Path object.
-│   │   method TestJSONSaver.test_save_with_string_path: Test saving data when the path is provided as a string.
-│   │   method TestJSONSaver.test_save_invalid_data_type: Test that saving non-serializable data raises TypeError.
-│   │   method TestJSONSaver.test_save_invalid_path: Test that saving to an invalid path raises OSError (or similar). This can happen if the path poin...
-│   │   function setUp: Set up a temporary directory for test files. This directory will be automatically cleaned up afte...
-│   │   function tearDown: Clean up the temporary directory after each test.
-│   │   function test_save_dict_data: Test saving a dictionary to a JSON file.
-│   │   function test_save_list_data: Test saving a list to a JSON file.
-│   │   function test_save_with_cyrillic_characters: Test saving data containing Cyrillic characters.
-│   │   function test_save_creates_directories: Test that save creates parent directories if they don't exist.
-│   │   function test_save_overwrites_existing_file: Test that save overwrites an existing file.
-│   │   function test_save_with_pathlib_path: Test saving data when the path is provided as a pathlib.Path object.
-│   │   function test_save_with_string_path: Test saving data when the path is provided as a string.
-│   │   function test_save_invalid_data_type: Test that saving non-serializable data raises TypeError.
-│   │   function test_save_invalid_path: Test that saving to an invalid path raises OSError (or similar). This can happen if the path poin...
-│   ├── test_models_database_models.py (3.0 KB)
-│   │   module __main__: Тесты для SQLAlchemy ORM-моделей задач и ответов. Проверяют корректность создания и сохранения об...
-│   │   class TestDatabaseModels: Тестовый класс для проверки ORM-моделей.
-│   │   method TestDatabaseModels.setUp: Создаёт in-memory SQLite базу и таблицы перед каждым тестом.
-│   │   method TestDatabaseModels.tearDown: Закрывает сессию и освобождает ресурсы после каждого теста.
-│   │   method TestDatabaseModels.test_create_problem_and_answer: Проверяет создание и сохранение задачи и связанного с ней ответа.
-│   │   function setUp: Создаёт in-memory SQLite базу и таблицы перед каждым тестом.
-│   │   function tearDown: Закрывает сессию и освобождает ресурсы после каждого теста.
-│   │   function test_create_problem_and_answer: Проверяет создание и сохранение задачи и связанного с ней ответа.
-│   ├── test_models_problem_builder.py (8.7 KB)
-│   │   module __main__: Unit tests for the ProblemBuilder class.
-│   │   class TestProblemBuilder: Test cases for the ProblemBuilder class.
-│   │   method TestProblemBuilder.setUp: Set up the ProblemBuilder instance for tests.
-│   │   method TestProblemBuilder.test_build_creates_correct_problem: Test that the build method creates a Problem instance with correct attributes.
-│   │   method TestProblemBuilder.test_build_with_none_raw_html_path: Test building a Problem with raw_html_path set to None.
-│   │   method TestProblemBuilder.test_build_with_empty_metadata: Test building a Problem with an empty metadata dictionary.
-│   │   function setUp: Set up the ProblemBuilder instance for tests.
-│   │   function test_build_creates_correct_problem: Test that the build method creates a Problem instance with correct attributes.
-│   │   function test_build_with_none_raw_html_path: Test building a Problem with raw_html_path set to None.
-│   │   function test_build_with_empty_metadata: Test building a Problem with an empty metadata dictionary.
-│   ├── test_models_problem_schema.py (3.7 KB)
-│   │   method TestProblemSchema.test_valid_problem_creation: Тест создания задачи со всеми полями.
-│   │   method TestProblemSchema.test_problem_with_minimal_fields: Тест создания задачи только с обязательными полями.
-│   │   method TestProblemSchema.test_problem_validation_error: Тест ошибки валидации при отсутствии обязательного поля problem_id.
-│   │   function test_valid_problem_creation: Тест создания задачи со всеми полями.
-│   │   function test_problem_with_minimal_fields: Тест создания задачи только с обязательными полями.
-│   │   function test_problem_validation_error: Тест ошибки валидации при отсутствии обязательного поля problem_id.
-│   ├── test_processors_block_processor.py (8.5 KB)
-│   │   module __main__: Unit tests for the BlockProcessor class.
-│   │   class TestBlockProcessor: Test suite for the BlockProcessor class.
-│   │   method TestBlockProcessor.setUp: Set up the test case with mock dependencies and a BlockProcessor instance.
-│   │   method TestBlockProcessor.tearDown: Clean up temporary directory after tests.
-│   │   method TestBlockProcessor.test_process_calls_dependencies_correctly: Test that the process method calls all dependencies with correct arguments.
-│   │   method TestBlockProcessor.test_process_with_specific_processor_behavior: Test that the process method handles specific processor outputs correctly.
-│   │   function setUp: Set up the test case with mock dependencies and a BlockProcessor instance.
-│   │   function tearDown: Clean up temporary directory after tests.
-│   │   function test_process_calls_dependencies_correctly: Test that the process method calls all dependencies with correct arguments.
-│   │   function test_process_with_specific_processor_behavior: Test that the process method handles specific processor outputs correctly.
-│   ├── test_processors_html_data.py (20.4 KB)
-│   │   class TestImageScriptProcessor: Test cases for ImageScriptProcessor class.
-│   │   method TestImageScriptProcessor.setUp: Set up test fixtures.
-│   │   method TestImageScriptProcessor.test_process_success: Test successful processing and replacement of script tag.
-│   │   method TestImageScriptProcessor.test_process_no_match: Test processing when no matching scripts are found.
-│   │   method TestImageScriptProcessor.test_process_download_failure: Test processing when image download fails.
-│   │   method TestImageScriptProcessor.test_process_missing_downloader: Test processing when AssetDownloader is not provided.
-│   │   class TestFileLinkProcessor: Test cases for FileLinkProcessor class.
-│   │   method TestFileLinkProcessor.setUp: Set up test fixtures.
-│   │   method TestFileLinkProcessor.test_process_javascript_link: Test processing JavaScript window.open links.
-│   │   method TestFileLinkProcessor.test_process_direct_link: Test processing direct file links.
-│   │   method TestFileLinkProcessor.test_process_no_file_links: Test processing when no file links are found.
-│   │   method TestFileLinkProcessor.test_process_download_failure: Test processing when file download fails.
-│   │   method TestFileLinkProcessor.test_process_missing_downloader: Test processing when AssetDownloader is not provided.
-│   │   class TestTaskInfoProcessor: Test cases for TaskInfoProcessor class.
-│   │   method TestTaskInfoProcessor.setUp: Set up test fixtures.
-│   │   method TestTaskInfoProcessor.test_process_info_buttons: Test processing info buttons.
-│   │   method TestTaskInfoProcessor.test_process_no_info_buttons: Test processing when no info buttons are found.
-│   │   class TestInputFieldRemover: Test cases for InputFieldRemover class.
-│   │   method TestInputFieldRemover.setUp: Set up test fixtures.
-│   │   method TestInputFieldRemover.test_remove_answer_inputs: Test removing answer input fields.
-│   │   method TestInputFieldRemover.test_no_answer_inputs: Test processing when no answer inputs are found.
-│   │   class TestMathMLRemover: Test cases for MathMLRemover class.
-│   │   method TestMathMLRemover.setUp: Set up test fixtures.
-│   │   method TestMathMLRemover.test_remove_math_tags: Test removing math and mml:math tags.
-│   │   method TestMathMLRemover.test_no_math_tags: Test processing when no math tags are found.
-│   │   function setUp: Set up test fixtures.
-│   │   function test_process_success: Test successful processing and replacement of script tag.
-│   │   function test_process_no_match: Test processing when no matching scripts are found.
-│   │   function test_process_download_failure: Test processing when image download fails.
-│   │   function test_process_missing_downloader: Test processing when AssetDownloader is not provided.
-│   │   function setUp: Set up test fixtures.
-│   │   function test_process_javascript_link: Test processing JavaScript window.open links.
-│   │   function test_process_direct_link: Test processing direct file links.
-│   │   function test_process_no_file_links: Test processing when no file links are found.
-│   │   function test_process_download_failure: Test processing when file download fails.
-│   │   function test_process_missing_downloader: Test processing when AssetDownloader is not provided.
-│   │   function setUp: Set up test fixtures.
-│   │   function test_process_info_buttons: Test processing info buttons.
-│   │   function test_process_no_info_buttons: Test processing when no info buttons are found.
-│   │   function setUp: Set up test fixtures.
-│   │   function test_remove_answer_inputs: Test removing answer input fields.
-│   │   function test_no_answer_inputs: Test processing when no answer inputs are found.
-│   │   function setUp: Set up test fixtures.
-│   │   function test_remove_math_tags: Test removing math and mml:math tags.
-│   │   function test_no_math_tags: Test processing when no math tags are found.
-│   ├── test_processors_page_processor.py (8.2 KB)
-│   │   module __main__: Unit tests for the PageProcessingOrchestrator class using mocks.
-│   │   class TestPageProcessingOrchestrator: Test cases for the PageProcessingOrchestrator class.
-│   │   method TestPageProcessingOrchestrator.setUp: Set up mocks and orchestrator instance for tests.
-│   │   method TestPageProcessingOrchestrator.test_process_calls_dependencies_correctly: Test that the process method calls dependencies with correct arguments.
-│   │   function setUp: Set up mocks and orchestrator instance for tests.
-│   │   function test_process_calls_dependencies_correctly: Test that the process method calls dependencies with correct arguments.
-│   ├── test_scraper_fipi_scraper.py (2.0 KB)
-│   │   module __main__: Integration tests for the FIPIScraper class focusing on delegation to PageProcessingOrchestrator.
-│   │   class TestFIPIScraperScrapePageIntegration: Integration test cases for the FIPIScraper class's scrape_page method, specifically focusing on t...
-│   │   method TestFIPIScraperScrapePageIntegration.test_scrape_page_delegates_to_orchestrator_stub: Stub for an integration test. This test aimed to verify that FIPIScraper.scrape_page delegates pr...
-│   │   function test_scrape_page_delegates_to_orchestrator_stub: Stub for an integration test. This test aimed to verify that FIPIScraper.scrape_page delegates pr...
-│   ├── test_utils_answer_checker.py (2.4 KB)
-│   │   module __main__: Тесты для модуля answer_checker.
-│   │   class TestFIPIAnswerChecker: Тесты для класса FIPIAnswerChecker.
-│   │   method TestFIPIAnswerChecker.test_check_answer_correct: Тест успешной проверки правильного ответа.
-│   │   method TestFIPIAnswerChecker.test_check_answer_error: Тест обработки HTTP 500 ошибки.
-│   │   function test_check_answer_correct: Тест успешной проверки правильного ответа.
-│   │   function test_check_answer_error: Тест обработки HTTP 500 ошибки.
-│   ├── test_utils_database_manager.py (3.5 KB)
-│   │   module __main__: Тесты для класса DatabaseManager. Проверяют корректность сохранения и извлечения задач и ответов.
-│   │   class TestDatabaseManager: Тестовый класс для DatabaseManager.
-│   │   method TestDatabaseManager.setUp: Создаёт временный файл БД и инициализирует DatabaseManager.
-│   │   method TestDatabaseManager.tearDown: Удаляет временный файл базы данных.
-│   │   method TestDatabaseManager.test_save_and_get_problem: Проверяет сохранение и извлечение одной задачи.
-│   │   method TestDatabaseManager.test_save_and_get_answer: Проверяет сохранение и извлечение ответа.
-│   │   method TestDatabaseManager.test_get_answer_not_found: Проверяет поведение при запросе несуществующего ответа.
-│   │   method TestDatabaseManager.test_get_all_problems: Проверяет получение всех задач из БД.
-│   │   function setUp: Создаёт временный файл БД и инициализирует DatabaseManager.
-│   │   function tearDown: Удаляет временный файл базы данных.
-│   │   function test_save_and_get_problem: Проверяет сохранение и извлечение одной задачи.
-│   │   function test_save_and_get_answer: Проверяет сохранение и извлечение ответа.
-│   │   function test_get_answer_not_found: Проверяет поведение при запросе несуществующего ответа.
-│   │   function test_get_all_problems: Проверяет получение всех задач из БД.
-│   ├── test_utils_downloader.py (2.9 KB)
-│   │   method TestAssetDownloader.test_download_with_different_base_url: Test with a base URL that has a path component
-│   │   function test_download_with_different_base_url: Test with a base URL that has a path component
-│   ├── test_utils_local_storage.py (8.0 KB)
-│   │   module __main__: Tests for the LocalStorage class.
-│   │   class TestLocalStorage: Test case for LocalStorage class.
-│   │   method TestLocalStorage.test_save_and_get: Test saving and retrieving an answer and status.
-│   │   method TestLocalStorage.test_get_nonexistent: Test retrieving a non-existent task ID.
-│   │   method TestLocalStorage.test_update_status: Test updating the status of an existing task.
-│   │   method TestLocalStorage.test_persistence: Test that data persists between different instances of LocalStorage.
-│   │   function test_save_and_get: Test saving and retrieving an answer and status.
-│   │   function test_get_nonexistent: Test retrieving a non-existent task ID.
-│   │   function test_update_status: Test updating the status of an existing task.
-│   │   function test_persistence: Test that data persists between different instances of LocalStorage.
-│   ├── test_utils_logging_config.py (2.0 KB)
-│   │   module __main__: Tests for the logging configuration utility.
-│   │   class TestLoggingConfig: Test suite for the setup_logging function.
-│   │   method TestLoggingConfig.setUp: Reset the root logger's handlers and level before each test.
-│   │   method TestLoggingConfig.test_setup_logging_info_level: Test that setup_logging correctly sets the root logger level to INFO.
-│   │   method TestLoggingConfig.test_setup_logging_debug_level: Test that setup_logging correctly sets the root logger level to DEBUG.
-│   │   method TestLoggingConfig.test_setup_logging_default_level: Test that setup_logging sets the default level to INFO when no argument is passed.
-│   │   method TestLoggingConfig.test_setup_logging_invalid_level_defaults_to_info: Test that setup_logging defaults to INFO level if an invalid level string is passed.
-│   │   function setUp: Reset the root logger's handlers and level before each test.
-│   │   function test_setup_logging_info_level: Test that setup_logging correctly sets the root logger level to INFO.
-│   │   function test_setup_logging_debug_level: Test that setup_logging correctly sets the root logger level to DEBUG.
-│   │   function test_setup_logging_default_level: Test that setup_logging sets the default level to INFO when no argument is passed.
-│   │   function test_setup_logging_invalid_level_defaults_to_info: Test that setup_logging defaults to INFO level if an invalid level string is passed.
-│   ├── test_utils_metadata_extractor.py (4.8 KB)
-│   │   module __main__: Unit tests for the MetadataExtractor class.
-│   │   class TestMetadataExtractor: Test cases for the MetadataExtractor class.
-│   │   method TestMetadataExtractor.setUp: Set up the MetadataExtractor instance for tests.
-│   │   method TestMetadataExtractor.test_extract_task_id_found: Test extracting task_id when canselect span is present with text.
-│   │   method TestMetadataExtractor.test_extract_task_id_not_found: Test extracting task_id when canselect span is not present.
-│   │   method TestMetadataExtractor.test_extract_task_id_empty_text: Test extracting task_id when canselect span is present but has no text.
-│   │   method TestMetadataExtractor.test_extract_form_id_found: Test extracting form_id when answer-button span is present with correct onclick.
-│   │   method TestMetadataExtractor.test_extract_form_id_not_found_no_onclick: Test extracting form_id when answer-button span is present but has no onclick.
-│   │   method TestMetadataExtractor.test_extract_form_id_not_found_no_answer_button: Test extracting form_id when answer-button span is not present.
-│   │   method TestMetadataExtractor.test_extract_form_id_not_found_invalid_onclick: Test extracting form_id when answer-button span has an invalid onclick format.
-│   │   method TestMetadataExtractor.test_extract_both_task_id_and_form_id: Test extracting both task_id and form_id when both are present.
-│   │   method TestMetadataExtractor.test_extract_empty_when_no_relevant_elements: Test extracting metadata when header container has no relevant elements.
-│   │   function setUp: Set up the MetadataExtractor instance for tests.
-│   │   function test_extract_task_id_found: Test extracting task_id when canselect span is present with text.
-│   │   function test_extract_task_id_not_found: Test extracting task_id when canselect span is not present.
-│   │   function test_extract_task_id_empty_text: Test extracting task_id when canselect span is present but has no text.
-│   │   function test_extract_form_id_found: Test extracting form_id when answer-button span is present with correct onclick.
-│   │   function test_extract_form_id_not_found_no_onclick: Test extracting form_id when answer-button span is present but has no onclick.
-│   │   function test_extract_form_id_not_found_no_answer_button: Test extracting form_id when answer-button span is not present.
-│   │   function test_extract_form_id_not_found_invalid_onclick: Test extracting form_id when answer-button span has an invalid onclick format.
-│   │   function test_extract_both_task_id_and_form_id: Test extracting both task_id and form_id when both are present.
-│   │   function test_extract_empty_when_no_relevant_elements: Test extracting metadata when header container has no relevant elements.
-│   ├── test_utils_problem_storage.py (4.3 KB)
-│   │   method TestProblemStorage.test_save_and_load_single_problem: Тест сохранения и загрузки одной задачи.
-│   │   method TestProblemStorage.test_save_and_load_multiple_problems: Тест сохранения и загрузки нескольких задач.
-│   │   method TestProblemStorage.test_get_problem_by_id_found: Тест получения задачи по ID, когда она существует.
-│   │   method TestProblemStorage.test_get_problem_by_id_not_found: Тест получения задачи по ID, когда она не существует.
-│   │   method TestProblemStorage.test_load_empty_file: Тест загрузки из пустого файла.
-│   │   function test_save_and_load_single_problem: Тест сохранения и загрузки одной задачи.
-│   │   function test_save_and_load_multiple_problems: Тест сохранения и загрузки нескольких задач.
-│   │   function test_get_problem_by_id_found: Тест получения задачи по ID, когда она существует.
-│   │   function test_get_problem_by_id_not_found: Тест получения задачи по ID, когда она не существует.
-│   │   function test_load_empty_file: Тест загрузки из пустого файла.
-│   ├── test_utils_retriever.py (5.6 KB)
-│   │   module __main__: Unit tests for the QdrantProblemRetriever class.
-│   │   class TestQdrantProblemRetriever: Test cases for the QdrantProblemRetriever class.
-│   │   method TestQdrantProblemRetriever.setUp: Set up mock instances for QdrantClient, DatabaseManager, and a fake embedding model.
-│   │   method TestQdrantProblemRetriever.test_retrieve_success: Test the retrieve method successfully performs a search and fetches problems.
-│   │   function setUp: Set up mock instances for QdrantClient, DatabaseManager, and a fake embedding model.
-│   │   function test_retrieve_success: Test the retrieve method successfully performs a search and fetches problems.
-│   ├── test_utils_vector_indexer.py (5.5 KB)
-│   │   module __main__: Unit tests for the QdrantProblemIndexer class.
-│   │   class TestQdrantProblemIndexer: Test cases for the QdrantProblemIndexer class.
-│   │   method TestQdrantProblemIndexer.setUp: Set up mock instances for DatabaseManager, QdrantClient, and a fake embedding model.
-│   │   method TestQdrantProblemIndexer.test_index_problems_success: Test the index_problems method successfully fetches problems, generates embeddings, and calls Qdr...
-│   │   function setUp: Set up mock instances for DatabaseManager, QdrantClient, and a fake embedding model.
-│   │   function test_index_problems_success: Test the index_problems method successfully fetches problems, generates embeddings, and calls Qdr...
-│   └── tests_api_answer_api.py (6.4 KB)
-│       module __main__: Tests for the answer API endpoints.
-│       class TestAnswerAPI: Test suite for the answer API endpoints.
-│       method TestAnswerAPI.setUp: Set up test fixtures before each test method.
-│       method TestAnswerAPI.test_get_initial_state: Test the GET /initial_state/{page_name} endpoint.
-│       method TestAnswerAPI.test_submit_answer_new: Test the POST /submit_answer endpoint when the answer is new.
-│       method TestAnswerAPI.test_submit_answer_cached: Test the POST /submit_answer endpoint when the answer is already cached.
-│       method TestAnswerAPI.test_save_answer_only: Test the POST /save_answer_only endpoint.
-│       function setUp: Set up test fixtures before each test method.
-│       function test_get_initial_state: Test the GET /initial_state/{page_name} endpoint.
-│       function test_submit_answer_new: Test the POST /submit_answer endpoint when the answer is new.
-│       function test_submit_answer_cached: Test the POST /submit_answer endpoint when the answer is already cached.
-│       function test_save_answer_only: Test the POST /save_answer_only endpoint.
 ├── utils/
 │   ├── answer_checker.py (4.0 KB)
 │   │   module __main__: Модуль для проверки ответов через headless-браузер (Playwright) на сайте ФИПИ.
@@ -618,12 +241,12 @@
 │   │   function get_all_problems: Gets all tasks from the database.
 │   │   function get_all_subjects: Returns a list of all unique subjects in the database.
 │   │   function get_random_problem_ids: Returns `count` random problem_ids for the given subject.
-│   ├── downloader.py (3.1 KB)
+│   ├── downloader.py (2.1 KB)
 │   │   class AssetDownloader: A class to handle downloading assets from web pages.  Attributes:     page: A Playwright page obj...
 │   │   method AssetDownloader.__init__: Initializes the AssetDownloader with necessary configuration.  Args:     page: Playwright page in...
-│   │   method AssetDownloader.download: Downloads an asset from the web and saves it locally.  Args:     asset_src: Relative path or URL ...
+│   │   method AssetDownloader.download: Downloads an asset from the web and saves it locally.  Args:     asset_url: Full URL of the asset...
 │   │   function __init__: Initializes the AssetDownloader with necessary configuration.  Args:     page: Playwright page in...
-│   │   function download: Downloads an asset from the web and saves it locally.  Args:     asset_src: Relative path or URL ...
+│   │   function download: Downloads an asset from the web and saves it locally.  Args:     asset_url: Full URL of the asset...
 │   ├── element_pairer.py (12.3 KB)
 │   │   class ElementPairer: A class to pair 'header container' divs with their corresponding 'qblock' divs.  This class provi...
 │   │   method ElementPairer.pair: Finds and pairs 'qblock' divs with their corresponding 'header container' divs based on matching ...
@@ -697,14 +320,14 @@
 ├── config.py (1.7 KB)
 │   module __main__: Configuration module for the FIPI Parser.  This module loads environment variables from a .env fi...
 ├── extract_blocks.py (1.1 KB)
-├── generate_tree.py (17.3 KB)
+├── generate_tree.py (21.7 KB)
 │   module __main__: Generates a text representation of the directory structure, focusing on specific file types.  Thi...
 │   function get_file_size: Gets the size of a file in bytes.  Args:     filepath (Path): Path to the file.      Returns:    ...
 │   function format_file_size: Formats file size into a human-readable string.  Args:     size_bytes (int): Size in bytes.      ...
 │   function read_gitignore: Reads a .gitignore file and returns a list of patterns.  Args:     path (Path): The path object r...
 │   function parse_gitignore_patterns: Parses .gitignore patterns into include and exclude lists. Patterns starting with ! are include p...
 │   function is_ignored: Checks if a given name (file or directory) matches .gitignore patterns.  This function implements...
-│   function extract_all_docstrings: Extracts all docstrings from a Python file with their associated entities.  Args:     filepath (P...
+│   function extract_all_docstrings: Extracts docstrings from a Python file with their associated entities.  Args:     filepath (Path)...
 │   function read_file_content: Reads the content of a file and returns it as a string.  Args:     filepath (Path): Path to the f...
 │   function generate_structure: Recursively generates the directory structure string, respecting .gitignore.  Args:     start_pat...
 │   function main: Main function to handle command-line arguments and initiate structure generation.

@@ -80,7 +80,7 @@ class QdrantProblemIndexer:
                 payload = {
                     "problem_id": problem.problem_id,
                     "subject": problem.subject,
-                    "topics": problem.kes_codes,
+                    "topics": problem.topics,
                     "type": problem.type,
                     "difficulty": problem.difficulty,
                     "source_url": problem.source_url, # Optional: useful for linking back

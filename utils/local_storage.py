@@ -22,7 +22,7 @@ class LocalStorage:
         # Ensure the parent directory exists
         self._storage_path.parent.mkdir(parents=True, exist_ok=True)
         # Load data into memory once at initialization
-        self._ Dict[str, Dict[str, str]] = self._load_data_from_disk()
+        self._data: Dict[str, Dict[str, str]] = self._load_data_from_disk()
 
     def _load_data_from_disk(self) -> Dict[str, Dict[str, str]]:
         """Loads data from the storage file on disk.
@@ -94,3 +94,4 @@ class LocalStorage:
         else:
             # If the task_id doesn't exist, create a new entry with status only.
             self._data[task_id] = {"status": status}
+

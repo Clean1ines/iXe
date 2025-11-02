@@ -102,7 +102,6 @@ def is_ignored(name, full_path, exclude_patterns, include_patterns):
     
     This function implements .gitignore logic where:
     - If a file/dir matches an exclude pattern, it's ignored UNLESS
-    - it also matches an include pattern (starting with !), which takes precedence.
     
     Args:
         name (str): The name of the file or directory to check.
@@ -171,17 +170,21 @@ def is_ignored(name, full_path, exclude_patterns, include_patterns):
     
     return excluded
 
-def extract_all_docstrings(filepath):
+def extract_all_docstrings(filepath, docstring_mode='all'):
     """
-    Extracts all docstrings from a Python file with their associated entities.
+    Extracts docstrings from a Python file with their associated entities.
     
     Args:
         filepath (Path): Path to the Python file.
+        docstring_mode (str): 'all', 'module_only', or 'none'
         
     Returns:
         list: List of tuples (entity_type, entity_name, docstring_content).
     """
     if filepath.suffix.lower() != '.py':
+        return []
+    
+    if docstring_mode == 'none':
         return []
     
     try:
@@ -200,6 +203,10 @@ def extract_all_docstrings(filepath):
         module_docstring = ast.get_docstring(tree)
         if module_docstring:
             docstrings.append(('module', '__main__', module_docstring))
+        
+        # If we only want module docstrings, return now
+        if docstring_mode == 'module_only':
+            return docstrings
         
         # Walk through all nodes to find classes, functions, and methods
         for node in ast.walk(tree):
@@ -240,7 +247,7 @@ def read_file_content(filepath):
     except (IOError, OSError):
         return f"Could not read file: {filepath}"
 
-def generate_structure(start_path, prefix="", gitignore_patterns=None, current_depth=0, max_depth=None, base_path=None, detailed_items=None):
+def generate_structure(start_path, prefix="", gitignore_patterns=None, current_depth=0, max_depth=None, base_path=None, detailed_items=None, exclude_dirs=None, display_to_terminal=False, docstring_mode='all'):
     """
     Recursively generates the directory structure string, respecting .gitignore.
 
@@ -252,6 +259,9 @@ def generate_structure(start_path, prefix="", gitignore_patterns=None, current_d
         max_depth (int, optional): The maximum allowed depth. If specified, recursion stops beyond this level.
         base_path (Path, optional): The base path for relative path calculations.
         detailed_items (set, optional): Set of file/directory names to include detailed content for.
+        exclude_dirs (set, optional): Set of directory names to exclude from file listing but show structure.
+        display_to_terminal (bool): Whether to print output to terminal as well as file.
+        docstring_mode (str): 'all', 'module_only', or 'none'
 
     Returns:
         list: A list of strings representing the formatted structure for this path and its children.
@@ -299,52 +309,92 @@ def generate_structure(start_path, prefix="", gitignore_patterns=None, current_d
             continue  # Skip this item entirely
 
         if item.is_dir():
+            # Skip if directory is in exclude list
+            if exclude_dirs and item.name in exclude_dirs:
+                # Still add the directory to the output but without its files
+                dirs.append((item, combined_patterns, True))  # True indicates it's excluded
+                continue
+            
             # Read .gitignore specific to this subdirectory
             subdir_gitignore_patterns = read_gitignore(item)
             # Combine parent patterns with current directory's patterns for children
             combined_patterns = gitignore_patterns + subdir_gitignore_patterns
-            dirs.append((item, combined_patterns))
+            dirs.append((item, combined_patterns, False))  # False indicates it's not excluded
         elif item.is_file() and item.suffix.lower() in INCLUDED_EXTENSIONS:
             # Check if the file should be included based on gitignore rules
-            files.append(item)
+            # Also check if it's in a directory that should be excluded
+            is_in_excluded_dir = any(exclude_dirs and parent.name in exclude_dirs for parent in item.parents)
+            if not is_in_excluded_dir:
+                files.append(item)
 
     # Process directories first
-    all_items_count = len(dirs) + len(files)
-    for i, (d, child_gitignore_patterns) in enumerate(dirs):
-        is_last_item = (i == len(dirs) - 1) and (len(files) == 0)  # Check if this dir is the last item overall
+    all_items_count = len([d for d in dirs if not d[2]]) + len(files)  # Count only non-excluded items
+    dir_idx = 0
+    for i, (d, child_gitignore_patterns, is_excluded) in enumerate(dirs):
+        # Count only non-excluded directories for determining if this is the last item
+        if not is_excluded:
+            dir_idx += 1
+        is_last_item = (dir_idx == all_items_count)  # Check if this dir is the last item overall
         current_prefix = "└── " if is_last_item else "├── "
         next_prefix = prefix + ("    " if is_last_item else "│   ")
 
         output_lines.append(f"{prefix}{current_prefix}{d.name}/")
+        if display_to_terminal:
+            print(f"{prefix}{current_prefix}{d.name}/")
         
         # Add detailed content if requested
-        if detailed_items and d.name in detailed_items:
+        if not is_excluded and detailed_items and d.name in detailed_items:
             output_lines.append(f"{prefix}{'    ' if is_last_item else '│   '}[Contents of {d.name}:]")
+            if display_to_terminal:
+                print(f"{prefix}{'    ' if is_last_item else '│   '}[Contents of {d.name}:]")
             # List contents of the detailed directory
             try:
                 dir_contents = sorted(d.iterdir(), key=lambda x: (x.is_file(), x.name.lower()))
                 for content_item in dir_contents:
-                    content_prefix = f"{prefix}{'    ' if is_last_item else '│   '}├── "
-                    if content_item.is_file():
-                        content_prefix = content_prefix.replace("├──", "├── ")
-                        output_lines.append(f"{content_prefix}{content_item.name}")
-                        
-                        # Add file content if it's in detailed_items or if detailed_items is empty (meaning all)
-                        if detailed_items is None or content_item.name in detailed_items or str(content_item) in detailed_items:
-                            file_content = read_file_content(content_item)
-                            content_lines = file_content.split('\n')
-                            for line in content_lines:
-                                output_lines.append(f"{prefix}{'        ' if is_last_item else '│       '}{line}")
-                    else:
-                        content_prefix = content_prefix.replace("├──", "├── ")
+                    content_item_is_excluded = exclude_dirs and content_item.name in exclude_dirs
+                    if content_item_is_excluded:
+                        content_prefix = f"{prefix}{'    ' if is_last_item else '│   '}├── "
                         output_lines.append(f"{content_prefix}{content_item.name}/")
+                        if display_to_terminal:
+                            print(f"{content_prefix}{content_item.name}/")
+                        continue
+                        
+                    if content_item.is_file():
+                        if content_item.suffix.lower() in INCLUDED_EXTENSIONS:
+                            content_prefix = f"{prefix}{'    ' if is_last_item else '│   '}├── "
+                            output_lines.append(f"{content_prefix}{content_item.name}")
+                            if display_to_terminal:
+                                print(f"{content_prefix}{content_item.name}")
+                            
+                            # Add file content if it's in detailed_items or if detailed_items is empty (meaning all)
+                            if detailed_items is None or content_item.name in detailed_items or str(content_item) in detailed_items:
+                                file_content = read_file_content(content_item)
+                                content_lines = file_content.split('\n')
+                                for line in content_lines:
+                                    detailed_line = f"{prefix}{'        ' if is_last_item else '│       '}{line}"
+                                    output_lines.append(detailed_line)
+                                    if display_to_terminal:
+                                        print(detailed_line)
+                    else:
+                        content_prefix = f"{prefix}{'    ' if is_last_item else '│   '}├── "
+                        output_lines.append(f"{content_prefix}{content_item.name}/")
+                        if display_to_terminal:
+                            print(f"{content_prefix}{content_item.name}/")
             except (PermissionError, OSError):
-                output_lines.append(f"{prefix}{'    ' if is_last_item else '│   '}[Permission denied or error reading directory]")
+                msg = f"{prefix}{'    ' if is_last_item else '│   '}[Permission denied or error reading directory]"
+                output_lines.append(msg)
+                if display_to_terminal:
+                    print(msg)
         
-        # Recurse, passing the combined patterns down to children
-        output_lines.extend(generate_structure(
-            d, next_prefix, child_gitignore_patterns, current_depth + 1, max_depth, base_path, detailed_items
-        ))
+        # Recurse only if not excluded
+        if not is_excluded:
+            child_lines = generate_structure(
+                d, next_prefix, child_gitignore_patterns, current_depth + 1, max_depth, base_path, detailed_items, exclude_dirs, display_to_terminal, docstring_mode
+            )
+            output_lines.extend(child_lines)
+            if display_to_terminal:
+                for line in child_lines:
+                    print(line)
 
     # Process files
     for i, f in enumerate(files):
@@ -355,32 +405,47 @@ def generate_structure(start_path, prefix="", gitignore_patterns=None, current_d
         file_size = format_file_size(get_file_size(f))
         
         # Extract docstrings for Python files
-        docstrings = extract_all_docstrings(f)
+        docstrings = extract_all_docstrings(f, docstring_mode)
         if docstrings:
-            output_lines.append(f"{prefix}{current_prefix}{f.name} ({file_size})")
+            line = f"{prefix}{current_prefix}{f.name} ({file_size})"
+            output_lines.append(line)
+            if display_to_terminal:
+                print(line)
             # Add docstrings with indentation
             for entity_type, entity_name, docstring in docstrings:
                 # Format the docstring content for display
                 formatted_docstring = docstring.replace('\n', ' ').strip()
                 if len(formatted_docstring) > 100:
                     formatted_docstring = formatted_docstring[:97] + "..."
-                output_lines.append(f"{prefix}{'    ' if is_last_item else '│   '}{entity_type} {entity_name}: {formatted_docstring}")
+                doc_line = f"{prefix}{'    ' if is_last_item else '│   '}{entity_type} {entity_name}: {formatted_docstring}"
+                output_lines.append(doc_line)
+                if display_to_terminal:
+                    print(doc_line)
                 
             # Add file content if requested
             if detailed_items and (f.name in detailed_items or str(f) in detailed_items):
                 file_content = read_file_content(f)
                 content_lines = file_content.split('\n')
                 for line in content_lines:
-                    output_lines.append(f"{prefix}{'        ' if is_last_item else '│       '}{line}")
+                    detailed_line = f"{prefix}{'        ' if is_last_item else '│       '}{line}"
+                    output_lines.append(detailed_line)
+                    if display_to_terminal:
+                        print(detailed_line)
         else:
-            output_lines.append(f"{prefix}{current_prefix}{f.name} ({file_size})")
+            line = f"{prefix}{current_prefix}{f.name} ({file_size})"
+            output_lines.append(line)
+            if display_to_terminal:
+                print(line)
             
             # Add file content if requested
             if detailed_items and (f.name in detailed_items or str(f) in detailed_items):
                 file_content = read_file_content(f)
                 content_lines = file_content.split('\n')
                 for line in content_lines:
-                    output_lines.append(f"{prefix}{'        ' if is_last_item else '│       '}{line}")
+                    detailed_line = f"{prefix}{'        ' if is_last_item else '│       '}{line}"
+                    output_lines.append(detailed_line)
+                    if display_to_terminal:
+                        print(detailed_line)
 
     return output_lines
 
@@ -413,6 +478,22 @@ def main():
         default="tree_output.txt",
         help="Output file name. Defaults to tree_output.txt"
     )
+    parser.add_argument(
+        "--exclude-dir", "-e",
+        nargs='*',
+        help="Names of directories to exclude from file listing but show directory structure"
+    )
+    parser.add_argument(
+        "--display", "-ds",
+        action="store_true",
+        help="Display output to terminal as well as writing to file"
+    )
+    parser.add_argument(
+        "--docstring-mode", "-dm",
+        choices=['all', 'module_only', 'none'],
+        default='all',
+        help="Control which docstrings to include: 'all', 'module_only', or 'none'"
+    )
 
     args = parser.parse_args()
     root_path = Path(args.path)
@@ -427,19 +508,32 @@ def main():
 
     # Prepare detailed items set
     detailed_items = set(args.detail) if args.detail else None
+    # Prepare exclude directories set
+    exclude_dirs = set(args.exclude_dir) if args.exclude_dir else None
 
     output_lines = []
-    output_lines.append(f"{root_path.name}/")
-    structure_lines = generate_structure(root_path, max_depth=args.max_depth, detailed_items=detailed_items)
+    root_line = f"{root_path.name}/"
+    output_lines.append(root_line)
+    if args.display:
+        print(root_line)
+    
+    structure_lines = generate_structure(
+        root_path, 
+        max_depth=args.max_depth, 
+        detailed_items=detailed_items, 
+        exclude_dirs=exclude_dirs,
+        display_to_terminal=args.display,
+        docstring_mode=args.docstring_mode
+    )
     output_lines.extend(structure_lines)
     
-    # Write to file
+    # Write to file only if not displaying to terminal (or always if both are enabled)
     with open(args.output, 'w', encoding='utf-8') as f:
         for line in output_lines:
             f.write(line + '\n')
     
-    print(f"Output written to {args.output}")
+    if not args.display:
+        print(f"Output written to {args.output}")
 
 if __name__ == "__main__":
     main()
-

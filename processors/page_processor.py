@@ -6,7 +6,7 @@ to convert raw FIPI page content into a list of `Problem` objects.
 """
 import logging
 from pathlib import Path
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Dict, Tuple
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 from utils.downloader import AssetDownloader
@@ -28,16 +28,13 @@ from services.specification import SpecificationService
 
 logger = logging.getLogger(__name__)
 
-
 class PageProcessingOrchestrator:
     """
     Orchestrates the full processing pipeline for a single FIPI HTML page.
-    
     This class coordinates the transformation of raw HTML content into structured
     `Problem` instances. It relies on injected dependencies (downloader factory, processors)
     to maintain modularity and testability.
     """
-
     def __init__(
         self,
         asset_downloader_factory: Callable[[Any, str, str], AssetDownloader],
@@ -49,7 +46,6 @@ class PageProcessingOrchestrator:
     ):
         """
         Initializes the orchestrator with required dependencies.
-        
         Args:
             asset_downloader_factory (Callable): A callable that returns an AssetDownloader instance.
                                                  Expected signature: (page, base_url, files_location_prefix) -> AssetDownloader.
@@ -70,6 +66,7 @@ class PageProcessingOrchestrator:
         # self.problem_builder_instance = ProblemBuilder() # Now handled by BlockProcessor
         self.task_inferer = task_inferer
         self.specification_service = specification_service
+
         # Create default instances if not provided
         if self.task_inferer is None and self.specification_service is not None:
             # Assume TaskNumberInferer can be created with spec_service
@@ -87,22 +84,22 @@ class PageProcessingOrchestrator:
         files_location_prefix: str = "../../",
         page: Any = None,
         subject: str = "unknown" # Need subject for BlockProcessor
-    ) -> List[Problem]: # Return only the list of problems
+    ) -> Tuple[List[Problem], Dict[str, Any]]: # Return problems and scraped_data structure
         """
         Orchestrates the processing of a single HTML page content into Problems.
-
         Args:
             page_content (str): The raw HTML string of the page.
             proj_id (str): The project ID associated with the subject.
             page_num (str): The page number being processed.
-            run_folder (Path): The base directory for this run's output.
+            run_folder (Path): The base run folder where assets should be saved.
             base_url (str): Base URL used to resolve relative asset paths.
             files_location_prefix (str): Prefix used for asset links in the processed HTML.
             page (Any, optional): Playwright page object, passed to AssetDownloader factory if needed.
             subject (str): The subject key (e.g., 'math') for inferring task numbers.
-
         Returns:
-            List[Problem]: A list of structured Problem objects extracted from the page.
+            Tuple[List[Problem], Dict[str, Any]]: A tuple containing:
+                - A list of structured Problem objects extracted from the page.
+                - A dictionary with the old scraped data structure (page_name, blocks_html, etc.).
         """
         soup = BeautifulSoup(page_content, 'html.parser')
         assets_dir = run_folder / "assets"
@@ -117,18 +114,14 @@ class PageProcessingOrchestrator:
 
         # --- Process each pair using BlockProcessor ---
         problems = []
+        scraped_blocks_data = [] # Collect data for old scraped_data structure
         for i, (header_container, qblock) in enumerate(paired_elements):
             # Create BlockProcessor instance for this specific block
             # It needs the asset_downloader_factory, processors, metadata_extractor, problem_builder, task_inferer
-            # OLD: image_processor = ImageScriptProcessor()
-            # OLD: file_processor = FileLinkProcessor()
-            # OLD: task_info_processor = TaskInfoProcessor()
-            # OLD: processed_qblock, image_metadata = image_processor.process(qblock, assets_dir, downloader=asset_downloader)
-            # OLD: processed_qblock, file_metadata = file_processor.process(processed_qblock, assets_dir, downloader=asset_downloader)
-            # OLD: processed_qblock, task_info_metadata = task_info_processor.process(processed_qblock, assets_dir) # TaskInfoProcessor doesn't download assets
-            # OLD: header_metadata = self.metadata_extractor_instance.extract_from_header(header_container)
-            # OLD: combined_metadata = {**header_metadata, **image_metadata, **file_metadata, **task_info_metadata}
-            # OLD: problem = self.problem_builder_instance.build(...)
+            # Ensure task_inferer is available
+            if self.task_inferer is None:
+                logger.warning("TaskInferer is not initialized. Task numbers will be inferred with default values.")
+            
             block_processor = BlockProcessor(
                 asset_downloader_factory=self.asset_downloader_factory,
                 processors=self.processors, # Pass the list of processors, BlockProcessor will instantiate them
@@ -141,7 +134,7 @@ class PageProcessingOrchestrator:
             # OLD: ... (long manual processing)
             # NEW: Use BlockProcessor
             try:
-                _, _, _, _, problem, _ = block_processor.process(
+                processed_html_string, assignment_text, all_new_images, all_new_files, problem, block_metadata = await block_processor.process(
                     header_container=header_container,
                     qblock=qblock,
                     block_index=i,
@@ -155,13 +148,33 @@ class PageProcessingOrchestrator:
                 )
                 if problem: # Check if problem was built successfully
                     problems.append(problem)
+                
+                # Collect data for the old scraped_data structure
+                scraped_blocks_data.append({
+                    "block_index": i,
+                    "processed_html": processed_html_string,
+                    "assignment_text": assignment_text,
+                    "images": all_new_images,
+                    "files": all_new_files,
+                    "metadata": block_metadata
+                })
             except Exception as e:
                 logger.error(f"Error processing block {i} (header id: {header_container.get('id')}, qblock id: {qblock.get('id')}): {e}", exc_info=True)
                 # Decide whether to continue or raise
                 # For now, continue to process other blocks
                 continue
 
-        return problems # Return only the list of problems
+        # Construct the old scraped_data structure
+        scraped_data = {
+            "page_name": f"{proj_id}_page_{page_num}",
+            "blocks_html": [block_data["processed_html"] for block_data in scraped_blocks_data],
+            "assignments_text": [block_data["assignment_text"] for block_data in scraped_blocks_data],
+            "downloaded_images": {k: v for d in [block_data["images"] for block_data in scraped_blocks_data] for k, v in d.items()},
+            "downloaded_files": {k: v for d in [block_data["files"] for block_data in scraped_blocks_data] for k, v in d.items()},
+            "blocks_metadata": [block_data["metadata"] for block_data in scraped_blocks_data],
+            "proj_id": proj_id,
+            "page_num": page_num,
+            "subject": subject
+        }
 
-    # --- Удалены устаревшие методы: _extract_kes_codes, _determine_task_type_and_difficulty ---
-
+        return problems, scraped_data # Return both problems and the scraped_data structure

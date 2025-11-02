@@ -1,19 +1,17 @@
 """
-Module for scraping data from the FIPI website.
-This module provides the `FIPIScraper` class which handles interactions with the
-FIPI website using Playwright, managed by BrowserManager, to fetch subject listings and assignment pages.
-It delegates the actual HTML processing logic to `PageProcessingOrchestrator`.
+Module for scraping FIPI website content and orchestrating the processing pipeline.
 """
+import asyncio
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple, Callable
+from urllib.parse import urljoin, urlparse
+import requests
+from bs4 import BeautifulSoup
 from playwright.async_api import Page
-from utils.downloader import AssetDownloader
-from processors.page_processor import PageProcessingOrchestrator
 from utils.browser_manager import BrowserManager
-import re
-
-# Импорты для зависимостей
+from utils.metadata_extractor import MetadataExtractor
+from models.problem_builder import ProblemBuilder
 from processors.html_data_processors import (
     ImageScriptProcessor,
     FileLinkProcessor,
@@ -22,226 +20,213 @@ from processors.html_data_processors import (
     MathMLRemover,
     UnwantedElementRemover
 )
-from utils.element_pairer import ElementPairer
-from utils.metadata_extractor import MetadataExtractor
-from models.problem_builder import ProblemBuilder
-from processors.asset_processor_interface import AssetProcessor
+from processors.page_processor import PageProcessingOrchestrator
+from models.problem_schema import Problem
+from utils.downloader import AssetDownloader
+from utils.task_number_inferer import TaskNumberInferer
+from services.specification import SpecificationService
+
+# Constants for FIPI URLs - CORRECTED BASE URL
+FIPI_BASE_URL = "https://ege.fipi.ru"
+FIPI_QUESTIONS_URL = f"{FIPI_BASE_URL}/bank/questions.php"
+FIPI_SUBJECTS_URL = f"{FIPI_BASE_URL}/bank"
 
 logger = logging.getLogger(__name__)
 
 
 class FIPIScraper:
     """
-    A class to scrape assignment data from the FIPI website.
-
-    This class uses Playwright, managed by BrowserManager, to interact with the website, fetch pages,
-    and extract relevant information like subject listings and assignment content.
-    It delegates the actual HTML processing logic to `PageProcessingOrchestrator`.
+    Orchestrates the scraping and processing of FIPI website content.
+    This class coordinates browser management, page navigation, HTML parsing,
+    asset downloading, and transformation into structured Problem instances.
+    It relies on dependency injection for components like BrowserManager to
+    enable testing and modularity.
     """
 
     def __init__(
         self,
         base_url: str,
-        browser_manager: BrowserManager, # NEW DEPENDENCY
-        subjects_url: str = None,
-        user_agent: str = None,
-        # --- НОВЫЕ ЗАВИСИМОСТИ ---
-        processors: Optional[List[AssetProcessor]] = None,
-        pairer: Optional[ElementPairer] = None,
-        extractor: Optional[MetadataExtractor] = None,
-        builder: Optional[ProblemBuilder] = None
-        # ------------------------
+        browser_manager: BrowserManager,
+        subjects_url: str,
+        page_delay: float = 1.0,
+        builder: Optional[ProblemBuilder] = None,
+        specification_service: Optional[SpecificationService] = None,
+        task_inferer: Optional[TaskNumberInferer] = None,
     ):
         """
-        Initializes the FIPIScraper.
-
+        Initializes the scraper with necessary dependencies and configuration.
+        
         Args:
-            base_url (str): The base URL for the FIPI site (e.g., https://ege.fipi.ru).
-            browser_manager (BrowserManager): Instance of BrowserManager for page acquisition.
-            subjects_url (str, optional): The URL for the subjects listing page.
-                                          If not provided, defaults to base_url + /bank/.
-            user_agent (str, optional): User agent string for the browser session.
-                                        Defaults to None, which uses the system default or a predefined one.
-            processors (List[AssetProcessor], optional): List of HTML processors to use.
-                                                         If not provided, default processors will be instantiated.
-            pairer (ElementPairer, optional): Element pairer instance to use.
-                                             If not provided, a default instance will be created.
-            extractor (MetadataExtractor, optional): Metadata extractor instance to use.
-                                                    If not provided, a default instance will be created.
+            base_url (str): Base URL of the FIPI questions page.
+            browser_manager (BrowserManager): Instance to manage browser context and pages.
+            subjects_url (str): URL to fetch the list of subjects/projects.
+            page_delay (float): Delay between page operations to avoid detection/blocking.
             builder (ProblemBuilder, optional): Problem builder instance to use.
-                                                If not provided, a default instance will be created.
+            specification_service (SpecificationService, optional): Service for official specifications.
+            task_inferer (TaskNumberInferer, optional): Component for inferring task numbers.
         """
-        self.base_url = base_url.rstrip("/") # Ensure no trailing slash
-        self.browser_manager = browser_manager # STORE THE DEPENDENCY
-        # Use provided subjects_url or construct it from base_url
-        self.subjects_url = subjects_url if subjects_url else f"{self.base_url}/bank/"
-        self.user_agent = user_agent
+        self.base_url = base_url
+        self.browser_manager = browser_manager
+        self.subjects_url = subjects_url
+        self.page_delay = page_delay
+        self.session = requests.Session()
+        # Set browser-like headers to avoid blocking
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive"
+        })
+        self.task_inferer = task_inferer
+        self.specification_service = specification_service
 
-        # Сохраняем внедрённые зависимости как атрибуты
-        self._processors = processors or [
-            ImageScriptProcessor(),
-            FileLinkProcessor(),
-            TaskInfoProcessor(),
-            InputFieldRemover(),
-            MathMLRemover(),
-            UnwantedElementRemover()
-        ]
-        self._pairer = pairer or ElementPairer()
-        self._extractor = extractor or MetadataExtractor()
-        self._builder = builder or ProblemBuilder()
-
-    async def get_projects(self, page: Page) -> Dict[str, str]:
+    async def get_projects(self, subjects_list_page: str) -> Dict[str, str]:
         """
-        Fetches the list of available subjects and their project IDs from the FIPI website.
-
-        This method uses the provided page (expected to be on subjects_url) to find the list
-        of subjects (typically within a <ul> element with an ID like 'pgp_...'),
-        parses the list items (<li>), and extracts the project ID (often from an 'id' attribute like 'p_...')
-        and the subject name.
-
+        Parses the subjects list page HTML to extract project ID to subject name mappings.
+        
         Args:
-            page (Page): Playwright Page instance already navigated to the subjects listing page.
-
+            subjects_list_page (str): HTML content of the subjects listing page.
+        
         Returns:
-            Dict[str, str]: A dictionary mapping project IDs (str) to subject names (str).
-                            Example: {'AC437B...': 'Математика. Профильный уровень', ...}
-                            Returns an empty dict if the list is not found or parsing fails.
+            Dict[str, str]: Mapping of project IDs to their human-readable subject names.
         """
-        logger.info(f"[Fetching subjects] Parsing subjects list from current page: {page.url}")
-        # No need to navigate, assume page is already at the correct URL
+        logger.info("Extracting projects from subjects list page...")
+        logger.debug(f"Raw HTML content (first 500 chars): {subjects_list_page[:500]}")
+        soup = BeautifulSoup(subjects_list_page, 'html.parser')
         projects = {}
-        try:
-            list_selector = "ul[id^='pgp_']"
-            list_element = page.locator(list_selector).first
-            if await list_element.count() > 0:
-                list_items = list_element.locator("li[id^='p_']")
-                count = await list_items.count()
-                for i in range(count):
-                    item = list_items.nth(i)
-                    item_id = await item.get_attribute("id")
-                    if item_id and item_id.startswith("p_"):
-                        proj_id = item_id[2:]
-                    else:
-                        logger.warning(f"Skipping item with unexpected ID format: {item_id}")
-                        continue
-                    subject_name = (await item.inner_text()).strip()
-                    if proj_id and subject_name:
-                        projects[proj_id] = subject_name
-                    else:
-                        logger.warning(f"Skipping item with empty ID or name: {item_id}, Name: '{subject_name}'")
-        except Exception as e:
-            logger.error(f"Error parsing projects list: {e}")
-        logger.info(f"[Fetched subjects] Found {len(projects)} subjects.")
+        
+        # Updated logic to find subject links on the correct FIPI page structure
+        # Look for elements that contain subject information
+        for element in soup.select('[href*="questions.php?proj="], [href*="&proj="], .subject-item, .subject-name'):
+            href = element.get('href', '')
+            text = element.get_text(strip=True)
+            
+            if not href or not text:
+                continue
+                
+            # Parse project ID from URL
+            parsed_url = urlparse(href)
+            query_params = parsed_url.query.split('&')
+            proj_id = None
+            
+            for param in query_params:
+                if param.startswith('proj='):
+                    proj_id = param.split('=')[1]
+                    break
+            
+            # Fallback: try to find proj in the href string
+            if not proj_id and 'proj=' in href:
+                parts = href.split('proj=')
+                if len(parts) > 1:
+                    proj_id = parts[1].split('&')[0].split('#')[0]
+            
+            if proj_id and text:
+                # Clean subject name - remove extra spaces and non-printable characters
+                clean_name = ' '.join(text.split())
+                projects[proj_id] = clean_name
+                logger.debug(f"Found project: {proj_id} -> {clean_name}")
+        
+        # If we didn't find any projects with the above selectors, try a more generic approach
+        if not projects:
+            logger.warning("No projects found with primary selectors, trying fallback method...")
+            for link in soup.find_all('a', href=True):
+                href = link['href']
+                text = link.get_text(strip=True)
+                if "proj=" in href and text:
+                    # Extract proj_id from URL
+                    if "proj=" in href:
+                        proj_id = href.split("proj=")[-1].split("&")[0].split("#")[0]
+                        clean_name = ' '.join(text.split())
+                        projects[proj_id] = clean_name
+                        logger.debug(f"Found project (fallback): {proj_id} -> {clean_name}")
+        
+        logger.info(f"Successfully found {len(projects)} projects")
+        logger.debug(f"Complete projects mapping: {projects}")
         return projects
-
-    async def get_total_pages(self, proj_id: str, subject: str) -> int:
-        """Extract total pages from pagination links on the 'init' page."""
-        page = await self.browser_manager.get_page(subject)
-        # Construct the init URL using the base_url and /bank/index.php
-        init_url = f"{self.base_url}/bank/index.php?proj={proj_id}&page=init"
-        await page.goto(init_url, wait_until="networkidle")
-
-        max_page = 1
-        try:
-            # Ищем все ссылки с page= в href
-            page_links = page.locator("a[href*='page=']")
-            count = await page_links.count()
-            for i in range(count):
-                link = page_links.nth(i)
-                href = await link.get_attribute("href")
-                if href:
-                    match = re.search(r'page=(\d+)', href)
-                    if match:
-                        page_num = int(match.group(1))
-                        if page_num > max_page:
-                            max_page = page_num
-        except Exception as e:
-            logger.warning(f"Failed to parse pagination: {e}")
-
-        logger.info(f"🔢 Detected {max_page} pages for project {proj_id}")
-        return max_page
 
     async def scrape_page(
         self,
         proj_id: str,
         page_num: str,
         run_folder: Path,
-        subject: str # NEW PARAMETER: subject to get the correct page
-    ) -> Tuple[List[Any], Dict[str, Any]]:
+        subject: str,
+    ) -> Tuple[List[Problem], Dict[str, Any]]:
         """
-        Scrapes a specific page of assignments for a given subject by delegating
-        the HTML processing logic to `PageProcessingOrchestrator`.
-
+        Scrapes a single page of problems for a given project ID.
+        
         Args:
-            proj_id (str): The project ID corresponding to the subject.
-            page_num (str): The page number to scrape (e.g., 'init', '1', '2').
-            run_folder (Path): The base run folder where assets should be saved.
-            subject (str): The subject name to get the page for via BrowserManager.
-
+            proj_id (str): Project ID for the subject.
+            page_num (str): Page number to scrape (e.g., "1", "init").
+            run_folder (Path): Directory to store downloaded assets and outputs.
+            subject (str): Subject name for context (e.g., "math").
+        
         Returns:
-            Tuple[List[Problem], Dict[str, Any]]: A tuple containing:
-                - A list of Problem objects created from the scraped data.
-                - A dictionary with the old scraped data structure (page_name, blocks_html, etc.).
+            Tuple[List[Problem], Dict[str, Any]]: List of structured Problem objects
+            and additional scraped metadata.
         """
-        page = await self.browser_manager.get_page(subject) # GET PAGE FROM BROWSER MANAGER
-        # Construct the URL using the base_url and /bank/index.php
-        page_url = f"{self.base_url}/bank/index.php?proj={proj_id}&page={page_num}"
-        logger.info(f"Scraping page {page_num} for project {proj_id} (subject: {subject}), URL: {page_url}")
-
-        await page.goto(page_url, wait_until="networkidle")
-        await page.wait_for_timeout(3000)
-        logger.info("Page loaded and waited for 3 seconds.")
-
+        logger.info(f"Scraping page {page_num} for project {proj_id} (subject: {subject})...")
+        
+        # CORRECT URL CONSTRUCTION for FIPI bank
+        # Base URL should be questions.php endpoint
+        base_questions_url = f"{FIPI_BASE_URL}/bank/questions.php"
+        full_url = f"{base_questions_url}?proj={proj_id}&page={page_num}"
+        logger.debug(f"Navigating to URL: {full_url}")
+        
+        # Get a page instance from the browser manager
+        page = await self.browser_manager.get_page(full_url)
+        
         try:
-            files_location_prefix = await page.evaluate("window.files_location || '../../'")
-            logger.info(f"files_location_prefix determined as: {files_location_prefix}")
-        except Exception as e:
-            logger.warning(f"Could not get files_location from page {page_url}, using default. Error: {e}")
-            files_location_prefix = '../../'
-
-        page_content = await page.content()
-        logger.info(f"Page content fetched, length: {len(page_content)}")
-
-        # --- Delegate to Orchestrator ---
-        logger.debug("Initializing AssetDownloader and PageProcessingOrchestrator...")
-        # Create AssetDownloader with only 'page'
-        downloader = AssetDownloader(page=page)
-
-        def asset_downloader_factory(page_obj, base_url, prefix):
-            # The factory now uses the page provided by the scraper, which comes from BrowserManager
-            logger.debug("AssetDownloader factory called.")
-            # Return an AssetDownloader instance with the correct page
-            return AssetDownloader(page=page_obj)
-
-        # Create PageProcessingOrchestrator without element_pairer
-        orchestrator = PageProcessingOrchestrator(
-            asset_downloader_factory=asset_downloader_factory,
-            processors=self._processors,
-            metadata_extractor=self._extractor,
-            problem_builder=self._builder,
-            # element_pairer=self._pairer # <-- REMOVED from __init__
-        )
-
-        logger.info("Delegating page processing to PageProcessingOrchestrator...")
-        try:
-            # OLD: problems, scraped_data = await orchestrator.process(...)
-            # OLD: element_pairer=self._pairer # <-- This caused the error in .process()
-            # NEW: Pass element_pairer to the process method if needed - NO, REMOVED
+            # Wait for content to load
+            logger.debug("Waiting for .qblock elements to appear...")
+            await page.wait_for_selector(".qblock", timeout=60000)  # Increased timeout
+            
+            # Get page content
+            page_content = await page.content()
+            logger.debug(f"Page content length: {len(page_content)} characters")
+            
+            # Create asset downloader factory that uses the same page context
+            def asset_downloader_factory(page_obj, base, prefix):
+                return AssetDownloader(page=page_obj)
+            
+            # Create the processing orchestrator
+            orchestrator = PageProcessingOrchestrator(
+                asset_downloader_factory=asset_downloader_factory,
+                processors=[
+                    ImageScriptProcessor(),
+                    FileLinkProcessor(),
+                    TaskInfoProcessor(),
+                    InputFieldRemover(),
+                    MathMLRemover(),
+                    UnwantedElementRemover()
+                ],
+                metadata_extractor=MetadataExtractor(),
+                problem_builder=ProblemBuilder(),
+                task_inferer=self.task_inferer,
+                specification_service=self.specification_service,  # Pass specification service
+            )
+            
+            # Process the page content
+            logger.debug("Starting page processing orchestrator...")
             problems, scraped_data = await orchestrator.process(
                 page_content=page_content,
                 proj_id=proj_id,
                 page_num=page_num,
                 run_folder=run_folder,
-                base_url=self.base_url,
-                files_location_prefix=files_location_prefix,
-                page=page, # Pass the page obtained from BrowserManager
-                # element_pairer=self._pairer # <-- REMOVED from .process() call
+                base_url=base_questions_url,  # Pass the correct base URL
+                subject=subject
             )
-            logger.info("Page processing completed by Orchestrator.")
+            
+            logger.info(f"Successfully scraped {len(problems)} problems from page {page_num}")
+            return problems, scraped_data
+            
         except Exception as e:
-            logger.error(f"Error in PageProcessingOrchestrator.process: {e}", exc_info=True)
-            raise # Re-raise to be caught by the outer except
-        # -------------------------------
+            logger.exception("Exception occurred during page scraping:")
+            logger.error(f"Error scraping page {page_num} for project {proj_id}: {e}", exc_info=True)
+            raise
+        finally:
+            # Return the page to the browser manager pool
+            await self.browser_manager.return_page(page)
 
-        return problems, scraped_data
-
+    async def close(self):
+        """Closes the associated browser resources."""
+        await self.browser_manager.close()

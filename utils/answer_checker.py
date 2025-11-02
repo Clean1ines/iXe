@@ -1,83 +1,113 @@
-"""Module for checking answers via headless browser (Playwright) on the FIPI website."""
-
+"""
+Module for checking answers against the official FIPI answer service.
+This module provides the FIPIAnswerChecker class which handles the interaction
+with FIPI's answer checking service using Playwright for browser automation.
+"""
+import asyncio
+import json
 import logging
-from typing import Dict, Any
-from playwright.async_api import TimeoutError as PlaywrightTimeout
+import re
+from typing import Any, Dict, Optional, Tuple
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
+
 from utils.browser_manager import BrowserManager
-# NEW IMPORT: Используем централизованную функцию для получения proj_id
-from utils.subject_mapping import get_proj_id_for_subject
 
 logger = logging.getLogger(__name__)
 
 class FIPIAnswerChecker:
-    def __init__(self, browser_manager: BrowserManager, base_url: str = "https://ege.fipi.ru") -> None:
-        self.browser_manager = browser_manager
-        self.base_url = base_url.rstrip("/")
-
-    async def check_answer(self, task_id: str, form_id: str, user_answer: str, subject: str) -> Dict[str, Any]:
+    """
+    A class to check answers against the official FIPI service.
+    
+    This class handles the browser automation required to submit answers
+    to the FIPI checking service and parse the results. It manages page
+    navigation, form filling, and result extraction.
+    """
+    
+    def __init__(self, browser_manager: BrowserManager):
         """
-        Checks the user's answer via Playwright on the FIPI website.
-
+        Initializes the answer checker with a browser manager.
+        
         Args:
-            task_id: The task ID
-            form_id: The form ID (not used in the current implementation)
-            user_answer: The user's answer
-            subject: The subject of the task (used to get the correct page from BrowserManager)
-
-        Returns:
-            A dictionary with the check results
+            browser_manager (BrowserManager): Instance to manage browser context and pages.
         """
-        logger.info(f"Checking answer for task {task_id} (subject: {subject}) via Playwright on FIPI")
+        self.browser_manager = browser_manager
+        logger.debug("FIPIAnswerChecker initialized with BrowserManager")
+    
+    async def check_answer(
+        self,
+        task_id: str,
+        user_answer: str,
+        subject: str = "math"
+    ) -> Tuple[str, float]:
+        """
+        Checks a user's answer against the official FIPI service.
+        
+        Args:
+            task_id (str): The task identifier (e.g., "40B442")
+            user_answer (str): The user's answer to check
+            subject (str): Subject name for context (default: "math")
+        
+        Returns:
+            Tuple[str, float]: (verdict, score) where verdict is "correct", "incorrect", or "error",
+            and score is a float between 0.0 and 1.0 (or -1.0 for errors)
+        """
+        logger.info(f"Checking answer for task {task_id} with user answer '{user_answer}'")
+        
         try:
-            page = await self.browser_manager.get_page(subject)
-            # Increase timeouts
-            page.set_default_timeout(30000)  # 30 seconds
-
-            # Explicit wait for at least one block to appear
-            await page.wait_for_selector(".processed_qblock", timeout=30000)
-            # 3. Find the required block by data-task-id
-            block_selector = f'div.processed_qblock[data-task-id="{task_id}"]'
-            block = await page.query_selector(block_selector)
-            if not block:
-                return {"status": "error", "message": f"Task block {task_id} not found", "raw_response": ""}
-
-            # 4. Fill the answer field inside this block
-            input_selector = f'{block_selector} input[name="answer"]'
-            await page.fill(input_selector, user_answer)
-            logger.debug(f"Filled answer for task {task_id}")
-
-            # 5. Click the "Answer" button in the same block
-            button_selector = f'{block_selector} .answer-button:has-text("Ответить")'
-            await page.click(button_selector)
-            logger.debug(f"Clicked 'Ответить' for task {task_id}")
-
-            # 6. Wait for the status to update
-            status_selector = f'{block_selector} .task-status'
-            await page.wait_for_function(
-                f'document.querySelector("{status_selector}").classList.contains("task-status-2") || '
-                f'document.querySelector("{status_selector}").classList.contains("task-status-3")',
-                timeout=8000
-            )
-
-            # 7. Read the result
-            status_el = await page.query_selector(status_selector)
-            status_class = await status_el.get_attribute("class") or ""
-            status_text = await status_el.inner_text() or ""
-
-            if "task-status-3" in status_class:
-                return {"status": "correct", "message": "CORRECT", "raw_response": status_text}
-            elif "status-status-2" in status_class:
-                return {"status": "incorrect", "message": "INCORRECT", "raw_response": status_text}
-            else:
-                return {"status": "error", "message": "Unknown status", "raw_response": status_text}
-
-        except PlaywrightTimeout as e:
-            logger.error(f"Timeout for task {task_id}: {e}")
-            return {"status": "error", "message": "Timeout during check", "raw_response": str(e)}
+            # Navigate to the answer checking page
+            check_url = f"https://fipi.ru/answer-checking?task={task_id}&subject={subject}"
+            page = await self.browser_manager.get_page(check_url)
+            
+            try:
+                # Wait for the answer input field to be available
+                await page.wait_for_selector("#user_answer", timeout=60000)
+                
+                # Fill in the user's answer
+                await page.fill("#user_answer", user_answer)
+                
+                # Submit the form
+                await page.click("#submit_answer")
+                
+                # Wait for the result to appear
+                await page.wait_for_selector(".answer-result", timeout=60000)
+                
+                # Extract the result
+                verdict_element = await page.query_selector(".verdict")
+                score_element = await page.query_selector(".score")
+                
+                verdict = "error"
+                score = -1.0
+                
+                if verdict_element:
+                    verdict_text = await verdict_element.text_content()
+                    if "верно" in verdict_text.lower():
+                        verdict = "correct"
+                    elif "неверно" in verdict_text.lower():
+                        verdict = "incorrect"
+                
+                if score_element:
+                    score_text = await score_element.text_content()
+                    try:
+                        # Extract numeric score from text like "Score: 1.0"
+                        score_match = re.search(r'[\d.]+', score_text)
+                        if score_match:
+                            score = float(score_match.group())
+                    except (ValueError, TypeError):
+                        logger.warning(f"Could not parse score from '{score_text}'")
+                
+                logger.info(f"Answer check result for task {task_id}: verdict={verdict}, score={score}")
+                return verdict, score
+                
+            except PlaywrightTimeoutError as e:
+                logger.error(f"Timeout for task {task_id}: {e}")
+                return "error", -1.0
+            except Exception as e:
+                logger.error(f"Error checking answer for task {task_id}: {e}", exc_info=True)
+                return "error", -1.0
+            finally:
+                # Return the page to the pool
+                await self.browser_manager.return_page(page)
+                
         except Exception as e:
-            logger.error(f"Playwright error for task {task_id}: {e}", exc_info=True)
-            return {"status": "error", "message": f"Error: {type(e).__name__}", "raw_response": str(e)}
-
-    # Старый статический метод get_proj_id_by_subject убирается, так как его логика вынесена в utils.subject_mapping
-    # Это делает класс FIPIAnswerChecker менее зависимым от конкретных значений proj_id.
-
+            logger.error(f"Browser error while checking answer for task {task_id}: {e}", exc_info=True)
+            return "error", -1.0
