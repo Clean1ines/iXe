@@ -1,18 +1,39 @@
-# api/app.py
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from config import FRONTEND_URL
 from api.endpoints import subjects, quiz, answer, plan, block
+from utils.browser_manager import BrowserManager
 import logging
 
 logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan event handler for the FastAPI application.
+
+    Initializes and manages the shared BrowserManager instance.
+    """
+    logger.info("Initializing BrowserManager...")
+    browser_manager = BrowserManager()
+    await browser_manager.__aenter__()  # Инициализация Playwright и браузера
+    app.state.browser_manager = browser_manager
+    logger.info("BrowserManager initialized and stored in app.state.")
+    try:
+        yield
+    finally:
+        logger.info("Shutting down BrowserManager...")
+        await browser_manager.close()  # Закрытие браузера и Playwright
+        logger.info("BrowserManager shut down complete.")
 
 def create_app() -> FastAPI:
     """
     Creates and configures the FastAPI application instance.
 
-    Sets up CORS, exception handlers, and includes API routers.
+    Sets up CORS, exception handlers, lifespan events for BrowserManager,
+    and includes API routers.
 
     Returns:
         FastAPI: The configured FastAPI application.
@@ -23,12 +44,13 @@ def create_app() -> FastAPI:
         version="1.0.0",
         openapi_url="/openapi.yaml",
         docs_url="/docs",
-        redoc_url="/redoc"
+        redoc_url="/redoc",
+        lifespan=lifespan  # Подключение lifespan для управления BrowserManager
     )
 
     origins = [
-        "https://ixe.onrender.com  ",
-        "https://ixe-core.onrender.com  ",
+        "https://ixe.onrender.com",
+        "https://ixe-core.onrender.com",
         "http://localhost:3000",
         "http://localhost:5173",
     ]
@@ -80,3 +102,4 @@ def create_app() -> FastAPI:
         return {"message": "FIPI API is running"}
 
     return app
+

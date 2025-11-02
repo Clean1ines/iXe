@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, Request
 from qdrant_client import QdrantClient
 from utils.database_manager import DatabaseManager
 from utils.local_storage import LocalStorage
@@ -107,29 +107,36 @@ def get_storage() -> LocalStorage | None:
     return None
 
 
-def get_answer_checker() -> FIPIAnswerChecker:
+def get_browser_manager(request: Request):
+    """
+    Dependency to provide the shared BrowserManager instance.
+
+    Args:
+        request: The incoming request object.
+
+    Returns:
+        BrowserManager: The shared instance managed by the app's lifespan.
+    """
+    return request.app.state.browser_manager
+
+
+async def get_answer_checker(browser_manager: object = Depends(get_browser_manager)) -> FIPIAnswerChecker:
     """
     Dependency to provide an instance of FIPIAnswerChecker.
+
+    Args:
+        browser_manager: The shared BrowserManager instance.
 
     Returns:
         FIPIAnswerChecker: An instance of the answer checker.
     """
-    return FIPIAnswerChecker(base_url=FIPI_QUESTIONS_URL)
-
-
-def get_quiz_service(
-    problem_retriever: QdrantProblemRetriever = Depends(get_problem_retriever)
-) -> QuizService:
-    """
-    Dependency to provide an instance of QuizService.
-
-    Args:
-        problem_retriever: The problem retriever instance.
-
-    Returns:
-        QuizService: An instance of the quiz service.
-    """
-    return QuizService(problem_retriever)
+    # Note: The FIPIAnswerChecker now expects a BrowserManager instance in its constructor.
+    # This dependency function provides that instance.
+    # The original 'base_url' argument is no longer used by FIPIAnswerChecker.__init__.
+    # We pass the browser_manager here.
+    # The 'base_url' is now handled internally by BrowserManager or FIPIAnswerChecker if needed for other purposes,
+    # but the primary page acquisition is through BrowserManager.
+    return FIPIAnswerChecker(browser_manager=browser_manager)
 
 
 def get_answer_service(
@@ -153,3 +160,19 @@ def get_answer_service(
         AnswerService: An instance of the answer service.
     """
     return AnswerService(db, checker, storage, skill_graph, spec_service)
+
+
+def get_quiz_service(
+    problem_retriever: QdrantProblemRetriever = Depends(get_problem_retriever)
+) -> QuizService:
+    """
+    Dependency to provide an instance of QuizService.
+
+    Args:
+        problem_retriever: The problem retriever instance.
+
+    Returns:
+        QuizService: An instance of the quiz service.
+    """
+    return QuizService(problem_retriever)
+
