@@ -146,6 +146,35 @@ class DatabaseManager:
             logger.error(f"Error fetching problem {problem_id}: {e}", exc_info=True)
             raise
 
+    def get_problems_by_ids(self, problem_ids: List[str]) -> List[Problem]:
+        """
+        Gets multiple tasks by their identifiers in a single query.
+
+        Args:
+            problem_ids (List[str]): A list of problem IDs to retrieve.
+
+        Returns:
+            List[Problem]: A list of Problem objects corresponding to the given IDs.
+                           The order in the returned list might not match the input order.
+        """
+        if not problem_ids:
+            return []
+
+        try:
+            with self.SessionLocal() as session:
+                # Use SQLAlchemy Core for the IN clause for efficiency
+                # Query the DBProblem objects based on the list of IDs
+                db_problems = session.query(DBProblem).filter(DBProblem.problem_id.in_(problem_ids)).all()
+                
+                # Convert DBProblem objects to Pydantic Problem objects
+                problems = [db_problem_to_problem(db_prob) for db_prob in db_problems]
+                
+                logger.debug(f"Fetched {len(problems)} problems out of {len(problem_ids)} requested IDs.")
+                return problems
+        except Exception as e:
+            logger.error(f"Error fetching problems by IDs: {e}", exc_info=True)
+            raise
+
     def get_all_problems(self) -> List[Problem]:
         """Gets all tasks from the database."""
         try:

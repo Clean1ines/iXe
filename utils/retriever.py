@@ -85,16 +85,14 @@ class QdrantProblemRetriever:
             retrieved_problem_ids = [pid for pid in retrieved_problem_ids if pid is not None]
             logger.debug(f"Extracted {len(retrieved_problem_ids)} unique problem IDs from search results: {retrieved_problem_ids[:3]}...") # Log first 3
 
-            # --- Fetch full Problem objects from the database ---
-            # We need to fetch each problem individually using get_problem_by_id
-            # A batch method like get_problems_by_ids would be more efficient if available.
-            retrieved_problems = []
-            for pid in retrieved_problem_ids:
-                problem = self.db_manager.get_problem_by_id(pid)
-                if problem:
-                    retrieved_problems.append(problem)
-                else:
-                    logger.warning(f"Problem with ID '{pid}' found in Qdrant but not in database.")
+            # --- Fetch full Problem objects from the database using the new batch method ---
+            retrieved_problems = self.db_manager.get_problems_by_ids(retrieved_problem_ids)
+
+            # Log a warning if some IDs were not found in the database
+            found_problem_ids = {prob.problem_id for prob in retrieved_problems}
+            missing_ids = set(retrieved_problem_ids) - found_problem_ids
+            if missing_ids:
+                logger.warning(f"Problem IDs found in Qdrant but not in database: {missing_ids}")
 
             logger.info(f"Successfully retrieved {len(retrieved_problems)} Problem objects from the database.")
             return retrieved_problems
