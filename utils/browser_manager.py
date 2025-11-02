@@ -7,6 +7,7 @@ from playwright.async_api import async_playwright, Page, Browser
 # OLD IMPORT: from utils.answer_checker import FIPIAnswerChecker
 # NEW IMPORT: Use the centralized mapping utility
 from utils.subject_mapping import get_proj_id_for_subject
+from utils.fipi_urls import FIPI_SUBJECTS_LIST_URL # Import the correct URL
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class BrowserManager:
     Also manages a special page for the subjects listing page (bank/).
     """
 
-    def __init__(self, base_url: str = "https://ege.fipi.ru"):
+    def __init__(self, base_url: str = "https://ege.fipi.ru  "):
         self.base_url = base_url.rstrip("/")
         self._browser: Browser | None = None
         self._pages: Dict[str, Page] = {} # Key: subject (e.g., 'math')
@@ -108,7 +109,7 @@ class BrowserManager:
 
     async def get_subjects_list_page(self) -> Page:
         """
-        Get a dedicated page for the subjects listing page (ege.fipi.ru/bank/).
+        Get a dedicated page for the subjects listing page (ege.fipi.ru/bank/index.php).
         This page is not tied to a specific proj_id and is used for fetching the project list.
 
         Returns:
@@ -118,14 +119,15 @@ class BrowserManager:
             logger.debug("Reusing cached subjects list page.")
             return self._subjects_list_page
 
-        logger.info("Creating new page for subjects listing (bank/).")
+        logger.info("Creating new page for subjects listing (bank/index.php).")
         if not self._browser:
             raise RuntimeError("Browser is not initialized. Use BrowserManager as an async context manager.")
 
         page = await self._browser.new_page()
         page.set_default_timeout(30000)  # 30 seconds
 
-        subjects_list_url = f"{self.base_url}/bank/"
+        # Use the correct URL for the subjects list page
+        subjects_list_url = FIPI_SUBJECTS_LIST_URL
 
         logger.debug(f"Navigating subjects list page to {subjects_list_url}")
         await page.goto(subjects_list_url, wait_until="networkidle", timeout=30000)
@@ -134,3 +136,18 @@ class BrowserManager:
         logger.debug("Subjects list page created and cached.")
         return page
 
+    async def get_general_page(self) -> Page:
+        """
+        Get a general-purpose page not tied to a specific subject/proj_id.
+        Useful for tasks like scraping specific question pages that require a direct URL.
+
+        Returns:
+            A Playwright Page instance.
+        """
+        logger.info("Creating new general-purpose page.")
+        if not self._browser:
+            raise RuntimeError("Browser is not initialized. Use BrowserManager as an async context manager.")
+
+        page = await self._browser.new_page()
+        page.set_default_timeout(30000)  # 30 seconds
+        return page

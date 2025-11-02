@@ -25,7 +25,11 @@ from models.problem_schema import Problem
 from utils.downloader import AssetDownloader
 from utils.task_number_inferer import TaskNumberInferer
 from services.specification import SpecificationService
-from utils.fipi_urls import FIPI_BASE_URL, FIPI_QUESTIONS_URL, FIPI_SUBJECTS_LIST_URL
+
+# Constants for FIPI URLs - CORRECTED BASE URL
+FIPI_BASE_URL = "https://ege.fipi.ru"
+FIPI_QUESTIONS_URL = f"{FIPI_BASE_URL}/bank/questions.php"
+FIPI_SUBJECTS_URL = f"{FIPI_BASE_URL}/bank"
 
 logger = logging.getLogger(__name__)
 
@@ -76,63 +80,66 @@ class FIPIScraper:
         self.task_inferer = task_inferer
         self.specification_service = specification_service
 
-    async def get_projects(self, subjects_list_page) -> Dict[str, str]:
+    async def get_projects(self, subjects_list_page: str) -> Dict[str, str]:
         """
         Parses the subjects list page HTML to extract project ID to subject name mappings.
-        NOTE: This method relies on static HTML containing <a> tags with 'proj=' in the href.
-        It may not work with dynamically generated subject lists like the current FIPI index.php.
+        
+        Args:
+            subjects_list_page (str): HTML content of the subjects listing page.
+        
+        Returns:
+            Dict[str, str]: Mapping of project IDs to their human-readable subject names.
         """
-        # Handle if Page object is passed instead of HTML content
-        if hasattr(subjects_list_page, 'content') and callable(subjects_list_page.content):
-            logger.debug("Detected Page object, extracting HTML content...")
-            subjects_list_page_content = await subjects_list_page.content()
-            # Heuristic check if the page is likely the new dynamic index.php
-            # This is fragile, but better than nothing for a deprecated capability
-            # Check for common indicators of the subject list container or specific subject names rendered as divs/spans
-            # For now, just warn if proj= is not found in the initial content fetched
-            if 'proj=' not in subjects_list_page_content:
-                 logger.warning("HTML content fetched from page does not contain 'proj=' in href attributes. "
-                                "The page might be dynamically generated (e.g., current FIPI index.php), "
-                                "making static parsing with BeautifulSoup ineffective for project discovery.")
-        elif isinstance(subjects_list_page, str):
-            subjects_list_page_content = subjects_list_page
-        else:
-            logger.warning("Unexpected input type for subjects_list_page. Attempting string conversion.")
-            subjects_list_page_content = str(subjects_list_page)
-
-        logger.info("Extracting projects from subjects list page using BeautifulSoup...")
-        logger.debug(f"Raw HTML content (first 500 chars): {subjects_list_page_content[:500]}")
-        soup = BeautifulSoup(subjects_list_page_content, 'html.parser')
+        logger.info("Extracting projects from subjects list page...")
+        logger.debug(f"Raw HTML content (first 500 chars): {subjects_list_page[:500]}")
+        soup = BeautifulSoup(subjects_list_page, 'html.parser')
         projects = {}
-
-        # Look for links with 'proj=' in the href attribute
-        for link in soup.find_all('a', href=True):
-            href = link['href']
-            text = link.get_text(strip=True)
-
-            # Check if the link contains 'proj=' and has text content
-            if 'proj=' in href and text:
-                # Extract proj_id from URL
-                parsed_url = urlparse(href)
-                query_params = parsed_url.query.split('&')
-                proj_param = None
-
-                for param in query_params:
-                    if param.startswith('proj='):
-                        proj_param = param.split('=')[1]
-                        break
-                # Fallback: try to find proj in the href string directly
-                if not proj_param and 'proj=' in href:
-                    parts = href.split('proj=')
-                    if len(parts) > 1:
-                        proj_param = parts[1].split('&')[0].split('#')[0]
-
-                if proj_param:
-                    # Clean subject name - remove extra spaces and non-printable characters
-                    clean_name = ' '.join(text.split())
-                    projects[proj_param] = clean_name
-                    logger.debug(f"Found project: {proj_param} -> {clean_name}")
-
+        
+        # Updated logic to find subject links on the correct FIPI page structure
+        # Look for elements that contain subject information
+        for element in soup.select('[href*="questions.php?proj="], [href*="&proj="], .subject-item, .subject-name'):
+            href = element.get('href', '')
+            text = element.get_text(strip=True)
+            
+            if not href or not text:
+                continue
+                
+            # Parse project ID from URL
+            parsed_url = urlparse(href)
+            query_params = parsed_url.query.split('&')
+            proj_id = None
+            
+            for param in query_params:
+                if param.startswith('proj='):
+                    proj_id = param.split('=')[1]
+                    break
+            
+            # Fallback: try to find proj in the href string
+            if not proj_id and 'proj=' in href:
+                parts = href.split('proj=')
+                if len(parts) > 1:
+                    proj_id = parts[1].split('&')[0].split('#')[0]
+            
+            if proj_id and text:
+                # Clean subject name - remove extra spaces and non-printable characters
+                clean_name = ' '.join(text.split())
+                projects[proj_id] = clean_name
+                logger.debug(f"Found project: {proj_id} -> {clean_name}")
+        
+        # If we didn't find any projects with the above selectors, try a more generic approach
+        if not projects:
+            logger.warning("No projects found with primary selectors, trying fallback method...")
+            for link in soup.find_all('a', href=True):
+                href = link['href']
+                text = link.get_text(strip=True)
+                if "proj=" in href and text:
+                    # Extract proj_id from URL
+                    if "proj=" in href:
+                        proj_id = href.split("proj=")[-1].split("&")[0].split("#")[0]
+                        clean_name = ' '.join(text.split())
+                        projects[proj_id] = clean_name
+                        logger.debug(f"Found project (fallback): {proj_id} -> {clean_name}")
+        
         logger.info(f"Successfully found {len(projects)} projects")
         logger.debug(f"Complete projects mapping: {projects}")
         return projects
@@ -161,17 +168,14 @@ class FIPIScraper:
         
         # CORRECT URL CONSTRUCTION for FIPI bank
         # Base URL should be questions.php endpoint
-        base_questions_url = FIPI_QUESTIONS_URL
+        base_questions_url = f"{FIPI_BASE_URL}/bank/questions.php"
         full_url = f"{base_questions_url}?proj={proj_id}&page={page_num}"
         logger.debug(f"Navigating to URL: {full_url}")
         
-        # Get a *general* page instance from the browser manager (not tied to a specific subject)
-        page = await self.browser_manager.get_general_page()
+        # Get a page instance from the browser manager
+        page = await self.browser_manager.get_page(full_url)
         
         try:
-            # Navigate to the specific questions page
-            await page.goto(full_url, wait_until="networkidle", timeout=30000)
-            
             # Wait for content to load
             logger.debug("Waiting for .qblock elements to appear...")
             await page.wait_for_selector(".qblock", timeout=60000)  # Increased timeout
@@ -220,8 +224,8 @@ class FIPIScraper:
             logger.error(f"Error scraping page {page_num} for project {proj_id}: {e}", exc_info=True)
             raise
         finally:
-            # Close the general page after scraping
-            await page.close()
+            # Return the page to the browser manager pool
+            await self.browser_manager.return_page(page)
 
     async def close(self):
         """Closes the associated browser resources."""

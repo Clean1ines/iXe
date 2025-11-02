@@ -73,7 +73,6 @@ async def main():
                 async with BrowserManager() as browser_manager:
                     # Get the dedicated page for the subjects list
                     subjects_list_page = await browser_manager.get_subjects_list_page()
-                    subjects_html = await subjects_list_page.content()
 
                     scraper = FIPIScraper(
                         base_url=config.FIPI_QUESTIONS_URL, # This is likely the base for questions.php
@@ -81,7 +80,7 @@ async def main():
                         subjects_url=config.FIPI_SUBJECTS_URL # This should be /bank/ or derived from base_url
                     )
                     # Pass the dedicated subjects list page to get_projects
-                    projects = await scraper.get_projects(subjects_html)
+                    projects = await scraper.get_projects(subjects_list_page)
                     # --- /ИНТЕГРАЦИЯ BROWSERMANAGER ---
                 if not projects:
                     print("❌ No subjects found.")
