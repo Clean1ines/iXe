@@ -4,6 +4,8 @@ import logging
 from typing import Dict, Any
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 from utils.browser_manager import BrowserManager
+# NEW IMPORT: Используем централизованную функцию для получения proj_id
+from utils.subject_mapping import get_proj_id_for_subject
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +66,7 @@ class FIPIAnswerChecker:
 
             if "task-status-3" in status_class:
                 return {"status": "correct", "message": "CORRECT", "raw_response": status_text}
-            elif "task-status-2" in status_class:
+            elif "status-status-2" in status_class:
                 return {"status": "incorrect", "message": "INCORRECT", "raw_response": status_text}
             else:
                 return {"status": "error", "message": "Unknown status", "raw_response": status_text}
@@ -76,22 +78,6 @@ class FIPIAnswerChecker:
             logger.error(f"Playwright error for task {task_id}: {e}", exc_info=True)
             return {"status": "error", "message": f"Error: {type(e).__name__}", "raw_response": str(e)}
 
-    @staticmethod
-    def get_proj_id_by_subject(subject: str) -> str:
-        """
-        Returns the proj_id by subject name.
-
-        Args:
-            subject: The subject name
-
-        Returns:
-            proj_id for accessing tasks on the FIPI website
-        """
-        # TODO: Fill in the actual proj_ids for all subjects
-        proj_ids = {
-            "math": "AC437B34557F88EA4115D2F374B0A07B",
-            "informatics": "INFORMATICS_PROJ_ID",  # Replace with the actual ID
-            "russian": "RUSSIAN_PROJ_ID"  # Replace with the actual ID
-        }
-        return proj_ids.get(subject.lower(), "AC437B34557F88EA4115D2F374B0A07B")  # default to math
+    # Старый статический метод get_proj_id_by_subject убирается, так как его логика вынесена в utils.subject_mapping
+    # Это делает класс FIPIAnswerChecker менее зависимым от конкретных значений proj_id.
 
