@@ -1,7 +1,7 @@
 """
 Module for scraping data from the FIPI website.
 This module provides the `FIPIScraper` class which handles interactions with the
-FIPI website using Playwright to fetch subject listings and assignment pages.
+FIPI website using Playwright, managed by BrowserManager, to fetch subject listings and assignment pages.
 It delegates the actual HTML processing logic to `PageProcessingOrchestrator`.
 """
 import logging
@@ -10,6 +10,7 @@ from typing import Dict, Any, List, Tuple, Optional
 from playwright.async_api import Page
 from utils.downloader import AssetDownloader
 from processors.page_processor import PageProcessingOrchestrator
+from utils.browser_manager import BrowserManager
 import re
 
 # Импорты для зависимостей
@@ -33,7 +34,7 @@ class FIPIScraper:
     """
     A class to scrape assignment data from the FIPI website.
 
-    This class uses Playwright to interact with the website, fetch pages,
+    This class uses Playwright, managed by BrowserManager, to interact with the website, fetch pages,
     and extract relevant information like subject listings and assignment content.
     It delegates the actual HTML processing logic to `PageProcessingOrchestrator`.
     """
@@ -41,6 +42,7 @@ class FIPIScraper:
     def __init__(
         self,
         base_url: str,
+        browser_manager: BrowserManager, # NEW DEPENDENCY
         subjects_url: str = None,
         user_agent: str = None,
         # --- НОВЫЕ ЗАВИСИМОСТИ ---
@@ -55,6 +57,7 @@ class FIPIScraper:
 
         Args:
             base_url (str): The base URL for assignment pages (e.g., .../questions.php).
+            browser_manager (BrowserManager): Instance of BrowserManager for page acquisition.
             subjects_url (str, optional): The URL for the subjects listing page.
                                           If not provided, defaults to base_url.
             user_agent (str, optional): User agent string for the browser session.
@@ -69,6 +72,7 @@ class FIPIScraper:
                                                 If not provided, a default instance will be created.
         """
         self.base_url = base_url
+        self.browser_manager = browser_manager # STORE THE DEPENDENCY
         self.subjects_url = subjects_url if subjects_url else base_url
         self.user_agent = user_agent
 
@@ -85,23 +89,25 @@ class FIPIScraper:
         self._extractor = extractor or MetadataExtractor()
         self._builder = builder or ProblemBuilder()
 
-    async def get_projects(self, page: Page) -> Dict[str, str]:
+    async def get_projects(self, subject: str) -> Dict[str, str]:
         """
         Fetches the list of available subjects and their project IDs from the FIPI website.
 
-        This method navigates to the subjects_url, finds the list of subjects (typically within
+        This method gets a page for the given subject via BrowserManager,
+        navigates to the subjects_url, finds the list of subjects (typically within
         a <ul> element with an ID like 'pgp_...'), parses the list items (<li>), and
         extracts the project ID (often from an 'id' attribute like 'p_...') and the subject name.
 
         Args:
-            page (Page): Playwright Page instance to use for navigation.
+            subject (str): The subject name to get the page for via BrowserManager.
 
         Returns:
             Dict[str, str]: A dictionary mapping project IDs (str) to subject names (str).
                             Example: {'AC437B...': 'Математика. Профильный уровень', ...}
                             Returns an empty dict if the list is not found or parsing fails.
         """
-        logger.info(f"[Fetching subjects] Navigating to {self.subjects_url} ...")
+        page = await self.browser_manager.get_page(subject)
+        logger.info(f"[Fetching subjects] Navigating to {self.subjects_url} using page for subject '{subject}' ...")
         await page.goto(self.subjects_url, wait_until="networkidle")
         projects = {}
         try:
@@ -128,8 +134,9 @@ class FIPIScraper:
         logger.info(f"[Fetched subjects] Found {len(projects)} subjects.")
         return projects
 
-    async def get_total_pages(self, page: Page, proj_id: str) -> int:
+    async def get_total_pages(self, proj_id: str, subject: str) -> int:
         """Extract total pages from pagination links on the 'init' page."""
+        page = await self.browser_manager.get_page(subject)
         init_url = f"{self.base_url}?proj={proj_id}&page=init"
         await page.goto(init_url, wait_until="networkidle")
 
@@ -155,28 +162,29 @@ class FIPIScraper:
 
     async def scrape_page(
         self,
-        page: Page,
         proj_id: str,
         page_num: str,
-        run_folder: Path
+        run_folder: Path,
+        subject: str # NEW PARAMETER: subject to get the correct page
     ) -> Tuple[List[Any], Dict[str, Any]]:
         """
         Scrapes a specific page of assignments for a given subject by delegating
         the HTML processing logic to `PageProcessingOrchestrator`.
 
         Args:
-            page (Page): Playwright Page instance to use for navigation.
             proj_id (str): The project ID corresponding to the subject.
             page_num (str): The page number to scrape (e.g., 'init', '1', '2').
             run_folder (Path): The base run folder where assets should be saved.
+            subject (str): The subject name to get the page for via BrowserManager.
 
         Returns:
             Tuple[List[Problem], Dict[str, Any]]: A tuple containing:
                 - A list of Problem objects created from the scraped data.
                 - A dictionary with the old scraped data structure (page_name, blocks_html, etc.).
         """
+        page = await self.browser_manager.get_page(subject) # GET PAGE FROM BROWSER MANAGER
         page_url = f"{self.base_url}?proj={proj_id}&page={page_num}"
-        logger.info(f"Scraping page {page_num} for project {proj_id}, URL: {page_url}")
+        logger.info(f"Scraping page {page_num} for project {proj_id} (subject: {subject}), URL: {page_url}")
 
         await page.goto(page_url, wait_until="networkidle")
         await page.wait_for_timeout(3000)
@@ -191,9 +199,11 @@ class FIPIScraper:
 
         # --- Delegate to Orchestrator ---
         logger.debug("Initializing AssetDownloader and PageProcessingOrchestrator...")
+        # Pass the page obtained from BrowserManager to AssetDownloader
         downloader = AssetDownloader(page=page, base_url=self.base_url, files_location_prefix=files_location_prefix)
 
         def asset_downloader_factory(page_obj, base_url, prefix):
+            # The factory now uses the page provided by the scraper, which comes from BrowserManager
             return downloader
 
         orchestrator = PageProcessingOrchestrator(
@@ -212,9 +222,10 @@ class FIPIScraper:
             run_folder=run_folder,
             base_url=self.base_url,
             files_location_prefix=files_location_prefix,
-            page=page,
+            page=page, # Pass the page obtained from BrowserManager
         )
         logger.info("Page processing completed by Orchestrator.")
         # -------------------------------
 
         return problems, scraped_data
+
