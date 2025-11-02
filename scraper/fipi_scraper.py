@@ -73,7 +73,7 @@ class FIPIScraper:
         """
         self.base_url = base_url
         self.browser_manager = browser_manager # STORE THE DEPENDENCY
-        self.subjects_url = subjects_url if subjects_url else base_url
+        self.subjects_url = subjects_url if subjects_url else f"{base_url}/bank/" # DEFAULT TO BANK ROOT
         self.user_agent = user_agent
 
         # Сохраняем внедрённые зависимости как атрибуты
@@ -89,26 +89,25 @@ class FIPIScraper:
         self._extractor = extractor or MetadataExtractor()
         self._builder = builder or ProblemBuilder()
 
-    async def get_projects(self, subject: str) -> Dict[str, str]:
+    async def get_projects(self, page: Page) -> Dict[str, str]:
         """
         Fetches the list of available subjects and their project IDs from the FIPI website.
 
-        This method gets a page for the given subject via BrowserManager,
-        navigates to the subjects_url, finds the list of subjects (typically within
-        a <ul> element with an ID like 'pgp_...'), parses the list items (<li>), and
-        extracts the project ID (often from an 'id' attribute like 'p_...') and the subject name.
+        This method uses the provided page (expected to be on subjects_url) to find the list
+        of subjects (typically within a <ul> element with an ID like 'pgp_...'),
+        parses the list items (<li>), and extracts the project ID (often from an 'id' attribute like 'p_...')
+        and the subject name.
 
         Args:
-            subject (str): The subject name to get the page for via BrowserManager.
+            page (Page): Playwright Page instance already navigated to the subjects listing page.
 
         Returns:
             Dict[str, str]: A dictionary mapping project IDs (str) to subject names (str).
                             Example: {'AC437B...': 'Математика. Профильный уровень', ...}
                             Returns an empty dict if the list is not found or parsing fails.
         """
-        page = await self.browser_manager.get_page(subject)
-        logger.info(f"[Fetching subjects] Navigating to {self.subjects_url} using page for subject '{subject}' ...")
-        await page.goto(self.subjects_url, wait_until="networkidle")
+        logger.info(f"[Fetching subjects] Parsing subjects list from current page: {page.url}")
+        # No need to navigate, assume page is already at the correct URL
         projects = {}
         try:
             list_selector = "ul[id^='pgp_']"
@@ -137,7 +136,7 @@ class FIPIScraper:
     async def get_total_pages(self, proj_id: str, subject: str) -> int:
         """Extract total pages from pagination links on the 'init' page."""
         page = await self.browser_manager.get_page(subject)
-        init_url = f"{self.base_url}?proj={proj_id}&page=init"
+        init_url = f"{self.base_url}/bank/index.php?proj={proj_id}&page=init"
         await page.goto(init_url, wait_until="networkidle")
 
         max_page = 1
@@ -183,7 +182,7 @@ class FIPIScraper:
                 - A dictionary with the old scraped data structure (page_name, blocks_html, etc.).
         """
         page = await self.browser_manager.get_page(subject) # GET PAGE FROM BROWSER MANAGER
-        page_url = f"{self.base_url}?proj={proj_id}&page={page_num}"
+        page_url = f"{self.base_url}/bank/index.php?proj={proj_id}&page={page_num}"
         logger.info(f"Scraping page {page_num} for project {proj_id} (subject: {subject}), URL: {page_url}")
 
         await page.goto(page_url, wait_until="networkidle")

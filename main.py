@@ -11,8 +11,6 @@ proceeds through numbered pages (1, 2, ...) until a specified number
 of consecutive empty pages is encountered.
 
 Attributes:
-    SUBJECT_ALIAS_MAP (dict): Maps official Russian subject names
-                              to shorter Latin aliases for directory names.
     EXAM_YEAR (str): The target exam year for scraped data (currently hardcoded).
 """
 
@@ -21,29 +19,11 @@ import config
 from scraper.fipi_scraper import FIPIScraper
 from utils.database_manager import DatabaseManager
 from utils.logging_config import setup_logging
+from utils.browser_manager import BrowserManager
+from utils.subject_mapping import get_alias_from_official_name, get_subject_key_from_alias
 import logging
 from pathlib import Path
 import shutil
-
-# === МАППИНГ: Официальное название → короткий алиас ===
-SUBJECT_ALIAS_MAP = {
-    "Математика. Профильный уровень": "promath",
-    "Математика. Базовый уровень": "basemath",
-    "Информатика и ИКТ": "inf",
-    "Русский язык": "rus",
-    "Физика": "phys",
-    "Химия": "chem",
-    "Биология": "bio",
-    "История": "hist",
-    "Обществознание": "soc",
-    "Литература": "lit",
-    "География": "geo",
-    "Английский язык": "eng",
-    "Немецкий язык": "de",
-    "Французский язык": "fr",
-    "Испанский язык": "es",
-    "Китайский язык": "zh",
-}
 
 # === ГОД ЭКЗАМЕНА (можно вынести в config позже) ===
 EXAM_YEAR = "2026"
@@ -53,8 +33,7 @@ def get_subject_output_dir(subject_name: str) -> Path:
     Returns the output directory path for a given subject.
 
     Constructs the path as data/{alias}/{year}/ based on the subject name.
-    If the subject name is not found in the alias map, it creates an alias
-    by sanitizing the name.
+    Uses the mapping utility to get the alias.
 
     Args:
         subject_name (str): The official Russian name of the subject.
@@ -62,11 +41,7 @@ def get_subject_output_dir(subject_name: str) -> Path:
     Returns:
         Path: The pathlib.Path object representing the output directory.
     """
-    alias = SUBJECT_ALIAS_MAP.get(subject_name)
-    if not alias:
-        # Fallback: sanitize and use latinized version
-        alias = "".join(c if c.isalnum() else "_" for c in subject_name.lower())
-        alias = alias[:20]  # limit length
+    alias = get_alias_from_official_name(subject_name)
     return Path("data") / alias / EXAM_YEAR
 
 async def main():
@@ -74,9 +49,10 @@ async def main():
     The main asynchronous function providing the CLI loop for scraping.
 
     It initializes logging, displays a menu, fetches available subjects
-    from FIPI, allows the user to select a subject, handles existing data
-    (prompting for restart), creates the output directory, initializes
-    the database, and then iteratively scrapes pages for the selected subject.
+    from FIPI using BrowserManager's dedicated subjects list page,
+    allows the user to select a subject, handles existing data (prompting for restart),
+    creates the output directory, initializes the database, and then
+    iteratively scrapes pages for the selected subject using BrowserManager.
     """
     setup_logging(level="INFO")
     logger = logging.getLogger(__name__)
@@ -93,11 +69,19 @@ async def main():
         if choice == '1':
             print("\n🔍 Fetching available subjects from FIPI...")
             try:
-                scraper = FIPIScraper(
-                    base_url=config.FIPI_QUESTIONS_URL,
-                    subjects_url=config.FIPI_SUBJECTS_URL
-                )
-                projects = await asyncio.to_thread(scraper.get_projects)
+                # --- ИНТЕГРАЦИЯ BROWSERMANAGER ---
+                async with BrowserManager() as browser_manager:
+                    # Get the dedicated page for the subjects list
+                    subjects_list_page = await browser_manager.get_subjects_list_page()
+
+                    scraper = FIPIScraper(
+                        base_url=config.FIPI_QUESTIONS_URL, # This is likely the base for questions.php
+                        browser_manager=browser_manager, # PASS BROWSER MANAGER
+                        subjects_url=config.FIPI_SUBJECTS_URL # This should be /bank/ or derived from base_url
+                    )
+                    # Pass the dedicated subjects list page to get_projects
+                    projects = await scraper.get_projects(subjects_list_page)
+                    # --- /ИНТЕГРАЦИЯ BROWSERMANAGER ---
                 if not projects:
                     print("❌ No subjects found.")
                     continue
@@ -145,38 +129,24 @@ async def main():
                         print("📄 Scraping pages iteratively until empty...")
                         total_saved = 0
 
+                        # Determine the subject key for scraping based on the selected subject_name
+                        alias = get_alias_from_official_name(subject_name)
+                        scraping_subject_key = get_subject_key_from_alias(alias)
+
                         # Скрапим страницу "init"
                         try:
-                            problems, _ = await asyncio.to_thread(
-                                scraper.scrape_page,
+                            # --- ИНТЕГРАЦИЯ BROWSERMANAGER ---
+                            problems, _ = await scraper.scrape_page(
                                 proj_id=proj_id,
                                 page_num="init",
-                                run_folder=subject_dir
+                                run_folder=subject_dir,
+                                subject=scraping_subject_key # PASS SUBJECT KEY
                             )
+                            # --- /ИНТЕГРАЦИЯ BROWSERMANAGER ---
                             if problems:
                                 for problem in problems:
                                     if not getattr(problem, 'subject', None):
-                                        alias = SUBJECT_ALIAS_MAP.get(subject_name, "unknown")
-                                        # Маппинг алиаса → subject key
-                                        subject_key_map = {
-                                            "promath": "math",
-                                            "basemath": "math",
-                                            "inf": "informatics",
-                                            "rus": "russian",
-                                            "phys": "physics",
-                                            "chem": "chemistry",
-                                            "bio": "biology",
-                                            "hist": "history",
-                                            "soc": "social",
-                                            "lit": "literature",
-                                            "geo": "geography",
-                                            "eng": "english",
-                                            "de": "german",
-                                            "fr": "french",
-                                            "es": "spanish",
-                                            "zh": "chinese",
-                                        }
-                                        problem.subject = subject_key_map.get(alias, "unknown")
+                                        problem.subject = scraping_subject_key
                                 db_manager.save_problems(problems)
                                 total_saved += len(problems)
                                 print(f" ✅ Saved {len(problems)} problems from page init")
@@ -194,12 +164,14 @@ async def main():
                         while empty_count < max_empty:
                             print(f"📄 Trying page {page_num} ...")
                             try:
-                                problems, _ = await asyncio.to_thread(
-                                    scraper.scrape_page,
+                                # --- ИНТЕГРАЦИЯ BROWSERMANAGER ---
+                                problems, _ = await scraper.scrape_page(
                                     proj_id=proj_id,
                                     page_num=str(page_num),
-                                    run_folder=subject_dir
+                                    run_folder=subject_dir,
+                                    subject=scraping_subject_key # PASS SUBJECT KEY
                                 )
+                                # --- /ИНТЕГРАЦИЯ BROWSERMANAGER ---
                                 if len(problems) == 0:
                                     empty_count += 1
                                     print(f"   ⚠️  Page {page_num} is empty ({empty_count}/{max_empty})")
@@ -207,26 +179,7 @@ async def main():
                                     empty_count = 0
                                     for problem in problems:
                                         if not getattr(problem, 'subject', None):
-                                            alias = SUBJECT_ALIAS_MAP.get(subject_name, "unknown")
-                                            subject_key_map = {
-                                                "promath": "math",
-                                                "basemath": "math",
-                                                "inf": "informatics",
-                                                "rus": "russian",
-                                                "phys": "physics",
-                                                "chem": "chemistry",
-                                                "bio": "biology",
-                                                "hist": "history",
-                                                "soc": "social",
-                                                "lit": "literature",
-                                                "geo": "geography",
-                                                "eng": "english",
-                                                "de": "german",
-                                                "fr": "french",
-                                                "es": "spanish",
-                                                "zh": "chinese",
-                                            }
-                                            problem.subject = subject_key_map.get(alias, "unknown")
+                                            problem.subject = scraping_subject_key
                                     db_manager.save_problems(problems)
                                     total_saved += len(problems)
                                     print(f"   ✅ Saved {len(problems)} problems from page {page_num}")
@@ -255,3 +208,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
