@@ -198,22 +198,22 @@ class BlockProcessor:
         if self.task_inferer is not None:
             try:
                 # Try the original signature
-                task_number = self.task_inferer.infer(kes_codes, answer_type)
+                task_number = self.task_inferer.infer(kes_codes, answer_type) or 0
                 difficulty_level = 'basic' if task_number <= 12 else 'advanced'
                 max_score = 1 if task_number <= 12 else 2
                 type_str = 'short' if answer_type == 'short' else 'extended'
             except TypeError as e:
                 # Fall back to the new signature if the original fails
                 try:
-                    inference_result = self.task_inferer.infer(kes_codes, answer_type, subject)
+                    inference_result = self.task_inferer.infer(kes_codes, answer_type) or 0
                     if isinstance(inference_result, dict):
-                        task_number = inference_result.get('task_number', 0)
+                        task_number = inference_result.get('task_number', None) or 0
                         difficulty_level = inference_result.get('difficulty_level', 'basic')
                         max_score = inference_result.get('max_score', 1)
                         type_str = inference_result.get('type_str', 'short' if answer_type == 'short' else 'extended')
                     else:
                         # Fallback if inference_result is an int
-                        task_number = int(inference_result) if inference_result else 0
+                        task_number = int(inference_result) if inference_result is not None else 0
                         difficulty_level = 'basic' if task_number <= 12 else 'advanced'
                         max_score = 1 if task_number <= 12 else 2
                         type_str = 'short' if answer_type == 'short' else 'extended'

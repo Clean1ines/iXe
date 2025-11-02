@@ -24,7 +24,7 @@ class TestAssetDownloader(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             save_dir = Path(tmp_dir)
-            result = self.await downloader.download("images/test.jpg", save_dir, "image")
+            result = await self.downloader.download("images/test.jpg", save_dir, "image")
 
             # Check if request was made with correct URL
             # urljoin normalizes the path, removing the ../..
@@ -44,7 +44,7 @@ class TestAssetDownloader(unittest.TestCase):
         self.page.request.get.return_value = mock_response
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            result = self.await downloader.download("images/missing.jpg", Path(tmp_dir))
+            result = await self.downloader.download("images/missing.jpg", Path(tmp_dir))
 
         self.assertIsNone(result)
 
@@ -52,7 +52,7 @@ class TestAssetDownloader(unittest.TestCase):
         self.page.request.get.side_effect = Exception("Network error")
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            result = self.await downloader.download("images/test.jpg", Path(tmp_dir))
+            result = await self.downloader.download("images/test.jpg", Path(tmp_dir))
 
         self.assertIsNone(result)
 

@@ -22,3 +22,5 @@ QDRANT_PORT: int = int(os.getenv("QDRANT_PORT", "6333"))
 
 # --- Application ---
 DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+FRONTEND_URL = "http://localhost:3000"
+FRONTEND_URL = "http://localhost:3000"
