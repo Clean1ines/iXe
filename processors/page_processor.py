@@ -22,6 +22,9 @@ from processors.html_data_processors import (
     UnwantedElementRemover
 )
 from models.problem_schema import Problem
+from processors.block_processor import BlockProcessor
+from utils.task_number_inferer import TaskNumberInferer
+from services.specification import SpecificationService
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +44,8 @@ class PageProcessingOrchestrator:
         processors: Optional[List[Any]] = None,
         metadata_extractor: Optional[Any] = None,
         problem_builder: Optional[Any] = None,
+        task_inferer: Optional[TaskNumberInferer] = None,
+        specification_service: Optional[SpecificationService] = None, # Might be needed for TaskNumberInferer
     ):
         """
         Initializes the orchestrator with required dependencies.
@@ -53,14 +58,24 @@ class PageProcessingOrchestrator:
                                               Reserved for future extensibility.
             metadata_extractor (Any, optional): Component for metadata extraction. Currently unused.
             problem_builder (Any, optional): Component for building Problem objects. Currently unused.
+            task_inferer (TaskNumberInferer, optional): Component for inferring task numbers. Created internally if not provided.
+            specification_service (SpecificationService, optional): Service for official specs. Needed to create TaskNumberInferer if not provided.
         """
         self.asset_downloader_factory = asset_downloader_factory
         self.processors = processors or []
         self.metadata_extractor = metadata_extractor
         self.problem_builder = problem_builder
-        self.pairer = ElementPairer()
-        self.metadata_extractor_instance = MetadataExtractor()
-        self.problem_builder_instance = ProblemBuilder()
+        # self.pairer = ElementPairer() # Now handled by BlockProcessor or passed separately if needed in future
+        # self.metadata_extractor_instance = MetadataExtractor() # Now handled by BlockProcessor
+        # self.problem_builder_instance = ProblemBuilder() # Now handled by BlockProcessor
+        self.task_inferer = task_inferer
+        self.specification_service = specification_service
+        # Create default instances if not provided
+        if self.task_inferer is None and self.specification_service is not None:
+            # Assume TaskNumberInferer can be created with spec_service
+            # This might need adjustment based on TaskNumberInferer's actual init
+            from utils.task_number_inferer import TaskNumberInferer
+            self.task_inferer = TaskNumberInferer(spec_service=self.specification_service)
 
     async def process(
         self,
@@ -71,7 +86,8 @@ class PageProcessingOrchestrator:
         base_url: str,
         files_location_prefix: str = "../../",
         page: Any = None,
-    ) -> List[Problem]:
+        subject: str = "unknown" # Need subject for BlockProcessor
+    ) -> List[Problem]: # Return only the list of problems
         """
         Orchestrates the processing of a single HTML page content into Problems.
 
@@ -83,6 +99,7 @@ class PageProcessingOrchestrator:
             base_url (str): Base URL used to resolve relative asset paths.
             files_location_prefix (str): Prefix used for asset links in the processed HTML.
             page (Any, optional): Playwright page object, passed to AssetDownloader factory if needed.
+            subject (str): The subject key (e.g., 'math') for inferring task numbers.
 
         Returns:
             List[Problem]: A list of structured Problem objects extracted from the page.
@@ -91,53 +108,60 @@ class PageProcessingOrchestrator:
         assets_dir = run_folder / "assets"
         assets_dir.mkdir(exist_ok=True)
 
-        # Initialize AssetDownloader using the factory
-        asset_downloader = self.asset_downloader_factory(page, base_url, files_location_prefix)
-
-        # --- Apply initial HTML processing steps ---
-        # 1. Remove unwanted elements
-        soup = UnwantedElementRemover().process(soup)
-        # 2. Remove MathML
-        soup = MathMLRemover().process(soup)
-        # 3. Remove input fields (retained by default unless explicitly removed here)
-        # soup = InputFieldRemover().process(soup) # Commented out as per user preference to retain input fields
-
         # --- Pair headers and qblocks ---
-        paired_elements = self.pairer.pair(soup)
+        # This logic also might be internal to BlockProcessor, or we need ElementPairer here.
+        # Let's assume PageProcessingOrchestrator still does pairing and BlockProcessor handles the rest.
+        pairer = ElementPairer() # Create pairer instance for this process run
+        paired_elements = pairer.pair(soup)
         logger.debug(f"Found {len(paired_elements)} header-qblock pairs on page {page_num}.")
 
-        # --- Process each pair ---
+        # --- Process each pair using BlockProcessor ---
         problems = []
         for i, (header_container, qblock) in enumerate(paired_elements):
-            # Prepare processors for this block, injecting the asset_downloader
-            image_processor = ImageScriptProcessor()
-            file_processor = FileLinkProcessor()
-            task_info_processor = TaskInfoProcessor()
-
-            # Process assets within the qblock
-            processed_qblock, image_metadata = image_processor.process(qblock, assets_dir, asset_downloader)
-            processed_qblock, file_metadata = file_processor.process(processed_qblock, assets_dir, asset_downloader)
-            processed_qblock, task_info_metadata = task_info_processor.process(processed_qblock) # TaskInfoProcessor doesn't download assets
-
-            # Extract metadata from the header container
-            header_metadata = self.metadata_extractor_instance.extract_from_header(header_container)
-
-            # Combine metadata
-            combined_metadata = {**header_metadata, **image_metadata, **file_metadata, **task_info_metadata}
-
-            # Build Problem object
-            problem = self.problem_builder_instance.build(
-                header_container=header_container,
-                qblock=processed_qblock,
-                metadata=combined_metadata,
-                proj_id=proj_id,
-                page_num=page_num,
-                run_folder=run_folder
+            # Create BlockProcessor instance for this specific block
+            # It needs the asset_downloader_factory, processors, metadata_extractor, problem_builder, task_inferer
+            # OLD: image_processor = ImageScriptProcessor()
+            # OLD: file_processor = FileLinkProcessor()
+            # OLD: task_info_processor = TaskInfoProcessor()
+            # OLD: processed_qblock, image_metadata = image_processor.process(qblock, assets_dir, downloader=asset_downloader)
+            # OLD: processed_qblock, file_metadata = file_processor.process(processed_qblock, assets_dir, downloader=asset_downloader)
+            # OLD: processed_qblock, task_info_metadata = task_info_processor.process(processed_qblock, assets_dir) # TaskInfoProcessor doesn't download assets
+            # OLD: header_metadata = self.metadata_extractor_instance.extract_from_header(header_container)
+            # OLD: combined_metadata = {**header_metadata, **image_metadata, **file_metadata, **task_info_metadata}
+            # OLD: problem = self.problem_builder_instance.build(...)
+            block_processor = BlockProcessor(
+                asset_downloader_factory=self.asset_downloader_factory,
+                processors=self.processors, # Pass the list of processors, BlockProcessor will instantiate them
+                metadata_extractor=self.metadata_extractor or MetadataExtractor(),
+                problem_builder=self.problem_builder or ProblemBuilder(),
+                task_inferer=self.task_inferer # This must be provided or created
             )
-            if problem: # Check if problem was built successfully
-                problems.append(problem)
 
-        return problems
+            # Process the block and get the Problem object
+            # OLD: ... (long manual processing)
+            # NEW: Use BlockProcessor
+            try:
+                _, _, _, _, problem, _ = block_processor.process(
+                    header_container=header_container,
+                    qblock=qblock,
+                    block_index=i,
+                    page_num=page_num,
+                    page_assets_dir=assets_dir, # Note: BlockProcessor expects page_assets_dir, which is run_folder / "assets"
+                    proj_id=proj_id,
+                    base_url=base_url,
+                    subject=subject,
+                    page=page,
+                    files_location_prefix=files_location_prefix
+                )
+                if problem: # Check if problem was built successfully
+                    problems.append(problem)
+            except Exception as e:
+                logger.error(f"Error processing block {i} (header id: {header_container.get('id')}, qblock id: {qblock.get('id')}): {e}", exc_info=True)
+                # Decide whether to continue or raise
+                # For now, continue to process other blocks
+                continue
+
+        return problems # Return only the list of problems
 
     # --- Удалены устаревшие методы: _extract_kes_codes, _determine_task_type_and_difficulty ---
 

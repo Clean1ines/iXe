@@ -56,10 +56,10 @@ class FIPIScraper:
         Initializes the FIPIScraper.
 
         Args:
-            base_url (str): The base URL for assignment pages (e.g., .../questions.php).
+            base_url (str): The base URL for the FIPI site (e.g., https://ege.fipi.ru).
             browser_manager (BrowserManager): Instance of BrowserManager for page acquisition.
             subjects_url (str, optional): The URL for the subjects listing page.
-                                          If not provided, defaults to base_url.
+                                          If not provided, defaults to base_url + /bank/.
             user_agent (str, optional): User agent string for the browser session.
                                         Defaults to None, which uses the system default or a predefined one.
             processors (List[AssetProcessor], optional): List of HTML processors to use.
@@ -71,9 +71,10 @@ class FIPIScraper:
             builder (ProblemBuilder, optional): Problem builder instance to use.
                                                 If not provided, a default instance will be created.
         """
-        self.base_url = base_url
+        self.base_url = base_url.rstrip("/") # Ensure no trailing slash
         self.browser_manager = browser_manager # STORE THE DEPENDENCY
-        self.subjects_url = subjects_url if subjects_url else f"{base_url}/bank/" # DEFAULT TO BANK ROOT
+        # Use provided subjects_url or construct it from base_url
+        self.subjects_url = subjects_url if subjects_url else f"{self.base_url}/bank/"
         self.user_agent = user_agent
 
         # Сохраняем внедрённые зависимости как атрибуты
@@ -136,6 +137,7 @@ class FIPIScraper:
     async def get_total_pages(self, proj_id: str, subject: str) -> int:
         """Extract total pages from pagination links on the 'init' page."""
         page = await self.browser_manager.get_page(subject)
+        # Construct the init URL using the base_url and /bank/index.php
         init_url = f"{self.base_url}/bank/index.php?proj={proj_id}&page=init"
         await page.goto(init_url, wait_until="networkidle")
 
@@ -182,48 +184,63 @@ class FIPIScraper:
                 - A dictionary with the old scraped data structure (page_name, blocks_html, etc.).
         """
         page = await self.browser_manager.get_page(subject) # GET PAGE FROM BROWSER MANAGER
+        # Construct the URL using the base_url and /bank/index.php
         page_url = f"{self.base_url}/bank/index.php?proj={proj_id}&page={page_num}"
         logger.info(f"Scraping page {page_num} for project {proj_id} (subject: {subject}), URL: {page_url}")
 
         await page.goto(page_url, wait_until="networkidle")
         await page.wait_for_timeout(3000)
+        logger.info("Page loaded and waited for 3 seconds.")
 
         try:
             files_location_prefix = await page.evaluate("window.files_location || '../../'")
+            logger.info(f"files_location_prefix determined as: {files_location_prefix}")
         except Exception as e:
             logger.warning(f"Could not get files_location from page {page_url}, using default. Error: {e}")
             files_location_prefix = '../../'
 
         page_content = await page.content()
+        logger.info(f"Page content fetched, length: {len(page_content)}")
 
         # --- Delegate to Orchestrator ---
         logger.debug("Initializing AssetDownloader and PageProcessingOrchestrator...")
-        # Pass the page obtained from BrowserManager to AssetDownloader
-        downloader = AssetDownloader(page=page, base_url=self.base_url, files_location_prefix=files_location_prefix)
+        # Create AssetDownloader with only 'page'
+        downloader = AssetDownloader(page=page)
 
         def asset_downloader_factory(page_obj, base_url, prefix):
             # The factory now uses the page provided by the scraper, which comes from BrowserManager
-            return downloader
+            logger.debug("AssetDownloader factory called.")
+            # Return an AssetDownloader instance with the correct page
+            return AssetDownloader(page=page_obj)
 
+        # Create PageProcessingOrchestrator without element_pairer
         orchestrator = PageProcessingOrchestrator(
             asset_downloader_factory=asset_downloader_factory,
             processors=self._processors,
             metadata_extractor=self._extractor,
             problem_builder=self._builder,
-            element_pairer=self._pairer
+            # element_pairer=self._pairer # <-- REMOVED from __init__
         )
 
         logger.info("Delegating page processing to PageProcessingOrchestrator...")
-        problems, scraped_data = await orchestrator.process(
-            page_content=page_content,
-            proj_id=proj_id,
-            page_num=page_num,
-            run_folder=run_folder,
-            base_url=self.base_url,
-            files_location_prefix=files_location_prefix,
-            page=page, # Pass the page obtained from BrowserManager
-        )
-        logger.info("Page processing completed by Orchestrator.")
+        try:
+            # OLD: problems, scraped_data = await orchestrator.process(...)
+            # OLD: element_pairer=self._pairer # <-- This caused the error in .process()
+            # NEW: Pass element_pairer to the process method if needed - NO, REMOVED
+            problems, scraped_data = await orchestrator.process(
+                page_content=page_content,
+                proj_id=proj_id,
+                page_num=page_num,
+                run_folder=run_folder,
+                base_url=self.base_url,
+                files_location_prefix=files_location_prefix,
+                page=page, # Pass the page obtained from BrowserManager
+                # element_pairer=self._pairer # <-- REMOVED from .process() call
+            )
+            logger.info("Page processing completed by Orchestrator.")
+        except Exception as e:
+            logger.error(f"Error in PageProcessingOrchestrator.process: {e}", exc_info=True)
+            raise # Re-raise to be caught by the outer except
         # -------------------------------
 
         return problems, scraped_data

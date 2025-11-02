@@ -1,4 +1,3 @@
-# processors/block_processor.py
 """
 Module for processing individual blocks of HTML content from FIPI pages.
 
@@ -44,7 +43,7 @@ class BlockProcessor:
 
     def __init__(
         self,
-        asset_downloader_factory: Callable[[Any], AssetDownloader],
+        asset_downloader_factory: Callable[[Any, str, str], AssetDownloader], # Updated signature
         processors: List[Any],
         metadata_extractor: MetadataExtractor,
         problem_builder: ProblemBuilder,
@@ -55,6 +54,7 @@ class BlockProcessor:
 
         Args:
             asset_downloader_factory (Callable): A callable that returns an AssetDownloader instance.
+                                                 Expected signature: (page, base_url, files_location_prefix) -> AssetDownloader.
             processors (List[Any]): List of HTML processors to apply.
             metadata_extractor (MetadataExtractor): Component for extracting metadata.
             problem_builder (ProblemBuilder): Component for building Problem objects.
@@ -86,8 +86,9 @@ class BlockProcessor:
         combined_soup = BeautifulSoup('', 'html.parser')
         combined_soup.append(qblock.extract())
 
-        # Get downloader instance
-        downloader = self.asset_downloader_factory(page)
+        # OLD: downloader = self.asset_downloader_factory(page)
+        # NEW: Call factory with base_url and prefix as required by its signature
+        downloader = self.asset_downloader_factory(page, base_url, files_location_prefix)
 
         # Extract metadata from header_container
         metadata = self.metadata_extractor.extract(header_container)
@@ -184,7 +185,7 @@ class BlockProcessor:
             type_str=type_str,
             text=assignment_text,
             topics=kes_codes,
-            difficulty=difficulty_level,
+            difficulty=difficulty_level, # Note: 'difficulty' field in build seems to conflict with 'difficulty_level'
             source_url=source_url,
             form_id=qblock_id,
             meta={"original_block_index": block_index, "proj_id": proj_id},
@@ -235,3 +236,4 @@ class BlockProcessor:
         if "Развёрнутый" in text or "Развернутый" in text:
             return "extended"
         return "short"
+
