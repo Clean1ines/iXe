@@ -78,7 +78,7 @@ class CLIScraper:
         # --- ИНТЕГРАЦИЯ BROWSERMANAGER и FIPISCRAPER ---
         # Используем BrowserManager как контекстный менеджер ВНУТРИ этой функции
         async with BrowserPoolManager(pool_size=1) as browser_pool:
-        browser_manager = await browser_pool.get_available_browser()
+            browser_manager = await browser_pool.get_available_browser()
             scraper = FIPIScraper(
                 base_url=config.FIPI_QUESTIONS_URL,
                 browser_manager=browser_manager,
