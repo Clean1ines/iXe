@@ -10,7 +10,7 @@ import re
 from typing import Any, Dict, Optional, Tuple
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 
-from utils.browser_manager import BrowserManager
+from utils.browser_pool_manager import BrowserPoolManager
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +23,14 @@ class FIPIAnswerChecker:
     navigation, form filling, and result extraction.
     """
     
-    def __init__(self, browser_manager: BrowserManager):
+    def __init__(self, browser_pool: BrowserPoolManager):
         """
         Initializes the answer checker with a browser manager.
         
         Args:
             browser_manager (BrowserManager): Instance to manage browser context and pages.
         """
-        self.browser_manager = browser_manager
+        self.browser_pool = browser_manager
         logger.debug("FIPIAnswerChecker initialized with BrowserManager")
     
     async def check_answer(

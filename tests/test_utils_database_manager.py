@@ -28,23 +28,24 @@ class TestDatabaseManager(unittest.TestCase):
 
     def test_save_and_get_problem(self):
         """Проверяет сохранение и извлечение одной задачи."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC
         problem = Problem(
             problem_id="task_123",
-            subject="mathematics",
-            type="task_1",
-            text="Решите уравнение.",
-            options=None,
+            subject="math",
+            type="short_answer",
+            text="Sample text",
+            options=[],
             answer="42",
-            solutions=None,
-            topics=["algebra"],
-            skills=["solve"],
-            difficulty="medium",
-            source_url="https://fipi.ru/task_123",
-            raw_html_path=None,
-            created_at=now,
-            updated_at=None,
-            metadata=None,
+            topics=["KES1"],
+            difficulty_level="basic",
+            task_number=1,
+            exam_part="Part 1",
+            max_score=1,
+            form_id="",
+            source_url="",
+            raw_html_path="",
+            metadata={},
+            created_at="2025-01-01T00:00:00",
+            updated_at="2025-01-01T00:00:00"
         )
 
         self.db_manager.save_problems([problem])
@@ -57,15 +58,15 @@ class TestDatabaseManager(unittest.TestCase):
 
     def test_save_and_get_answer(self):
         """Проверяет сохранение и извлечение ответа."""
-        self.db_manager.save_answer("task1", "my_answer", "correct")
-        user_answer, status = self.db_manager.get_answer_and_status("task1")
+        self.db_manager.save_answer("task1", "my_answer", "correct", "test_user")
+        user_answer, status = self.db_manager.get_answer_and_status("task1", "test_user")
 
         self.assertEqual(user_answer, "my_answer")
         self.assertEqual(status, "correct")
 
     def test_get_answer_not_found(self):
         """Проверяет поведение при запросе несуществующего ответа."""
-        user_answer, status = self.db_manager.get_answer_and_status("nonexistent_task")
+        user_answer, status = self.db_manager.get_answer_and_status("nonexistent_task", "test_user")
         self.assertIsNone(user_answer)
         self.assertEqual(status, "not_checked")
 
@@ -73,14 +74,40 @@ class TestDatabaseManager(unittest.TestCase):
         """Проверяет получение всех задач из БД."""
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         p1 = Problem(
-            difficulty="easy",
-            problem_id="p1", subject="math", type="A", text="Q1", answer="1",
-            topics=[], created_at=now
+            problem_id="p1",
+            subject="math",
+            type="A",
+            text="Q1",
+            answer="1",
+            topics=[],
+            difficulty_level="basic",
+            task_number=1,
+            exam_part="Part 1",
+            max_score=1,
+            form_id="",
+            source_url="",
+            raw_html_path="",
+            metadata={},
+            created_at=now.isoformat(),
+            updated_at=now.isoformat()
         )
         p2 = Problem(
-            difficulty="easy",
-            problem_id="p2", subject="math", type="B", text="Q2", answer="2",
-            topics=[], created_at=now
+            problem_id="p2",
+            subject="math",
+            type="B",
+            text="Q2",
+            answer="2",
+            topics=[],
+            difficulty_level="basic",
+            task_number=2,
+            exam_part="Part 1",
+            max_score=1,
+            form_id="",
+            source_url="",
+            raw_html_path="",
+            metadata={},
+            created_at=now.isoformat(),
+            updated_at=now.isoformat()
         )
 
         self.db_manager.save_problems([p1, p2])

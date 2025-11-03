@@ -9,7 +9,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import Page
-from utils.browser_manager import BrowserManager
+from utils.browser_pool_manager import BrowserPoolManager
 from utils.metadata_extractor import MetadataExtractor
 from models.problem_builder import ProblemBuilder
 from processors.html_data_processors import (
@@ -42,7 +42,7 @@ class FIPIScraper:
     def __init__(
         self,
         base_url: str,
-        browser_manager: BrowserManager,
+        browser_pool: BrowserPoolManager,
         subjects_url: str,
         page_delay: float = 1.0,
         builder: Optional[ProblemBuilder] = None,
@@ -62,7 +62,7 @@ class FIPIScraper:
             task_inferer (TaskNumberInferer, optional): Component for inferring task numbers.
         """
         self.base_url = base_url
-        self.browser_manager = browser_manager
+        self.browser_pool = browser_manager
         self.subjects_url = subjects_url
         self.page_delay = page_delay
         self.session = requests.Session()
@@ -166,7 +166,7 @@ class FIPIScraper:
         logger.debug(f"Navigating to URL: {full_url}")
         
         # Get a *general* page instance from the browser manager (not tied to a specific subject)
-        page = await self.browser_manager.get_general_page()
+        page = await self.browser_pool.get_general_page()
         
         try:
             # Navigate to the specific questions page
@@ -225,4 +225,4 @@ class FIPIScraper:
 
     async def close(self):
         """Closes the associated browser resources."""
-        await self.browser_manager.close()
+        await self.browser_pool.close()

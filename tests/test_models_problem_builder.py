@@ -29,7 +29,7 @@ class TestProblemBuilder(unittest.TestCase):
         type_str = "A"
         text = "Solve the equation $x^2 = 4$."
         topics = ["algebra.equations", "math.basic"]
-        difficulty = "easy"
+        difficulty_level = "easy"
         source_url = "https://fipi.ru/ege/123  "
         metadata = {"original_format": "html", "parsed_by": "v1.0"}
         raw_html_path_input = Path("/tmp/raw.html")
@@ -49,7 +49,7 @@ class TestProblemBuilder(unittest.TestCase):
             type_str=type_str,
             text=text,
             topics=topics,
-            difficulty=difficulty,
+            difficulty_level=difficulty_level,
             source_url=source_url,
             metadata=metadata,
             raw_html_path=raw_html_path_input,
@@ -69,7 +69,7 @@ class TestProblemBuilder(unittest.TestCase):
         self.assertEqual(problem.type, type_str)
         self.assertEqual(problem.text, text)
         self.assertEqual(problem.topics, topics)
-        self.assertEqual(problem.difficulty, difficulty)
+        self.assertEqual(problem.difficulty_level, difficulty_level)
         self.assertEqual(problem.source_url, source_url)
         self.assertEqual(problem.metadata, metadata)
         # Проверяем, что в модели сохранена строка, и она равна ожидаемой строке
@@ -102,7 +102,7 @@ class TestProblemBuilder(unittest.TestCase):
         type_str = "task_5"
         text = "Calculate the force."
         topics = ["physics.mechanics"]
-        difficulty = "medium"
+        difficulty_level = "medium"
         source_url = "https://fipi.ru/ege/456  "
         metadata = {}
 
@@ -113,7 +113,7 @@ class TestProblemBuilder(unittest.TestCase):
             type_str=type_str,
             text=text,
             topics=topics,
-            difficulty=difficulty,
+            difficulty_level=difficulty_level,
             source_url=source_url,
             metadata=metadata,
             raw_html_path=None,
@@ -133,7 +133,7 @@ class TestProblemBuilder(unittest.TestCase):
         self.assertEqual(problem.type, type_str)
         self.assertEqual(problem.text, text)
         self.assertEqual(problem.topics, topics)
-        self.assertEqual(problem.difficulty, difficulty)
+        self.assertEqual(problem.difficulty_level, difficulty_level)
         self.assertEqual(problem.source_url, source_url)
         self.assertEqual(problem.metadata, metadata)
 
@@ -162,7 +162,7 @@ class TestProblemBuilder(unittest.TestCase):
         type_str = "B"
         text = "Balance the equation."
         topics = ["chemistry.equations"]
-        difficulty = "hard"
+        difficulty_level = "hard"
         source_url = "https://fipi.ru/ege/789  "
         metadata = {}
         raw_html_path_input = Path("/tmp/chem.html")
@@ -175,7 +175,7 @@ class TestProblemBuilder(unittest.TestCase):
             type_str=type_str,
             text=text,
             topics=topics,
-            difficulty=difficulty,
+            difficulty_level=difficulty_level,
             source_url=source_url,
             metadata=metadata,
             raw_html_path=raw_html_path_input,
@@ -198,7 +198,7 @@ class TestProblemBuilder(unittest.TestCase):
         self.assertEqual(problem.type, type_str)
         self.assertEqual(problem.text, text)
         self.assertEqual(problem.topics, topics)
-        self.assertEqual(problem.difficulty, difficulty)
+        self.assertEqual(problem.difficulty_level, difficulty_level)
         self.assertEqual(problem.source_url, source_url)
         # self.assertEqual(problem.raw_html_path, raw_html_path) # Старая строка, вызывающая ошибку
 

@@ -65,7 +65,7 @@ class TestQdrantProblemRetriever(unittest.TestCase):
             text="Solve sin(x) = 0.5.",
             answer="x = pi/6 + 2*pi*k or x = 5*pi/6 + 2*pi*k",
             topics=["math.trigonometry"],
-            difficulty="medium",
+            difficulty_level="medium",
             created_at=self.mock_db_manager.get_all_problems.return_value[0].created_at if self.mock_db_manager.get_all_problems.return_value else None # Placeholder for datetime
         )
         test_problem_2 = Problem(
@@ -75,7 +75,7 @@ class TestQdrantProblemRetriever(unittest.TestCase):
             text="Simplify cos(x)^2 + sin(x)^2.",
             answer="1",
             topics=["math.trigonometry"],
-            difficulty="easy",
+            difficulty_level="easy",
             created_at=self.mock_db_manager.get_all_problems.return_value[0].created_at if self.mock_db_manager.get_all_problems.return_value else None # Placeholder for datetime
         )
         test_problem_3 = Problem(
@@ -85,7 +85,7 @@ class TestQdrantProblemRetriever(unittest.TestCase):
             text="What is tan(pi/4)?",
             answer="1",
             topics=["math.trigonometry"],
-            difficulty="easy",
+            difficulty_level="easy",
             created_at=self.mock_db_manager.get_all_problems.return_value[0].created_at if self.mock_db_manager.get_all_problems.return_value else None # Placeholder for datetime
         )
 

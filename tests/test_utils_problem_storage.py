@@ -31,7 +31,7 @@ class TestProblemStorage(unittest.TestCase):
             text="2+2?",
             answer="4",
             topics=["arithmetic"],
-            difficulty="easy",
+            difficulty_level="easy",
             created_at=datetime.now()
         )
         self.storage.save_problem(problem)
@@ -50,7 +50,7 @@ class TestProblemStorage(unittest.TestCase):
                 text="2+2?",
                 answer="4",
                 topics=["arithmetic"],
-                difficulty="easy",
+                difficulty_level="easy",
                 created_at=datetime.now()
             ),
             Problem(
@@ -60,7 +60,7 @@ class TestProblemStorage(unittest.TestCase):
                 text="What is RAM?",
                 answer="Random Access Memory",
                 topics=["hardware"],
-                difficulty="medium",
+                difficulty_level="medium",
                 created_at=datetime.now()
             )
         ]
@@ -79,7 +79,7 @@ class TestProblemStorage(unittest.TestCase):
             text="Decline the noun 'стол'.",
             answer="стол, стола, столу...",
             topics=["grammar"],
-            difficulty="hard",
+            difficulty_level="hard",
             created_at=datetime.now()
         )
         problem2 = Problem(
@@ -89,7 +89,7 @@ class TestProblemStorage(unittest.TestCase):
             text="When did WWII end?",
             answer="1945",
             topics=["20th_century"],
-            difficulty="medium",
+            difficulty_level="medium",
             created_at=datetime.now()
         )
         self.storage.save_problems([problem1, problem2])
@@ -107,7 +107,7 @@ class TestProblemStorage(unittest.TestCase):
             text="1+1?",
             answer="2",
             topics=["arithmetic"],
-            difficulty="easy",
+            difficulty_level="easy",
             created_at=datetime.now()
         )
         self.storage.save_problem(problem)

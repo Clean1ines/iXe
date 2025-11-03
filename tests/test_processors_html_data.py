@@ -143,7 +143,7 @@ class TestImageScriptProcessor(unittest.TestCase):
         mock_downloader.download.return_value = expected_local_path
 
         # Process the soup
-        updated_soup, downloaded_images = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was called correctly - assets_dir is run_folder_page / "assets"
         mock_downloader.download.assert_called_once_with(
@@ -182,7 +182,7 @@ class TestImageScriptProcessor(unittest.TestCase):
         mock_downloader = MagicMock(spec=AssetDownloader)
 
         # Process the soup
-        updated_soup, downloaded_images = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was not called
         mock_downloader.download.assert_not_called()
@@ -212,7 +212,7 @@ class TestImageScriptProcessor(unittest.TestCase):
         mock_downloader.download.return_value = None
 
         # Process the soup
-        updated_soup, downloaded_images = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was called - assets_dir is run_folder_page / "assets"
         mock_downloader.download.assert_called_once_with(
@@ -273,7 +273,7 @@ class TestFileLinkProcessor(unittest.TestCase):
         mock_downloader.download.return_value = expected_local_path
 
         # Process the soup
-        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was called correctly (leading ../../ removed) - assets_dir is run_folder_page / "assets"
         mock_downloader.download.assert_called_once_with(
@@ -308,7 +308,7 @@ class TestFileLinkProcessor(unittest.TestCase):
         mock_downloader.download.return_value = expected_local_path
 
         # Process the soup
-        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was called correctly (leading ../../ removed) - assets_dir is run_folder_page / "assets"
         mock_downloader.download.assert_called_once_with(
@@ -342,7 +342,7 @@ class TestFileLinkProcessor(unittest.TestCase):
         mock_downloader = MagicMock(spec=AssetDownloader)
 
         # Process the soup
-        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was not called
         mock_downloader.download.assert_not_called()
@@ -370,7 +370,7 @@ class TestFileLinkProcessor(unittest.TestCase):
         mock_downloader.download.return_value = None
 
         # Process the soup
-        updated_soup, downloaded_files = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was called - assets_dir is run_folder_page / "assets"
         mock_downloader.download.assert_called_once_with(

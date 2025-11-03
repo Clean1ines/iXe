@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from config import FRONTEND_URL
 from api.endpoints import subjects, quiz, answer, plan, block
-from utils.browser_manager import BrowserManager
+from utils.browser_pool_manager import BrowserPoolManager
 from utils.browser_pool_manager import BrowserPoolManager
 import logging
 
@@ -15,13 +15,13 @@ async def lifespan(app: FastAPI):
     """
     Lifespan event handler for the FastAPI application.
 
-    Initializes and manages the shared BrowserManager instance.
+    Initializes and manages the shared BrowserPoolManager instance.
     """
-    logger.info("Initializing BrowserManager...")
-    browser_manager = BrowserManager()
+    logger.info("Initializing BrowserPoolManager...")
+    browser_manager = BrowserPoolManager()
     await browser_manager.__aenter__()  # Инициализация Playwright и браузера
     app.state.browser_manager = browser_manager
-    logger.info("BrowserManager initialized and stored in app.state.")
+    logger.info("BrowserPoolManager initialized and stored in app.state.")
 
     # Инициализация BrowserPoolManager
     logger.info("Initializing BrowserPoolManager...")
@@ -37,15 +37,15 @@ async def lifespan(app: FastAPI):
         await browser_pool_manager.close_all()
         logger.info("BrowserPoolManager shut down complete.")
 
-        logger.info("Shutting down BrowserManager...")
+        logger.info("Shutting down BrowserPoolManager...")
         await browser_manager.close()  # Закрытие браузера и Playwright
-        logger.info("BrowserManager shut down complete.")
+        logger.info("BrowserPoolManager shut down complete.")
 
 def create_app() -> FastAPI:
     """
     Creates and configures the FastAPI application instance.
 
-    Sets up CORS, exception handlers, lifespan events for BrowserManager,
+    Sets up CORS, exception handlers, lifespan events for BrowserPoolManager,
     and includes API routers.
 
     Returns:
@@ -58,7 +58,7 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.yaml",
         docs_url="/docs",
         redoc_url="/redoc",
-        lifespan=lifespan  # Подключение lifespan для управления BrowserManager
+        lifespan=lifespan  # Подключение lifespan для управления BrowserPoolManager
     )
 
     origins = [

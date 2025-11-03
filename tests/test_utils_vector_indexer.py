@@ -51,7 +51,7 @@ class TestQdrantProblemIndexer(unittest.TestCase):
             text="Solve for x: x + 2 = 5.",
             answer="3",
             topics=["algebra.equations"],
-            difficulty="easy",
+            difficulty_level="easy",
             created_at=self.mock_db_manager.get_all_problems.return_value[0].created_at if self.mock_db_manager.get_all_problems.return_value else None # Placeholder for datetime
         )
         test_problem_2 = Problem(
@@ -61,7 +61,7 @@ class TestQdrantProblemIndexer(unittest.TestCase):
             text="What is the speed of light?",
             answer="300000000 m/s",
             topics=["physics.constants"],
-            difficulty="medium",
+            difficulty_level="medium",
             created_at=self.mock_db_manager.get_all_problems.return_value[0].created_at if self.mock_db_manager.get_all_problems.return_value else None # Placeholder for datetime
         )
         test_problems = [test_problem_1, test_problem_2]
@@ -102,7 +102,7 @@ class TestQdrantProblemIndexer(unittest.TestCase):
             "subject": "mathematics",
             "topics": ["algebra.equations"],
             "type": "A",
-            "difficulty": "easy",
+            "difficulty_level": "easy",
             "source_url": None, # Default value from the Problem instance
             "text": "Solve for x: x + 2 = 5.",
         }
@@ -119,7 +119,7 @@ class TestQdrantProblemIndexer(unittest.TestCase):
             "subject": "physics",
             "topics": ["physics.constants"],
             "type": "B",
-            "difficulty": "medium",
+            "difficulty_level": "medium",
             "source_url": None, # Default value from the Problem instance
             "text": "What is the speed of light?",
         }

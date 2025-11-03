@@ -16,7 +16,7 @@ import config
 from scraper.fipi_scraper import FIPIScraper
 from utils.database_manager import DatabaseManager
 from utils.logging_config import setup_logging
-from utils.browser_manager import BrowserManager
+from utils.browser_pool_manager import BrowserPoolManager
 from utils.subject_mapping import SUBJECT_ALIAS_MAP, SUBJECT_KEY_MAP, SUBJECT_TO_PROJ_ID_MAP, SUBJECT_TO_OFFICIAL_NAME_MAP, get_alias_from_official_name, get_subject_key_from_alias, get_proj_id_for_subject, get_official_name_from_alias
 import logging
 from pathlib import Path
@@ -77,7 +77,8 @@ class CLIScraper:
         """
         # --- ИНТЕГРАЦИЯ BROWSERMANAGER и FIPISCRAPER ---
         # Используем BrowserManager как контекстный менеджер ВНУТРИ этой функции
-        async with BrowserManager() as browser_manager:
+        async with BrowserPoolManager(pool_size=1) as browser_pool:
+        browser_manager = await browser_pool.get_available_browser()
             scraper = FIPIScraper(
                 base_url=config.FIPI_QUESTIONS_URL,
                 browser_manager=browser_manager,
