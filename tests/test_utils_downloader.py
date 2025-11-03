@@ -3,19 +3,19 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
+import pytest
 
 from utils.downloader import AssetDownloader
 
 
-class TestAssetDownloader(unittest.TestCase):
-    def setUp(self):
+class TestAssetDownloader:
+    def setup_method(self):
         self.page = MagicMock()
         self.page.request = MagicMock()
-        self.base_url = "https://example.com/"
-        self.files_location_prefix = "../../"
-        self.downloader = AssetDownloader(self.page, self.base_url, self.files_location_prefix)
+        self.downloader = AssetDownloader(self.page)
 
-    def test_download_success(self):
+    @pytest.mark.asyncio
+    async def test_download_success(self):
         # Mock response
         mock_response = MagicMock()
         mock_response.ok = True
@@ -24,58 +24,71 @@ class TestAssetDownloader(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             save_dir = Path(tmp_dir)
-            result = await self.downloader.download("images/test.jpg", save_dir, "image")
+            result = await self.downloader.download("https://example.com/images/test.jpg", save_dir, "image")
 
             # Check if request was made with correct URL
-            # urljoin normalizes the path, removing the ../..
-            expected_url = "https://example.com/images/test.jpg"
-            self.page.request.get.assert_called_once_with(expected_url)
+            self.page.request.get.assert_called_once_with("https://example.com/images/test.jpg")
 
             # Check if file was created
             expected_path = save_dir / "test.jpg"
-            self.assertTrue(expected_path.exists())
-            self.assertEqual(result, expected_path)
-            self.assertEqual(b"fake image data", expected_path.read_bytes())
+            assert expected_path.exists()
+            assert result == expected_path
+            assert b"fake image data" == expected_path.read_bytes()
 
-    def test_download_failure_status(self):
+    @pytest.mark.asyncio
+    async def test_download_failure_status(self):
         mock_response = MagicMock()
         mock_response.ok = False
         mock_response.status = 404
         self.page.request.get.return_value = mock_response
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            result = await self.downloader.download("images/missing.jpg", Path(tmp_dir))
+            result = await self.downloader.download("https://example.com/images/missing.jpg", Path(tmp_dir))
 
-        self.assertIsNone(result)
+        assert result is None
 
-    def test_download_exception(self):
+    @pytest.mark.asyncio
+    async def test_download_exception(self):
         self.page.request.get.side_effect = Exception("Network error")
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            result = await self.downloader.download("images/test.jpg", Path(tmp_dir))
+            result = await self.downloader.download("https://example.com/images/test.jpg", Path(tmp_dir))
 
-        self.assertIsNone(result)
+        assert result is None
 
-    def test_download_with_different_base_url(self):
-        """Test with a base URL that has a path component"""
-        downloader = AssetDownloader(
-            self.page, 
-            "https://example.com/some/path/", 
-            "../../assets/"
-        )
-        
+    @pytest.mark.asyncio
+    async def test_download_bytes_success(self):
+        """Test the download_bytes method."""
         mock_response = MagicMock()
         mock_response.ok = True
-        mock_response.body.return_value = b"test data"
+        mock_response.body.return_value = b"test data bytes"
         self.page.request.get.return_value = mock_response
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            result = await downloader.download("image.jpg", Path(tmp_dir))
-            
-            # The URL should be normalized by urljoin
-            expected_url = "https://example.com/assets/image.jpg"
-            self.page.request.get.assert_called_once_with(expected_url)
+        result = await self.downloader.download_bytes("https://example.com/data.bin")
 
+        self.page.request.get.assert_called_once_with("https://example.com/data.bin")
+        assert result == b"test data bytes"
+
+    @pytest.mark.asyncio
+    async def test_download_bytes_failure_status(self):
+        """Test download_bytes with a failing status code."""
+        mock_response = MagicMock()
+        mock_response.ok = False
+        mock_response.status = 500
+        self.page.request.get.return_value = mock_response
+
+        result = await self.downloader.download_bytes("https://example.com/data.bin")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_download_bytes_exception(self):
+        """Test download_bytes when an exception occurs."""
+        self.page.request.get.side_effect = Exception("Network error")
+
+        result = await self.downloader.download_bytes("https://example.com/data.bin")
+
+        assert result is None
 
 if __name__ == "__main__":
     unittest.main()
