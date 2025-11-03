@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from config import FRONTEND_URL
 from api.endpoints import subjects, quiz, answer, plan, block
 from utils.browser_manager import BrowserManager
+from utils.browser_pool_manager import BrowserPoolManager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,9 +22,21 @@ async def lifespan(app: FastAPI):
     await browser_manager.__aenter__()  # Инициализация Playwright и браузера
     app.state.browser_manager = browser_manager
     logger.info("BrowserManager initialized and stored in app.state.")
+
+    # Инициализация BrowserPoolManager
+    logger.info("Initializing BrowserPoolManager...")
+    browser_pool_manager = BrowserPoolManager(pool_size=3)
+    await browser_pool_manager.initialize()
+    app.state.browser_pool_manager = browser_pool_manager
+    logger.info("BrowserPoolManager initialized and stored in app.state.")
+
     try:
         yield
     finally:
+        logger.info("Shutting down BrowserPoolManager...")
+        await browser_pool_manager.close_all()
+        logger.info("BrowserPoolManager shut down complete.")
+
         logger.info("Shutting down BrowserManager...")
         await browser_manager.close()  # Закрытие браузера и Playwright
         logger.info("BrowserManager shut down complete.")
@@ -49,8 +62,8 @@ def create_app() -> FastAPI:
     )
 
     origins = [
-        "https://ixe.onrender.com",
-        "https://ixe-core.onrender.com",
+        "https://ixe.onrender.com  ",
+        "https://ixe-core.onrender.com  ",
         "http://localhost:3000",
         "http://localhost:5173",
     ]
@@ -102,4 +115,3 @@ def create_app() -> FastAPI:
         return {"message": "FIPI API is running"}
 
     return app
-

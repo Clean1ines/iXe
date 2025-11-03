@@ -176,3 +176,15 @@ def get_quiz_service(
     """
     return QuizService(problem_retriever)
 
+
+def get_browser_pool_manager(request: Request):
+    """
+    Dependency to provide the shared BrowserPoolManager instance.
+
+    Args:
+        request: The incoming request object.
+
+    Returns:
+        BrowserPoolManager: The shared instance managed by the app's lifespan.
+    """
+    return request.app.state.browser_pool_manager
