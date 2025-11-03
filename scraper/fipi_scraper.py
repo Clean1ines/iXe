@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple, Callable
 from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
-from playwright.async_api import Page
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 from utils.browser_pool_manager import BrowserPoolManager
 from utils.metadata_extractor import MetadataExtractor
 from models.problem_builder import ProblemBuilder
@@ -48,6 +48,8 @@ class FIPIScraper:
         builder: Optional[ProblemBuilder] = None,
         specification_service: Optional[SpecificationService] = None,
         task_inferer: Optional[TaskNumberInferer] = None,
+        max_retries: int = 3,
+        initial_delay: float = 1.0
     ):
         """
         Initializes the scraper with necessary dependencies and configuration.
@@ -60,9 +62,11 @@ class FIPIScraper:
             builder (ProblemBuilder, optional): Problem builder instance to use.
             specification_service (SpecificationService, optional): Service for official specifications.
             task_inferer (TaskNumberInferer, optional): Component for inferring task numbers.
+            max_retries (int): Maximum number of retry attempts for network operations.
+            initial_delay (float): Initial delay for retry backoff.
         """
         self.base_url = base_url
-        self.browser_pool = browser_manager
+        self.browser_pool = browser_pool
         self.subjects_url = subjects_url
         self.page_delay = page_delay
         self.session = requests.Session()
@@ -75,6 +79,8 @@ class FIPIScraper:
         })
         self.task_inferer = task_inferer
         self.specification_service = specification_service
+        self.max_retries = max_retries
+        self.initial_delay = initial_delay
 
     async def get_projects(self, subjects_list_page) -> Dict[str, str]:
         """
@@ -168,60 +174,68 @@ class FIPIScraper:
         # Get a *general* page instance from the browser manager (not tied to a specific subject)
         page = await self.browser_pool.get_general_page()
         
-        try:
-            # Navigate to the specific questions page
-            await page.goto(full_url, wait_until="networkidle", timeout=30000)
-            
-            # Wait for content to load
-            logger.debug("Waiting for .qblock elements to appear...")
-            await page.wait_for_selector(".qblock", timeout=60000)  # Increased timeout
-            
-            # Get page content
-            page_content = await page.content()
-            logger.debug(f"Page content length: {len(page_content)} characters")
-            
-            # Create asset downloader factory that uses the same page context
-            def asset_downloader_factory(page_obj, base, prefix):
-                return AssetDownloader(page=page_obj)
-            
-            # Create the processing orchestrator
-            orchestrator = PageProcessingOrchestrator(
-                asset_downloader_factory=asset_downloader_factory,
-                processors=[
-                    ImageScriptProcessor(),
-                    FileLinkProcessor(),
-                    TaskInfoProcessor(),
-                    InputFieldRemover(),
-                    MathMLRemover(),
-                    UnwantedElementRemover()
-                ],
-                metadata_extractor=MetadataExtractor(),
-                problem_builder=ProblemBuilder(),
-                task_inferer=self.task_inferer,
-                specification_service=self.specification_service,  # Pass specification service
-            )
-            
-            # Process the page content
-            logger.debug("Starting page processing orchestrator...")
-            problems, scraped_data = await orchestrator.process(
-                page_content=page_content,
-                proj_id=proj_id,
-                page_num=page_num,
-                run_folder=run_folder,
-                base_url=base_questions_url,  # Pass the correct base URL
-                subject=subject
-            )
-            
-            logger.info(f"Successfully scraped {len(problems)} problems from page {page_num}")
-            return problems, scraped_data
-            
-        except Exception as e:
-            logger.exception("Exception occurred during page scraping:")
-            logger.error(f"Error scraping page {page_num} for project {proj_id}: {e}", exc_info=True)
-            raise
-        finally:
-            # Close the general page after scraping
-            await page.close()
+        for attempt in range(self.max_retries):
+            try:
+                # Navigate to the specific questions page
+                await page.goto(full_url, wait_until="networkidle", timeout=30000)
+                
+                # Wait for content to load
+                logger.debug("Waiting for .qblock elements to appear...")
+                await page.wait_for_selector(".qblock", timeout=60000)  # Increased timeout
+                
+                # Get page content
+                page_content = await page.content()
+                logger.debug(f"Page content length: {len(page_content)} characters")
+                
+                # Create asset downloader factory that uses the same page context
+                def asset_downloader_factory(page_obj, base, prefix):
+                    return AssetDownloader(page=page_obj)
+                
+                # Create the processing orchestrator
+                orchestrator = PageProcessingOrchestrator(
+                    asset_downloader_factory=asset_downloader_factory,
+                    processors=[
+                        ImageScriptProcessor(),
+                        FileLinkProcessor(),
+                        TaskInfoProcessor(),
+                        InputFieldRemover(),
+                        MathMLRemover(),
+                        UnwantedElementRemover()
+                    ],
+                    metadata_extractor=MetadataExtractor(),
+                    problem_builder=ProblemBuilder(),
+                    task_inferer=self.task_inferer,
+                    specification_service=self.specification_service,  # Pass specification service
+                )
+                
+                # Process the page content
+                logger.debug("Starting page processing orchestrator...")
+                problems, scraped_data = await orchestrator.process(
+                    page_content=page_content,
+                    proj_id=proj_id,
+                    page_num=page_num,
+                    run_folder=run_folder,
+                    base_url=base_questions_url,  # Pass the correct base URL
+                    subject=subject
+                )
+                
+                logger.info(f"Successfully scraped {len(problems)} problems from page {page_num}")
+                return problems, scraped_data
+                
+            except (PlaywrightTimeoutError, Exception) as e:
+                logger.warning(f"Attempt {attempt + 1} failed for page {page_num} (proj_id: {proj_id}): {e}")
+                
+                if attempt < self.max_retries - 1:
+                    # Calculate delay with exponential backoff
+                    delay = self.initial_delay * (2 ** attempt)
+                    logger.debug(f"Waiting {delay}s before retry...")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"All {self.max_retries} attempts failed for page {page_num} (proj_id: {proj_id})")
+                    raise
+            finally:
+                # Close the general page after scraping
+                await page.close()
 
     async def close(self):
         """Closes the associated browser resources."""
