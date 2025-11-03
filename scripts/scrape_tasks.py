@@ -71,21 +71,22 @@ class CLIScraper:
                 available[subject_key] = official_name
         return available
 
-    async def scrape_subject_logic(self, proj_id: str, subject_name: str, scraping_subject_key: str, subject_dir: Path, db_manager: DatabaseManager):
+    async def scrape_subject_logic(self, proj_id: str, subject_name: str, scraping_subject_key: str, subject_dir: Path, db_manager: DatabaseManager, browser_pool: BrowserPoolManager):
         """
         Performs the iterative scraping for a given subject.
         """
         # --- ИНТЕГРАЦИЯ BROWSERMANAGER и FIPISCRAPER ---
-        # Используем BrowserManager как контекстный менеджер ВНУТРИ этой функции
-        async with BrowserPoolManager(pool_size=1) as browser_pool:
-            browser_manager = await browser_pool.get_available_browser()
+        # Получаем browser_manager из пула
+        browser_manager = await browser_pool.get_available_browser()
+        try:
             scraper = FIPIScraper(
                 base_url=config.FIPI_QUESTIONS_URL,
-                browser_manager=browser_manager,
+                browser_manager=browser_manager,  # Pass the individual manager, not the pool
                 subjects_url=config.FIPI_SUBJECTS_URL
             )
             # === ИТЕРАТИВНЫЙ СКРАПИНГ ===
-            print("📄 Scraping pages iteratively until last page or max empty pages reached...")
+            print(f"📄 Starting scraping for subject: {subject_name} (proj_id: {proj_id})")
+            self.logger.info(f"Starting scraping for subject: {subject_name} (proj_id: {proj_id})")
             total_saved = 0
 
             # Скрапим страницу "init"
@@ -188,9 +189,67 @@ class CLIScraper:
                     empty_count += 1
                 page_num += 1
 
-            print(f"\n🎉 Scraping completed! Total problems saved: {total_saved}")
+            print(f"\n🎉 Scraping completed for {subject_name}! Total problems saved: {total_saved}")
             self.logger.info(f"Scraping finished for '{subject_name}', {total_saved} problems saved.")
+        finally:
+            # Возвращаем browser_manager обратно в пул
+            await browser_pool.return_browser(browser_manager)
 
+    async def parallel_scrape_logic(self, selected_subject_keys: list, browser_pool: BrowserPoolManager):
+        """
+        Performs parallel scraping for multiple subjects.
+        """
+        available_subjects = self.get_available_subjects()
+        tasks = []
+
+        for subject_key in selected_subject_keys:
+            if subject_key in available_subjects:
+                subject_name = available_subjects[subject_key]
+                subject_dir = get_subject_output_dir(subject_name)
+                db_path = subject_dir / "fipi_data.db"
+
+                # Get proj_id using the mapping utility
+                proj_id = get_proj_id_for_subject(subject_key)
+                self.logger.info(f"Mapped subject key '{subject_key}' to proj_id '{proj_id}'")
+
+                # Check if data already exists
+                if db_path.exists():
+                    print(f"\n⚠️  Data for '{subject_name}' already exists at {subject_dir}.")
+                    print("1. Restart scraping (delete existing data)")
+                    print("2. Skip this subject")
+                    action = input(f"Enter choice for {subject_name} (1/2): ").strip()
+                    if action == '1':
+                        shutil.rmtree(subject_dir, ignore_errors=True)
+                        print(f"✅ Deleted existing data in {subject_dir}")
+                    else:
+                        print(f"⏭️  Skipping {subject_name}")
+                        continue
+
+                # Create directory and database manager
+                subject_dir.mkdir(parents=True, exist_ok=True)
+                db_manager = DatabaseManager(str(db_path))
+                db_manager.initialize_db()
+                print(f"📁 Output directory: {subject_dir}")
+
+                # Determine the subject key for scraping
+                alias = get_alias_from_official_name(subject_name)
+                scraping_subject_key = get_subject_key_from_alias(alias)
+
+                # Create task for this subject
+                task = asyncio.create_task(
+                    self.scrape_subject_logic(proj_id, subject_name, scraping_subject_key, subject_dir, db_manager, browser_pool)
+                )
+                tasks.append(task)
+                print(f"�� Started scraping task for {subject_name}")
+                self.logger.info(f"Started scraping task for {subject_name}")
+
+        # Wait for all tasks to complete
+        if tasks:
+            print(f"\n⏳ Waiting for {len(tasks)} scraping tasks to complete...")
+            await asyncio.gather(*tasks)
+            print(f"\n🎊 All parallel scraping tasks completed!")
+        else:
+            print("No subjects to scrape.")
 
     async def run(self):
         """
@@ -200,14 +259,15 @@ class CLIScraper:
 
         print("🚀 Welcome to the FIPI Parser!")
         print("📋 1. Scrape a new subject or update existing data")
-        print("🚪 2. Exit")
+        print("🔄 2. Parallel scrape subjects")
+        print("�� 3. Exit")
         print("-" * 40)
 
         # Define available subjects directly based on subject_mapping
         available_subjects = self.get_available_subjects()
 
         while True:
-            choice = input("👉 Enter your choice (1/2): ").strip()
+            choice = input("👉 Enter your choice (1/2/3): ").strip()
 
             if choice == '1':
                 print("\n📋 Available subjects (from mapping):")
@@ -259,9 +319,10 @@ class CLIScraper:
                             alias = get_alias_from_official_name(subject_name)
                             scraping_subject_key = get_subject_key_from_alias(alias)
 
-                            # Вызов функции, которая содержит цикл скрапинга внутри контекстного менеджера BrowserManager
-                            await self.scrape_subject_logic(proj_id, subject_name, scraping_subject_key, subject_dir, db_manager)
-
+                            # Use a single-browser pool for sequential scraping
+                            async with BrowserPoolManager(pool_size=1) as browser_pool:
+                                # Вызов функции, которая содержит цикл скрапинга внутри контекстного менеджера BrowserManager
+                                await self.scrape_subject_logic(proj_id, subject_name, scraping_subject_key, subject_dir, db_manager, browser_pool)
 
                         elif selection == len(subject_keys) + 1:
                             break
@@ -271,10 +332,40 @@ class CLIScraper:
                         print("❌ Please enter a valid number.")
 
             elif choice == '2':
+                print("\n📋 Available subjects for parallel scraping:")
+                subject_keys = list(available_subjects.keys())
+                for idx, key in enumerate(subject_keys, start=1):
+                    print(f"{idx}. {key} ({available_subjects[key]})")
+
+                selection_input = input(f"\n🔢 Enter subject numbers (comma-separated) or 'all': ").strip()
+                
+                selected_subject_keys = []
+                if selection_input.lower() == 'all':
+                    selected_subject_keys = subject_keys
+                else:
+                    try:
+                        selected_indices = [int(x.strip()) - 1 for x in selection_input.split(',')]
+                        for idx in selected_indices:
+                            if 0 <= idx < len(subject_keys):
+                                selected_subject_keys.append(subject_keys[idx])
+                            else:
+                                print(f"❌ Invalid number: {idx + 1}")
+                                break
+                    except ValueError:
+                        print("❌ Invalid input. Please enter numbers separated by commas or 'all'.")
+                        continue
+                
+                if selected_subject_keys:
+                    print(f"Selected subjects for parallel scraping: {', '.join(selected_subject_keys)}")
+                    pool_size = min(len(selected_subject_keys), 3)  # Limit pool size
+                    async with BrowserPoolManager(pool_size=pool_size) as browser_pool:
+                        await self.parallel_scrape_logic(selected_subject_keys, browser_pool)
+
+            elif choice == '3':
                 print("👋 Goodbye!")
                 break
             else:
-                print("❌ Invalid choice. Please enter 1 or 2.")
+                print("❌ Invalid choice. Please enter 1, 2, or 3.")
 
 
 async def main():

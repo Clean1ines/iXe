@@ -24,3 +24,6 @@ QDRANT_PORT: int = int(os.getenv("QDRANT_PORT", "6333"))
 DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 FRONTEND_URL = "http://localhost:3000"
 FRONTEND_URL = "http://localhost:3000"
+BROWSER_HEADLESS = True
+TOTAL_PAGES = 10
+FIPI_DEFAULT_PROJ_ID = 'MATH_PROFILE'

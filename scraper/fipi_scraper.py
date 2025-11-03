@@ -9,10 +9,10 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
-from utils.browser_pool_manager import BrowserPoolManager
+from utils.browser_manager import BrowserManager  # Import BrowserManager instead of BrowserPoolManager
 from utils.metadata_extractor import MetadataExtractor
 from models.problem_builder import ProblemBuilder
-from processors.html_data_processors import (
+from processors.html import (
     ImageScriptProcessor,
     FileLinkProcessor,
     TaskInfoProcessor,
@@ -42,7 +42,7 @@ class FIPIScraper:
     def __init__(
         self,
         base_url: str,
-        browser_pool: BrowserPoolManager,
+        browser_manager: BrowserManager,  # Accept BrowserManager instead of BrowserPoolManager
         subjects_url: str,
         page_delay: float = 1.0,
         builder: Optional[ProblemBuilder] = None,
@@ -66,7 +66,7 @@ class FIPIScraper:
             initial_delay (float): Initial delay for retry backoff.
         """
         self.base_url = base_url
-        self.browser_pool = browser_pool
+        self.browser_manager = browser_manager  # Store BrowserManager instance
         self.subjects_url = subjects_url
         self.page_delay = page_delay
         self.session = requests.Session()
@@ -172,7 +172,7 @@ class FIPIScraper:
         logger.debug(f"Navigating to URL: {full_url}")
         
         # Get a *general* page instance from the browser manager (not tied to a specific subject)
-        page = await self.browser_pool.get_general_page()
+        page = await self.browser_manager.get_general_page()
         
         for attempt in range(self.max_retries):
             try:
@@ -216,7 +216,8 @@ class FIPIScraper:
                     page_num=page_num,
                     run_folder=run_folder,
                     base_url=base_questions_url,  # Pass the correct base URL
-                    subject=subject
+                    subject=subject,
+                    page=page # Pass the page object to the orchestrator
                 )
                 
                 logger.info(f"Successfully scraped {len(problems)} problems from page {page_num}")
@@ -239,4 +240,4 @@ class FIPIScraper:
 
     async def close(self):
         """Closes the associated browser resources."""
-        await self.browser_pool.close()
+        await self.browser_manager.close()

@@ -16,7 +16,7 @@ from bs4.element import Tag
 import asyncio
 
 from utils.downloader import AssetDownloader
-from processors.html_data_processors import (
+from processors.html import (
     ImageScriptProcessor,
     FileLinkProcessor,
     TaskInfoProcessor,
@@ -77,7 +77,7 @@ class BlockProcessor:
         proj_id: str,
         base_url: str,
         subject: str,
-        page: Any = None,
+        page: Any = None, # This is the Playwright page object
         files_location_prefix: str = "../../"
     ) -> Tuple[str, str, Dict[str, str], Dict[str, str], Problem, Dict[str, Any]]:
         """
@@ -87,7 +87,8 @@ class BlockProcessor:
         combined_soup = BeautifulSoup('', 'html.parser')
         combined_soup.append(qblock.extract())
 
-        # Call factory with base_url and prefix as required by its signature
+        # Create AssetDownloader instance using the page object passed to this method
+        # This ensures the page is available when download is called
         downloader = self.asset_downloader_factory(page, base_url, files_location_prefix)
 
         # Extract metadata from header_container

@@ -13,7 +13,7 @@ from utils.downloader import AssetDownloader
 from utils.element_pairer import ElementPairer
 from utils.metadata_extractor import MetadataExtractor
 from models.problem_builder import ProblemBuilder
-from processors.html_data_processors import (
+from processors.html import (
     ImageScriptProcessor,
     FileLinkProcessor,
     TaskInfoProcessor,
@@ -143,7 +143,7 @@ class PageProcessingOrchestrator:
                     proj_id=proj_id,
                     base_url=base_url,
                     subject=subject,
-                    page=page,
+                    page=page, # Pass the Playwright page object here
                     files_location_prefix=files_location_prefix
                 )
                 if problem: # Check if problem was built successfully

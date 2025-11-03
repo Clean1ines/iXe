@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from bs4 import BeautifulSoup
 from utils.downloader import AssetDownloader
-from processors.html_data_processors import (
+from processors.html import (
     ImageScriptProcessor,
     FileLinkProcessor,
     TaskInfoProcessor,
@@ -138,12 +138,12 @@ class TestImageScriptProcessor(unittest.TestCase):
 
         # Create mock downloader
         mock_downloader = MagicMock(spec=AssetDownloader)
-        # Expected call: await downloader.download('test.jpg', run_folder_page / "assets", ...)
+        # Expected call: downloader.download('test.jpg', run_folder_page / "assets", ...)
         expected_local_path = run_folder_page / "assets" / "test.jpg"
         mock_downloader.download.return_value = expected_local_path
 
         # Process the soup
-        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        updated_soup, result_dict = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was called correctly - assets_dir is run_folder_page / "assets"
         mock_downloader.download.assert_called_once_with(
@@ -160,8 +160,8 @@ class TestImageScriptProcessor(unittest.TestCase):
         expected_img_src = "assets/test.jpg"
         self.assertEqual(imgs[0]['src'], expected_img_src)
 
-        # Verify downloaded_images dictionary
-        self.assertEqual(downloaded_images, {'downloaded_images': {'test.jpg': expected_img_src}})
+        # Verify result_dict dictionary - now includes both keys
+        self.assertEqual(result_dict, {'downloaded_files': {}, 'downloaded_images': {'test.jpg': expected_img_src}})
 
     def test_process_no_match(self):
         """Test processing when no matching scripts are found."""
@@ -182,7 +182,7 @@ class TestImageScriptProcessor(unittest.TestCase):
         mock_downloader = MagicMock(spec=AssetDownloader)
 
         # Process the soup
-        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        updated_soup, result_dict = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was not called
         mock_downloader.download.assert_not_called()
@@ -190,8 +190,8 @@ class TestImageScriptProcessor(unittest.TestCase):
         # Verify soup is unchanged
         self.assertEqual(str(updated_soup), original_html)
 
-        # Verify downloaded_images is empty
-        self.assertEqual(downloaded_images, {'downloaded_images': {}})
+        # Verify result_dict is empty - now includes both keys
+        self.assertEqual(result_dict, {'downloaded_files': {}, 'downloaded_images': {}})
 
     def test_process_download_failure(self):
         """Test processing when image download fails."""
@@ -212,7 +212,7 @@ class TestImageScriptProcessor(unittest.TestCase):
         mock_downloader.download.return_value = None
 
         # Process the soup
-        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        updated_soup, result_dict = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was called - assets_dir is run_folder_page / "assets"
         mock_downloader.download.assert_called_once_with(
@@ -225,8 +225,8 @@ class TestImageScriptProcessor(unittest.TestCase):
         self.assertEqual(len(scripts), 1)
         self.assertIn('ShowPicture', str(scripts[0]))
 
-        # Verify downloaded_images is empty
-        self.assertEqual(downloaded_images, {'downloaded_images': {}})
+        # Verify result_dict is empty - now includes both keys
+        self.assertEqual(result_dict, {'downloaded_files': {}, 'downloaded_images': {}})
 
     def test_process_missing_downloader(self):
         """Test processing when AssetDownloader is not provided."""
@@ -245,6 +245,70 @@ class TestImageScriptProcessor(unittest.TestCase):
             self.processor.process(soup, run_folder_page)
 
         self.assertIn("AssetDownloader must be provided", str(context.exception))
+
+    def test_process_img_tags_success(self):
+        """Test processing direct img tags."""
+        # Create HTML with img tag
+        html_content = """
+        <html>
+            <body>
+                <img src="image.png">
+            </body>
+        </html>
+        """
+        soup = BeautifulSoup(html_content, 'html.parser')
+        run_folder_page = Path('/fake/path/page1')
+
+        # Create mock downloader
+        mock_downloader = MagicMock(spec=AssetDownloader)
+        expected_local_path = run_folder_page / "assets" / "image.png"
+        mock_downloader.download.return_value = expected_local_path
+
+        # Process the soup
+        updated_soup, result_dict = self.processor.process(soup, run_folder_page, downloader=mock_downloader, base_url="https://example.com")
+
+        # Verify downloader was called with absolute URL
+        mock_downloader.download.assert_called_once_with(
+            'https://example.com/image.png', run_folder_page / "assets", asset_type='image'
+        )
+
+        # Verify img tag src was updated
+        imgs = updated_soup.find_all('img')
+        self.assertEqual(len(imgs), 1)
+        self.assertEqual(imgs[0]['src'], 'assets/image.png')
+
+        # Verify result_dict dictionary
+        self.assertEqual(result_dict, {'downloaded_files': {}, 'downloaded_images': {'https://example.com/image.png': 'assets/image.png'}})
+
+    def test_process_img_tags_skip_processed(self):
+        """Test skipping img tags already pointing to assets/."""
+        # Create HTML with already processed img tag
+        html_content = """
+        <html>
+            <body>
+                <img src="assets/processed.jpg">
+            </body>
+        </html>
+        """
+        soup = BeautifulSoup(html_content, 'html.parser')
+        run_folder_page = Path('/fake/path/page1')
+
+        # Create mock downloader
+        mock_downloader = MagicMock(spec=AssetDownloader)
+
+        # Process the soup
+        updated_soup, result_dict = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+
+        # Verify downloader was not called
+        mock_downloader.download.assert_not_called()
+
+        # Verify img tag src remains unchanged
+        imgs = updated_soup.find_all('img')
+        self.assertEqual(len(imgs), 1)
+        self.assertEqual(imgs[0]['src'], 'assets/processed.jpg')
+
+        # Verify result_dict is empty
+        self.assertEqual(result_dict, {'downloaded_files': {}, 'downloaded_images': {}})
 
 
 class TestFileLinkProcessor(unittest.TestCase):
@@ -268,12 +332,12 @@ class TestFileLinkProcessor(unittest.TestCase):
 
         # Create mock downloader
         mock_downloader = MagicMock(spec=AssetDownloader)
-        # Expected call: await downloader.download('docs/test.zip', run_folder_page / "assets", ...)
+        # Expected call: downloader.download('docs/test.zip', run_folder_page / "assets", ...)
         expected_local_path = run_folder_page / "assets" / "test.zip"
         mock_downloader.download.return_value = expected_local_path
 
         # Process the soup
-        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        updated_soup, result_dict = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was called correctly (leading ../../ removed) - assets_dir is run_folder_page / "assets"
         mock_downloader.download.assert_called_once_with(
@@ -286,8 +350,8 @@ class TestFileLinkProcessor(unittest.TestCase):
         expected_href = 'assets/test.zip'
         self.assertEqual(links[0]['href'], expected_href)
 
-        # Verify downloaded_files dictionary
-        self.assertEqual(downloaded_files, {'downloaded_files': {'docs/test.zip': expected_href}})
+        # Verify result_dict dictionary - note the key in downloaded_images
+        self.assertEqual(result_dict, {'downloaded_files': {}, 'downloaded_images': {'docs/test.zip': expected_href}})
 
     def test_process_direct_link(self):
         """Test processing direct file links."""
@@ -303,12 +367,12 @@ class TestFileLinkProcessor(unittest.TestCase):
 
         # Create mock downloader
         mock_downloader = MagicMock(spec=AssetDownloader)
-        # Expected call: await downloader.download('files/document.pdf', run_folder_page / "assets", ...)
+        # Expected call: downloader.download('files/document.pdf', run_folder_page / "assets", ...)
         expected_local_path = run_folder_page / "assets" / "document.pdf"
         mock_downloader.download.return_value = expected_local_path
 
         # Process the soup
-        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        updated_soup, result_dict = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was called correctly (leading ../../ removed) - assets_dir is run_folder_page / "assets"
         mock_downloader.download.assert_called_once_with(
@@ -321,8 +385,8 @@ class TestFileLinkProcessor(unittest.TestCase):
         expected_href = 'assets/document.pdf'
         self.assertEqual(links[0]['href'], expected_href)
 
-        # Verify downloaded_files dictionary
-        self.assertEqual(downloaded_files, {'downloaded_files': {'files/document.pdf': expected_href}})
+        # Verify result_dict dictionary - note the key in downloaded_images
+        self.assertEqual(result_dict, {'downloaded_files': {}, 'downloaded_images': {'files/document.pdf': expected_href}})
 
     def test_process_no_file_links(self):
         """Test processing when no file links are found."""
@@ -342,7 +406,7 @@ class TestFileLinkProcessor(unittest.TestCase):
         mock_downloader = MagicMock(spec=AssetDownloader)
 
         # Process the soup
-        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        updated_soup, result_dict = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was not called
         mock_downloader.download.assert_not_called()
@@ -350,8 +414,8 @@ class TestFileLinkProcessor(unittest.TestCase):
         # Verify soup is unchanged
         self.assertEqual(str(updated_soup), original_html)
 
-        # Verify downloaded_files is empty
-        self.assertEqual(downloaded_files, {'downloaded_files': {}})
+        # Verify result_dict is empty
+        self.assertEqual(result_dict, {'downloaded_files': {}, 'downloaded_images': {}})
 
     def test_process_download_failure(self):
         """Test processing when file download fails."""
@@ -370,7 +434,7 @@ class TestFileLinkProcessor(unittest.TestCase):
         mock_downloader.download.return_value = None
 
         # Process the soup
-        result = await self.processor.process(soup, run_folder_page, downloader=mock_downloader)
+        updated_soup, result_dict = self.processor.process(soup, run_folder_page, downloader=mock_downloader)
 
         # Verify downloader was called - assets_dir is run_folder_page / "assets"
         mock_downloader.download.assert_called_once_with(
@@ -381,8 +445,8 @@ class TestFileLinkProcessor(unittest.TestCase):
         links = updated_soup.find_all('a')
         self.assertEqual(links[0]['href'], '../../files/test.zip')
 
-        # Verify downloaded_files is empty
-        self.assertEqual(downloaded_files, {'downloaded_files': {}})
+        # Verify result_dict is empty
+        self.assertEqual(result_dict, {'downloaded_files': {}, 'downloaded_images': {}})
 
     def test_process_missing_downloader(self):
         """Test processing when AssetDownloader is not provided."""

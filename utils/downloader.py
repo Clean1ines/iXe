@@ -16,7 +16,7 @@ class AssetDownloader:
             page: Playwright page instance for HTTP requests.
         """
         self.page = page
-        logger.debug(f"AssetDownloader initialized")
+        logger.debug(f"AssetDownloader initialized with page: {page is not None}")
 
     async def download(self, asset_url: str, save_dir: Path, asset_type: str = 'image') -> Optional[Path]:
         """Downloads an asset from the web and saves it locally.
@@ -30,13 +30,14 @@ class AssetDownloader:
         logger.info(f"Attempting to download {asset_type}: {asset_url} to {save_dir}")
         try:
             logger.debug(f"Initiating GET request to: {asset_url}")
-            response = await self.page.request.get(asset_url)
+            response = await self.page.request.get(asset_url) # Await the coroutine
             if response.ok:
                 logger.debug(f"Download request for {asset_url} successful, status: {response.status}")
                 save_filename = Path(asset_url).name
                 save_path = save_dir / save_filename
                 save_path.parent.mkdir(parents=True, exist_ok=True)
-                save_path.write_bytes(await response.body())
+                content = await response.body() # Await the body coroutine
+                save_path.write_bytes(content)
                 logger.info(f"Successfully downloaded {asset_type} from {asset_url} and saved to {save_path}")
                 logger.debug(f"Returning save path: {save_path}")
                 return save_path
@@ -58,10 +59,10 @@ class AssetDownloader:
         logger.info(f"Attempting to download bytes for asset: {asset_url}")
         try:
             logger.debug(f"Initiating GET request to: {asset_url}")
-            response = await self.page.request.get(asset_url)
+            response = await self.page.request.get(asset_url) # Await the coroutine
             if response.ok:
                 logger.debug(f"Download request for {asset_url} successful, status: {response.status}")
-                content_bytes = await response.body()
+                content_bytes = await response.body() # Await the body coroutine
                 logger.info(f"Successfully downloaded bytes for asset {asset_url}, size: {len(content_bytes)}")
                 return content_bytes
             else:

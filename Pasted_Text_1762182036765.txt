@@ -1,0 +1,511 @@
+(venv) haku@DESKTOP-1O36F54:~/iXe$ cat << 'EOF' > processors/block_processor.py                                 grep -E "(INFO|ERROR|WARNING|DEBUG.*ImageScriptProcessor|DEBUG.*asset)" Pastecat << 'EOF' > processors/block_processor.py                                 python -m scripts.scrape_tasks
+
+[INFO] __main__ [scrape_tasks.py:57 - setup_logging()] - CLI Scraper initialized.
+[INFO] __main__ [scrape_tasks.py:258 - run()] - FIPI Parser Started (Scraping Mode)
+🚀 Welcome to the FIPI Parser!
+📋 1. Scrape a new subject or update existing data
+🔄 2. Parallel scrape subjects
+�� 3. Exit
+----------------------------------------
+👉 Enter your choice (1/2/3): 2
+
+📋 Available subjects for parallel scraping:
+1. math (Математика. Базовый уровень)
+2. promath (Математика. Профильный уровень)
+3. informatics (Информатика и ИКТ)
+4. russian (Русский язык)
+5. physics (Физика)
+6. chemistry (Химия)
+7. biology (Биология)
+8. history (История)
+9. social (Обществознание)
+10. literature (Литература)
+11. geography (География)
+12. english (Английский язык)
+13. german (Немецкий язык)
+14. french (Французский язык)
+15. spanish (Испанский язык)
+16. chinese (Китайский язык)
+
+🔢 Enter subject numbers (comma-separated) or 'all': 2
+Selected subjects for parallel scraping: promath
+[INFO] utils.browser_pool_manager [browser_pool_manager.py:36 - initialize()] - Initializing BrowserPoolManager with pool size 1
+[INFO] utils.browser_manager [browser_manager.py:29 - __aenter__()] - Initializing BrowserManager and launching browser.
+[INFO] utils.browser_pool_manager [browser_pool_manager.py:42 - initialize()] - BrowserPoolManager initialized with 1 browsers
+[INFO] __main__ [scrape_tasks.py:213 - parallel_scrape_logic()] - Mapped subject key 'promath' to proj_id 'AC437B34557F88EA4115D2F374B0A07B'
+
+⚠️  Data for 'Математика. Профильный уровень' already exists at data/promath/2026.
+1. Restart scraping (delete existing data)
+2. Skip this subject
+Enter choice for Математика. Профильный уровень (1/2): 1
+✅ Deleted existing data in data/promath/2026
+[DEBUG] utils.database_manager [database_manager.py:38 - __init__()] - DatabaseManager initialized with path: data/promath/2026/fipi_data.db
+[INFO] utils.database_manager [database_manager.py:42 - initialize_db()] - Initializing database tables...
+[INFO] utils.database_manager [database_manager.py:45 - initialize_db()] - Database tables initialized (or verified to exist).
+📁 Output directory: data/promath/2026
+�� Started scraping task for Математика. Профильный уровень
+[INFO] __main__ [scrape_tasks.py:244 - parallel_scrape_logic()] - Started scraping task for Математика. Профильный уровень
+
+⏳ Waiting for 1 scraping tasks to complete...
+[DEBUG] utils.browser_pool_manager [browser_pool_manager.py:51 - get_available_browser()] - Waiting for available browser from pool
+[INFO] utils.browser_pool_manager [browser_pool_manager.py:53 - get_available_browser()] - Browser retrieved from pool. Pool usage: 0/1
+📄 Starting scraping for subject: Математика. Профильный уровень (proj_id: AC437B34557F88EA4115D2F374B0A07B)
+[INFO] __main__ [scrape_tasks.py:89 - scrape_subject_logic()] - Starting scraping for subject: Математика. Профильный уровень (proj_id: AC437B34557F88EA4115D2F374B0A07B)
+[DEBUG] __main__ [scrape_tasks.py:94 - scrape_subject_logic()] - Attempting to scrape page 'init' for proj_id 'AC437B34557F88EA4115D2F374B0A07B' and subject 'promath'
+[INFO] scraper.fipi_scraper [fipi_scraper.py:166 - scrape_page()] - Scraping page init for project AC437B34557F88EA4115D2F374B0A07B (subject: promath)...
+[DEBUG] scraper.fipi_scraper [fipi_scraper.py:172 - scrape_page()] - Navigating to URL: https://ege.fipi.ru/bank/questions.php?proj=AC437B34557F88EA4115D2F374B0A07B&page=init
+[INFO] utils.browser_manager [browser_manager.py:147 - get_general_page()] - Creating new general-purpose page.
+[DEBUG] scraper.fipi_scraper [fipi_scraper.py:183 - scrape_page()] - Waiting for .qblock elements to appear...
+[DEBUG] scraper.fipi_scraper [fipi_scraper.py:188 - scrape_page()] - Page content length: 139187 characters
+[DEBUG] scraper.fipi_scraper [fipi_scraper.py:212 - scrape_page()] - Starting page processing orchestrator...
+[DEBUG] utils.element_pairer [element_pairer.py:35 - pair()] - Starting element pairing process.
+--- DEBUG: ordered_elements (with other divs) ---
+  [0]: other_div, id='None', class='None', extracted_id='None', text='...'
+  [1]: other_div, id='MathJax_Message', class='None', extracted_id='None', text='...'
+  [2]: qblock, id='q40B442', class='['qblock']', extracted_id='40B442', text='Впишите правильный ответ.Даны ...'
+  [3]: header, id='i40B442', class='None', extracted_id='40B442', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.5 Коорд...'
+  [4]: qblock, id='q4CBD4E', class='['qblock']', extracted_id='4CBD4E', text='Впишите правильный ответ.Найди...'
+  [5]: header, id='i4CBD4E', class='None', extracted_id='4CBD4E', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.1 Целые...'
+  [6]: qblock, id='qFDA042', class='['qblock', 'hide-form']', extracted_id='FDA042', text='Дайте развернутый ответ.а) Реш...'
+  [7]: header, id='iFDA042', class='None', extracted_id='FDA042', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.3 Триго...'
+  [8]: qblock, id='q0A394E', class='['qblock']', extracted_id='0A394E', text='Впишите правильный ответ.Даны ...'
+  [9]: header, id='i0A394E', class='None', extracted_id='0A394E', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.5 Коорд...'
+  [10]: qblock, id='q75244F', class='['qblock']', extracted_id='75244F', text='Впишите правильный ответ.Фабри...'
+  [11]: header, id='i75244F', class='None', extracted_id='75244F', text='iСВОЙСТВА ЗАДАНИЯКЭС:6.2 Вероя...'
+  [12]: qblock, id='q71A34E', class='['qblock']', extracted_id='71A34E', text='Впишите правильный ответ.Найди...'
+  [13]: header, id='i71A34E', class='None', extracted_id='71A34E', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.4 Показ...'
+  [14]: qblock, id='q71BC43', class='['qblock']', extracted_id='71BC43', text='Впишите правильный ответ.На ри...'
+  [15]: header, id='i71BC43', class='None', extracted_id='71BC43', text='iСВОЙСТВА ЗАДАНИЯКЭС:4.2 Приме...'
+  [16]: qblock, id='qB5214D', class='['qblock']', extracted_id='B5214D', text='Впишите правильный ответ.На ол...'
+  [17]: header, id='iB5214D', class='None', extracted_id='B5214D', text='iСВОЙСТВА ЗАДАНИЯКЭС:6.2 Вероя...'
+  [18]: qblock, id='q1FE24C', class='['qblock']', extracted_id='1FE24C', text='Впишите правильный ответ.Найди...'
+  [19]: header, id='i1FE24C', class='None', extracted_id='1FE24C', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.2 Иррац...'
+  [20]: qblock, id='q2D494A', class='['qblock']', extracted_id='2D494A', text='Впишите правильный ответ.Найди...'
+  [21]: header, id='i2D494A', class='None', extracted_id='2D494A', text='iСВОЙСТВА ЗАДАНИЯКЭС:1.5 Синус...'
+  [22]: other_div, id='bottom_marker', class='None', extracted_id='None', text='...'
+  [23]: other_div, id='None', class='None', extracted_id='None', text='...'
+--------- END DEBUG ---------
+--- DEBUG: Processing qblock at i=2 (id=40B442), next_matching_header_idx=3 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q40B442) with Header 'i40B442' (id i40B442) (next)
+  -> PAIRED (q->h, next): (i40B442, '...Впишите правильный ответ.Даны ...')
+--- DEBUG: Processing qblock at i=4 (id=4CBD4E), next_matching_header_idx=5 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q4CBD4E) with Header 'i4CBD4E' (id i4CBD4E) (next)
+  -> PAIRED (q->h, next): (i4CBD4E, '...Впишите правильный ответ.Найди...')
+--- DEBUG: Processing qblock at i=6 (id=FDA042), next_matching_header_idx=7 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock', 'hide-form']' (id qFDA042) with Header 'iFDA042' (id iFDA042) (next)
+  -> PAIRED (q->h, next): (iFDA042, '...Дайте развернутый ответ.а) Реш...')
+--- DEBUG: Processing qblock at i=8 (id=0A394E), next_matching_header_idx=9 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q0A394E) with Header 'i0A394E' (id i0A394E) (next)
+  -> PAIRED (q->h, next): (i0A394E, '...Впишите правильный ответ.Даны ...')
+--- DEBUG: Processing qblock at i=10 (id=75244F), next_matching_header_idx=11 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q75244F) with Header 'i75244F' (id i75244F) (next)
+  -> PAIRED (q->h, next): (i75244F, '...Впишите правильный ответ.Фабри...')
+--- DEBUG: Processing qblock at i=12 (id=71A34E), next_matching_header_idx=13 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q71A34E) with Header 'i71A34E' (id i71A34E) (next)
+  -> PAIRED (q->h, next): (i71A34E, '...Впишите правильный ответ.Найди...')
+--- DEBUG: Processing qblock at i=14 (id=71BC43), next_matching_header_idx=15 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q71BC43) with Header 'i71BC43' (id i71BC43) (next)
+  -> PAIRED (q->h, next): (i71BC43, '...Впишите правильный ответ.На ри...')
+--- DEBUG: Processing qblock at i=16 (id=B5214D), next_matching_header_idx=17 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id qB5214D) with Header 'iB5214D' (id iB5214D) (next)
+  -> PAIRED (q->h, next): (iB5214D, '...Впишите правильный ответ.На ол...')
+--- DEBUG: Processing qblock at i=18 (id=1FE24C), next_matching_header_idx=19 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q1FE24C) with Header 'i1FE24C' (id i1FE24C) (next)
+  -> PAIRED (q->h, next): (i1FE24C, '...Впишите правильный ответ.Найди...')
+--- DEBUG: Processing qblock at i=20 (id=2D494A), next_matching_header_idx=21 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q2D494A) with Header 'i2D494A' (id i2D494A) (next)
+  -> PAIRED (q->h, next): (i2D494A, '...Впишите правильный ответ.Найди...')
+[INFO] utils.element_pairer [element_pairer.py:207 - pair()] - Successfully paired 10 header-qblock sets.
+--- DEBUG: Final result length: 10 ---
+[DEBUG] processors.page_processor [page_processor.py:113 - process()] - Found 10 header-qblock pairs on page init.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 0...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '40B442'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.5']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.5']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 0.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_40B442
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 0 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 1...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '4CBD4E'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 1.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_4CBD4E
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 1 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 2...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'FDA042'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.3']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.3']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 2.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_FDA042
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 2 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 3...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '0A394E'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.5']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.5']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 3.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_0A394E
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 3 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 4...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '75244F'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['6.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['6.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 4.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_75244F
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 4 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 5...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '71A34E'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.4']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.4']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 5.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_71A34E
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 5 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 6...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '71BC43'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['4.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['4.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/69FC87BA2A03B8724426E1086DEBB45A(copy1)/xs3qstsrc69FC87BA2A03B8724426E1086DEBB45A_1_1676461317.png: 'coroutine' object has no attribute 'name'
+/home/haku/iXe/processors/block_processor.py:152: RuntimeWarning: coroutine 'AssetDownloader.download' was never awaited
+  processed_soup, proc_metadata = processor.process(
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 6.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_71BC43
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 6 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 7...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'B5214D'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['6.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['6.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 7.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_B5214D
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 7 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 8...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '1FE24C'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 8.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_1FE24C
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 8 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 9...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '2D494A'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['1.5']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['1.5']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 9.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_2D494A
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 9 with task_number=0.
+[INFO] scraper.fipi_scraper [fipi_scraper.py:223 - scrape_page()] - Successfully scraped 10 problems from page init
+[DEBUG] __main__ [scrape_tasks.py:101 - scrape_subject_logic()] - Scraping page 'init' returned 10 problems.
+[INFO] utils.database_manager [database_manager.py:58 - save_problems()] - Saving 10 problems to database...
+[INFO] utils.database_manager [database_manager.py:89 - save_problems()] - Successfully saved 10 problems to database.
+ ✅ Saved 10 problems from page init
+[INFO] utils.browser_manager [browser_manager.py:147 - get_general_page()] - Creating new general-purpose page.
+[WARNING] __main__ [scrape_tasks.py:144 - scrape_subject_logic()] - Could not determine last page number from pager: Page.wait_for_selector: Timeout 10000ms exceeded.
+Call log:
+waiting for locator(".pager") to be visible
+. Falling back to max_empty logic.
+📄 Trying page 1 ...
+[DEBUG] __main__ [scrape_tasks.py:166 - scrape_subject_logic()] - Attempting to scrape page '1' for proj_id 'AC437B34557F88EA4115D2F374B0A07B' and subject 'promath'
+[INFO] scraper.fipi_scraper [fipi_scraper.py:166 - scrape_page()] - Scraping page 1 for project AC437B34557F88EA4115D2F374B0A07B (subject: promath)...
+[DEBUG] scraper.fipi_scraper [fipi_scraper.py:172 - scrape_page()] - Navigating to URL: https://ege.fipi.ru/bank/questions.php?proj=AC437B34557F88EA4115D2F374B0A07B&page=1
+[INFO] utils.browser_manager [browser_manager.py:147 - get_general_page()] - Creating new general-purpose page.
+[DEBUG] scraper.fipi_scraper [fipi_scraper.py:183 - scrape_page()] - Waiting for .qblock elements to appear...
+[DEBUG] scraper.fipi_scraper [fipi_scraper.py:188 - scrape_page()] - Page content length: 143035 characters
+[DEBUG] scraper.fipi_scraper [fipi_scraper.py:212 - scrape_page()] - Starting page processing orchestrator...
+[DEBUG] utils.element_pairer [element_pairer.py:35 - pair()] - Starting element pairing process.
+--- DEBUG: ordered_elements (with other divs) ---
+  [0]: other_div, id='None', class='None', extracted_id='None', text='...'
+  [1]: other_div, id='MathJax_Message', class='None', extracted_id='None', text='...'
+  [2]: qblock, id='qD13540', class='['qblock']', extracted_id='D13540', text='Впишите правильный ответ.На ри...'
+  [3]: header, id='iD13540', class='None', extracted_id='D13540', text='iСВОЙСТВА ЗАДАНИЯКЭС:4.1 Произ...'
+  [4]: qblock, id='qD9AF4A', class='['qblock', 'hide-form']', extracted_id='D9AF4A', text='Дайте развернутый ответ.В июле...'
+  [5]: header, id='iD9AF4A', class='None', extracted_id='D9AF4A', text='iСВОЙСТВА ЗАДАНИЯКЭС:1.1 Натур...'
+  [6]: qblock, id='qA33A46', class='['qblock']', extracted_id='A33A46', text='Впишите правильный ответ.В тре...'
+  [7]: header, id='iA33A46', class='None', extracted_id='A33A46', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.1 Фигур...'
+  [8]: qblock, id='qC9C646', class='['qblock']', extracted_id='C9C646', text='Впишите правильный ответ.На ко...'
+  [9]: header, id='iC9C646', class='None', extracted_id='C9C646', text='iСВОЙСТВА ЗАДАНИЯКЭС:6.2 Вероя...'
+  [10]: qblock, id='q91CD43', class='['qblock']', extracted_id='91CD43', text='Впишите правильный ответ.Найди...'
+  [11]: header, id='i91CD43', class='None', extracted_id='91CD43', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.4 Показ...'
+  [12]: qblock, id='qE02843', class='['qblock']', extracted_id='E02843', text='Впишите правильный ответ.Вероя...'
+  [13]: header, id='iE02843', class='None', extracted_id='E02843', text='iСВОЙСТВА ЗАДАНИЯКЭС:6.2 Вероя...'
+  [14]: qblock, id='q37164B', class='['qblock']', extracted_id='37164B', text='Впишите правильный ответ.Цилин...'
+  [15]: header, id='i37164B', class='None', extracted_id='37164B', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.4 Тела ...'
+  [16]: qblock, id='q80A34C', class='['qblock']', extracted_id='80A34C', text='Впишите правильный ответ.Отрез...'
+  [17]: header, id='i80A34C', class='None', extracted_id='80A34C', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.1 Фигур...'
+  [18]: qblock, id='q4C69F7', class='['qblock']', extracted_id='4C69F7', text='Впишите правильный ответ.Найди...'
+  [19]: header, id='i4C69F7', class='None', extracted_id='4C69F7', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.2 Иррац...'
+  [20]: qblock, id='q7FA4FB', class='['qblock']', extracted_id='7FA4FB', text='Впишите правильный ответ.В тре...'
+  [21]: header, id='i7FA4FB', class='None', extracted_id='7FA4FB', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.1 Фигур...'
+  [22]: other_div, id='bottom_marker', class='None', extracted_id='None', text='...'
+  [23]: other_div, id='None', class='None', extracted_id='None', text='...'
+--------- END DEBUG ---------
+--- DEBUG: Processing qblock at i=2 (id=D13540), next_matching_header_idx=3 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id qD13540) with Header 'iD13540' (id iD13540) (next)
+  -> PAIRED (q->h, next): (iD13540, '...Впишите правильный ответ.На ри...')
+--- DEBUG: Processing qblock at i=4 (id=D9AF4A), next_matching_header_idx=5 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock', 'hide-form']' (id qD9AF4A) with Header 'iD9AF4A' (id iD9AF4A) (next)
+  -> PAIRED (q->h, next): (iD9AF4A, '...Дайте развернутый ответ.В июле...')
+--- DEBUG: Processing qblock at i=6 (id=A33A46), next_matching_header_idx=7 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id qA33A46) with Header 'iA33A46' (id iA33A46) (next)
+  -> PAIRED (q->h, next): (iA33A46, '...Впишите правильный ответ.В тре...')
+--- DEBUG: Processing qblock at i=8 (id=C9C646), next_matching_header_idx=9 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id qC9C646) with Header 'iC9C646' (id iC9C646) (next)
+  -> PAIRED (q->h, next): (iC9C646, '...Впишите правильный ответ.На ко...')
+--- DEBUG: Processing qblock at i=10 (id=91CD43), next_matching_header_idx=11 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q91CD43) with Header 'i91CD43' (id i91CD43) (next)
+  -> PAIRED (q->h, next): (i91CD43, '...Впишите правильный ответ.Найди...')
+--- DEBUG: Processing qblock at i=12 (id=E02843), next_matching_header_idx=13 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id qE02843) with Header 'iE02843' (id iE02843) (next)
+  -> PAIRED (q->h, next): (iE02843, '...Впишите правильный ответ.Вероя...')
+--- DEBUG: Processing qblock at i=14 (id=37164B), next_matching_header_idx=15 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q37164B) with Header 'i37164B' (id i37164B) (next)
+  -> PAIRED (q->h, next): (i37164B, '...Впишите правильный ответ.Цилин...')
+--- DEBUG: Processing qblock at i=16 (id=80A34C), next_matching_header_idx=17 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q80A34C) with Header 'i80A34C' (id i80A34C) (next)
+  -> PAIRED (q->h, next): (i80A34C, '...Впишите правильный ответ.Отрез...')
+--- DEBUG: Processing qblock at i=18 (id=4C69F7), next_matching_header_idx=19 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q4C69F7) with Header 'i4C69F7' (id i4C69F7) (next)
+  -> PAIRED (q->h, next): (i4C69F7, '...Впишите правильный ответ.Найди...')
+--- DEBUG: Processing qblock at i=20 (id=7FA4FB), next_matching_header_idx=21 ---
+[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q7FA4FB) with Header 'i7FA4FB' (id i7FA4FB) (next)
+  -> PAIRED (q->h, next): (i7FA4FB, '...Впишите правильный ответ.В тре...')
+[INFO] utils.element_pairer [element_pairer.py:207 - pair()] - Successfully paired 10 header-qblock sets.
+--- DEBUG: Final result length: 10 ---
+[DEBUG] processors.page_processor [page_processor.py:113 - process()] - Found 10 header-qblock pairs on page 1.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 0...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'D13540'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['4.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['4.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/96A1CCD4FC1A9FED47689887747631F0(copy1)/xs3qstsrc96A1CCD4FC1A9FED47689887747631F0_1_1638185246.png: 'coroutine' object has no attribute 'name'
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 0.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_D13540
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 0 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 1...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'D9AF4A'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['1.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['1.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 1.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_D9AF4A
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 1 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 2...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'A33A46'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/09DEE915266DAB9A4B7D1903883E736A/xs3qstsrcB3F8CC4C3D5CA7194B8FC7EA12D13DAB_1_1478531278.png: 'coroutine' object has no attribute 'name'
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 2.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_A33A46
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 2 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 3...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'C9C646'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['6.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['6.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 3.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_C9C646
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 3 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 4...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '91CD43'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.4']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.4']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 4.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_91CD43
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 4 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 5...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'E02843'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['6.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['6.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/0EAF5F4054BCAB954FA570B08B75D1D0(copy1)/xs3qstsrc0EAF5F4054BCAB954FA570B08B75D1D0_1_1576247873.gif: 'coroutine' object has no attribute 'name'
+/home/haku/iXe/processors/html/image_processor.py:67: RuntimeWarning: coroutine 'AssetDownloader.download' was never awaited
+  local_path = downloader.download(full_img_url, assets_dir, asset_type='image')
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/0EAF5F4054BCAB954FA570B08B75D1D0(copy1)/xs3qstsrc0EAF5F4054BCAB954FA570B08B75D1D0_1_1576247873.gif: 'coroutine' object has no attribute 'name'
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 5.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_E02843
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 5 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 6...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '37164B'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.4']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.4']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/E6EFE322D98AA0874F8B5E9642525DB5(copy1)/xs3qstsrcE6EFE322D98AA0874F8B5E9642525DB5_1_1478534085.png: 'coroutine' object has no attribute 'name'
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 6.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_37164B
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 6 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 7...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '80A34C'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/38145AE420079F9D4C19246517C7086D(copy1)/xs3qstsrc38145AE420079F9D4C19246517C7086D_1_1642161503.png: 'coroutine' object has no attribute 'name'
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 7.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_80A34C
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 7 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 8...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '4C69F7'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.2']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 8.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_4C69F7
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 8 with task_number=0.
+[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
+[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 9...
+[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '7FA4FB'
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.1']
+[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
+[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/1349102ABB7E826C4346526E5D9FDB72/xs3qstsrcDA5103E67E0BB354406C6ACF8BFC2E84_1_1478531281.png: 'coroutine' object has no attribute 'name'
+[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 9.
+[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_7FA4FB
+[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 9 with task_number=0.
+[INFO] scraper.fipi_scraper [fipi_scraper.py:223 - scrape_page()] - Successfully scraped 10 problems from page 1
+[DEBUG] __main__ [scrape_tasks.py:173 - scrape_subject_logic()] - Scraping page '1' returned 10 problems.
+[INFO] utils.database_manager [database_manager.py:58 - save_problems()] - Saving 10 problems to database...
+[INFO] utils.database_manager [database_manager.py:89 - save_problems()] - Successfully saved 10 problems to database.
+   ✅ Saved 10 problems from page 1
+📄 Trying page 2 ...
+[DEBUG] __main__ [scrape_tasks.py:166 - scrape_subject_logic()] - Attempting to scrape page '2' for proj_id 'AC437B34557F88EA4115D2F374B0A07B' and subject 'promath'
+[INFO] scraper.fipi_scraper [fipi_scraper.py:166 - scrape_page()] - Scraping page 2 for project AC437B34557F88EA4115D2F374B0A07B (subject: promath)...
+[DEBUG] scraper.fipi_scraper [fipi_scraper.py:172 - scrape_page()] - Navigating to URL: https://ege.fipi.ru/bank/questions.php?proj=AC437B34557F88EA4115D2F374B0A07B&page=2
+[INFO] utils.browser_manager [browser_manager.py:147 - get_general_page()] - Creating new general-purpose page.
+^C[DEBUG] utils.browser_pool_manager [browser_pool_manager.py:63 - return_browser()] - Returning browser to pool
+[INFO] utils.browser_pool_manager [browser_pool_manager.py:65 - return_browser()] - Browser returned to pool. Pool usage: 1/1
+[INFO] utils.browser_pool_manager [browser_pool_manager.py:69 - close_all()] - Closing all browsers in pool
+[INFO] utils.browser_manager [browser_manager.py:40 - close()] - Closing BrowserManager and all pages.
+[ERROR] utils.browser_manager [browser_manager.py:59 - close()] - Error closing browser: Browser.close: Connection closed while reading from the driver
+[ERROR] utils.browser_manager [browser_manager.py:66 - close()] - Error stopping Playwright: invalid state
+[INFO] utils.browser_pool_manager [browser_pool_manager.py:82 - close_all()] - All browsers in pool closed
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/haku/iXe/scripts/scrape_tasks.py", line 373, in main
+    await scraper.run()
+  File "/home/haku/iXe/scripts/scrape_tasks.py", line 362, in run
+    await self.parallel_scrape_logic(selected_subject_keys, browser_pool)
+  File "/home/haku/iXe/scripts/scrape_tasks.py", line 249, in parallel_scrape_logic
+    await asyncio.gather(*tasks)
+  File "/home/haku/iXe/scripts/scrape_tasks.py", line 167, in scrape_subject_logic
+    problems, _ = await scraper.scrape_page(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/haku/iXe/scraper/fipi_scraper.py", line 180, in scrape_page
+    await page.goto(full_url, wait_until="networkidle", timeout=30000)
+  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/async_api/_generated.py", line 8805, in goto
+    await self._impl_obj.goto(
+  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/_impl/_page.py", line 524, in goto
+    return await self._main_frame.goto(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/_impl/_frame.py", line 145, in goto
+    await self._channel.send("goto", locals_to_params(locals()))
+  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 59, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 512, in wrap_api_call
+    return await cb()
+           ^^^^^^^^^^
+  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 88, in inner_send
+    done, _ = await asyncio.wait(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 464, in wait
+    return await _wait(fs, timeout, return_when, loop)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 550, in _wait
+    await waiter
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/haku/iXe/scripts/scrape_tasks.py", line 376, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+[ERROR] asyncio [base_events.py:1821 - default_exception_handler()] - Future exception was never retrieved
+future: <Future finished exception=TargetClosedError('Target page, context or browser has been closed\nCall log:\nnavigating to "https://ege.fipi.ru/bank/questions.php?proj=AC437B34557F88EA4115D2F374B0A07B&page=2", waiting until "networkidle"\n')>
+playwright._impl._errors.TargetClosedError: Target page, context or browser has been closed
+Call log:
+navigating to "https://ege.fipi.ru/bank/questions.php?proj=AC437B34557F88EA4115D2F374B0A07B&page=2", waiting until "networkidle"
+
+
+(venv) haku@DESKTOP-1O36F54:~/iXe$ 

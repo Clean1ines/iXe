@@ -9,7 +9,7 @@ from bs4.element import Tag
 
 from processors.block_processor import BlockProcessor
 from utils.downloader import AssetDownloader
-from processors.html_data_processors import (
+from processors.html import (
     ImageScriptProcessor,
     FileLinkProcessor,
     TaskInfoProcessor,
