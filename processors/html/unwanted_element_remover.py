@@ -6,7 +6,7 @@ class UnwantedElementRemover:
     """
     Removes unwanted HTML elements from the page content.
     """
-    def process(self, soup: BeautifulSoup, run_folder_page: Path):
+    async def process(self, soup: BeautifulSoup, run_folder_page: Path):
         """
         Removes hint divs, status title spans, task status spans, and table rows with bgcolor.
 

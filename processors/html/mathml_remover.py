@@ -6,7 +6,7 @@ class MathMLRemover:
     """
     Removes MathML elements from the page content.
     """
-    def process(self, soup: BeautifulSoup, run_folder_page: Path, downloader: 'AssetDownloader' = None, base_url: str = "", files_location_prefix: str = ""):
+    async def process(self, soup: BeautifulSoup, run_folder_page: Path, downloader: 'AssetDownloader' = None, base_url: str = "", files_location_prefix: str = ""):
         """
         Removes math and mml:math tags.
 

@@ -157,7 +157,8 @@ class BlockProcessor:
                             files_location_prefix=files_location_prefix
                         )
                 else:
-                    processed_soup, proc_metadata = processor.process(combined_soup, page_assets_dir.parent)
+                    # All processors are now async, so we can safely await all of them
+                    processed_soup, proc_metadata = await processor.process(combined_soup, page_assets_dir.parent)
                 combined_soup = processed_soup
                 if isinstance(proc_metadata, dict):
                     all_new_images.update(proc_metadata.get('downloaded_images', {}))
@@ -174,7 +175,8 @@ class BlockProcessor:
             header_soup_temp = BeautifulSoup('', 'html.parser')
             header_soup_temp.append(task_header_panel)
             info_proc = next((p for p in processors_to_apply if isinstance(p, TaskInfoProcessor)), TaskInfoProcessor())
-            processed_header_soup, _ = info_proc.process(header_soup_temp, page_assets_dir.parent)
+            # Since TaskInfoProcessor is now async, we need to await its process method
+            processed_header_soup, _ = await info_proc.process(header_soup_temp, page_assets_dir.parent)
             task_header_panel = processed_header_soup.find('div', class_='task-header-panel')
             combined_soup.append(task_header_panel.extract())
 
