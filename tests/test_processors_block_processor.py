@@ -47,7 +47,7 @@ class TestBlockProcessor(unittest.TestCase):
         ]
 
         # Create the BlockProcessor instance under test
-        self.block_processor = BlockProcessor(
+        self.block_processor = BlockProcessor(task_inferer=None, 
             asset_downloader_factory=self.mock_downloader_factory,
             processors=self.mock_processors,
             metadata_extractor=self.mock_metadata_extractor,
@@ -82,7 +82,7 @@ class TestBlockProcessor(unittest.TestCase):
         page_assets_dir = self.temp_dir / "assets"
         page_assets_dir.mkdir(exist_ok=True)
         proj_id = "proj_A"
-        base_url = "https://example.com/fipi"
+        base_url = "https://example.com/fipi  "
         page_obj = MagicMock()
 
         # Mock return values for dependencies
@@ -135,7 +135,7 @@ class TestBlockProcessor(unittest.TestCase):
         # Check return tuple structure and types
         self.assertEqual(len(result), 6)
         self.assertIsInstance(result[0], str)  # processed_html_string
-        self.assertIsInstance(result[1], str)  # assignment_text - now correctly mocked
+        self.assertIsInstance(result[1], str) # assignment_text - now correctly mocked
         self.assertIsInstance(result[2], dict) # new_images_dict
         self.assertIsInstance(result[3], dict) # new_files_dict
         self.assertIsInstance(result[4], Problem) # problem
@@ -151,7 +151,7 @@ class TestBlockProcessor(unittest.TestCase):
         page_assets_dir = self.temp_dir / "assets"
         page_assets_dir.mkdir(exist_ok=True)
         proj_id = "proj_A"
-        base_url = "https://example.com/fipi"
+        base_url = "https://example.com/fipi  "
         page_obj = MagicMock()
 
         # Mock return values
@@ -215,4 +215,3 @@ class TestBlockProcessor(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
