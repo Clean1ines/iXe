@@ -97,3 +97,10 @@ class ProblemResponse(BaseModel):
     topics: List[str]
     offline_html: Optional[str]
     model_config = {"from_attributes": True}
+
+# --- Дополнительные модели для block endpoint ---
+class GetBlockResponse(BaseModel):
+    """
+    Schema representing a response containing a single problem block.
+    """
+    problem: ProblemResponse

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from utils.database_manager import DatabaseManager
 from api.dependencies import get_db_manager
-from models.response_models import GetBlockResponse, ProblemResponse
+from api.schemas import GetBlockResponse, ProblemResponse
 
 router = APIRouter(tags=["blocks"])
 
