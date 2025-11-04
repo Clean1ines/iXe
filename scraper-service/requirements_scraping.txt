@@ -1,0 +1,12 @@
+playwright
+beautifulsoup4
+lxml
+aiofiles
+sqlalchemy
+asyncpg
+pydantic
+python-dotenv
+fastapi
+uvicorn[standard]
+psycopg2-binary
+supabase
