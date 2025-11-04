@@ -43,7 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Установка Python-зависимостей
-COPY requirements.txt .
+COPY requirements/requirements_web.txt requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Установка Playwright (браузер)

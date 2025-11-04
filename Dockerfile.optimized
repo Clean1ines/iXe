@@ -1,0 +1,37 @@
+# --- STAGE 1: Build Stage ---
+FROM python:3.11-slim as builder
+
+# Установка системных зависимостей, необходимых для компиляции Python-пакетов (если нужно для fastapi/sqlalchemy/pydantic)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Копирование файла зависимостей для веб-API и установка
+COPY requirements/requirements_web.txt .
+RUN pip install --user --no-cache-dir -r requirements_web.txt
+
+# --- STAGE 2: Runtime Stage ---
+FROM python:3.11-slim
+
+# Установка системных зависимостей, необходимых для работы приложения (только для веб-API)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Копирование установленных пакетов из builder-стадии
+COPY --from=builder /root/.local /root/.local
+
+# Убедиться, что исполняемые файлы pip находятся в PATH
+ENV PATH=/root/.local/bin:$PATH
+
+# Копирование исходного кода
+COPY . .
+
+# Указание команды запуска
+CMD ["python", "-m", "uvicorn", "run:app", "--host", "0.0.0.0", "--port", "10000"]

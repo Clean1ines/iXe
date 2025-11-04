@@ -1,0 +1,6 @@
+qdrant_client==1.15.1
+sentence_transformers==5.1.2
+SQLAlchemy==2.0.44
+pydantic==2.12.3
+python-dotenv==1.0.0
+numpy # Добавьте конкретную версию, если она установлена
