@@ -1,8 +1,8 @@
-FROM python:3.11-slim
+FROM python:3.11-slim as builder
 
 WORKDIR /app
 
-# Системные зависимости для Playwright (Chromium)
+# Системные зависимости для Playwright (только в builder)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     fonts-liberation \
@@ -46,10 +46,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements/requirements_web.txt requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Установка Playwright (браузер)
+# Очистка pip кэша
+RUN pip cache purge
+
+# Установка Playwright (браузер) в builder стадии
 RUN playwright install chromium
 
-# Копируем ВЕСЬ проект (включая data/, api/, models/, и т.д.)
+FROM python:3.11-slim as runtime
+
+WORKDIR /app
+
+# Системные зависимости для runtime (только необходимые для запуска)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копируем установленные пакеты из builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Копируем системные библиотеки из builder (если нужно для playwright)
+COPY --from=builder /root/.cache/ms-playwright /root/.cache/ms-playwright
+
+# Копируем только необходимые файлы проекта (без requirements)
 COPY . .
 
 # Переменные окружения
