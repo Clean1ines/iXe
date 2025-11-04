@@ -8,6 +8,7 @@ data/**
 !data/promath/2026/fipi_data.db
 !data/specs/
 !data/specs/**
+docs/migration/
 problems/
 refactoring/
 refactoring/**
