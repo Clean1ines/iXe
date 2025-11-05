@@ -1,0 +1,10 @@
+pytest==7.4.0
+black==23.7.0
+isort==5.12.0
+mypy==1.4.1
+pipreqs==0.4.13
+pipdeptree==2.13.0
+httpie==3.2.4
+generate_tree.py
+astor==0.8.1
+bandit==1.7.5
