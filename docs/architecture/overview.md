@@ -1,41 +1,26 @@
-# System Architecture
+# Обзор архитектуры
 
-## Overview
-iXe is a personalized ЕГЭ preparation platform that combines:
-- Web scraping of official FIPI tasks
-- Adaptive quiz delivery via PWA (Telegram Mini App compatible)
-- Skill-based knowledge tracing
-- Offline-first content rendering
+Проект организован как монорепозиторий с центральной библиотекой `common`, содержащей общие компоненты. Это позволяет избежать дублирования кода между различными частями системы.
 
-## High-Level Components
+## Структура
 
-```mermaid
-graph LR
-  A[PWA Frontend] -->|HTTPS| B(FastAPI Core)
-  B --> C[(ArangoDB)]
-  B --> D[(Qdrant)]
-  B --> E[(SQLite)]
-  F[FIPI Scraper] -->|ingest| C
-  F -->|embed| D Data Flow
-User selects subject → GET /api/subjects/available
-System generates quiz → POST /api/quiz/{subject}/start
-Answers submitted → POST /api/answer → checked via FIPIAnswerChecker
-Skill graph updated in ArangoDB (future)
-Next task selected via rule engine + vector similarity (Qdrant)
-Deployment
-Frontend: React PWA, hosted as Static Site on Render (ixe.onrender.com)
-Backend: FastAPI on Render Web Service (ixe-core.onrender.com)
-Storage:
-fipi_data.db: pre-scraped tasks (read-only in prod)
-ArangoDB: skill graph (planned)
-Qdrant: embeddings for semantic search
-Scraping: local-only (Playwright)
-Key Design Principles
-Offline-first: all task content embeddable as data URI
-Stateless API: no session storage; user state derived from DB
-Testability: all core logic dependency-injected
-Extensibility: subject-agnostic API design
-Future Directions
-Replace SQLite with ArangoDB for skill graph
-Add RAG pipeline: user question → Qdrant → ArangoDB → explanation
-Implement spaced repetition scheduler
+- `api/`: FastAPI приложение, предоставляющее REST API для фронтенда. Зависит от `common`.
+- `scraper/`: Компонент для скрапинга данных с сайта FIPI. Зависит от `common`.
+- `scripts/`: Вспомогательные скрипты (миграция, индексация и т.д.). Зависит от `common`.
+- `common/`: Общая библиотека, содержащая:
+  - `models/`: Pydantic и SQLAlchemy модели.
+  - `utils/`: Stateless утилиты.
+  - `processors/`: Обработчики данных.
+  - `services/`: Общая бизнес-логика.
+  - `config/`: Конфигурационные файлы.
+- `frontend/`: Клиентская часть (PWA).
+- `data/`: Локальные данные (базы данных, файлы задач).
+- `docs/`: Документация.
+- `utils/`: Вспомогательные утилиты (до рефакторинга). **Часть файлов была перенесена в `common/utils/`.**
+- `models/`: Модели данных (до рефакторинга). **Часть файлов была перенесена в `common/models/`.**
+- `processors/`: Процессоры данных (до рефакторинга). **Часть файлов была перенесена в `common/processors/`.**
+- `services/`: Сервисы (до рефакторинга). **Часть файлов была перенесена в `common/services/`.**
+
+## Взаимодействие
+
+Компоненты (`api`, `scraper`, `scripts`) импортируют общие модели и утилиты из `common`. Это обеспечивает согласованность данных и уменьшает дублирование. Файлы в старых директориях (`utils/`, `models/`, `processors/`, `services/`), которые не были перенесены, могут зависеть от `common` или выполнять логику, специфичную для старой архитектуры.

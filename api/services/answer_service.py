@@ -5,9 +5,9 @@ from utils.database_manager import DatabaseManager
 from utils.local_storage import LocalStorage
 from utils.answer_checker import FIPIAnswerChecker
 from api.schemas import CheckAnswerRequest, CheckAnswerResponse, Feedback
-from services.specification import SpecificationService
+from common.services.specification import SpecificationService
 from utils.skill_graph import InMemorySkillGraph
-from utils.task_id_utils import extract_task_id_and_form_id
+from common.utils.task_id_utils import extract_task_id_and_form_id
 
 logger = logging.getLogger(__name__)
 

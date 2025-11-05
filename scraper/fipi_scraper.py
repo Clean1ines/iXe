@@ -20,12 +20,12 @@ from processors.html import (
     MathMLRemover,
     UnwantedElementRemover
 )
-from processors.page_processor import PageProcessingOrchestrator
-from models.problem_schema import Problem
+from common.processors.page_processor import PageProcessingOrchestrator
+from common.models.problem_schema import Problem
 from utils.downloader import AssetDownloader
-from utils.task_number_inferer import TaskNumberInferer
-from services.specification import SpecificationService
-from utils.fipi_urls import FIPI_BASE_URL, FIPI_QUESTIONS_URL, FIPI_SUBJECTS_LIST_URL
+from common.utils.task_number_inferer import TaskNumberInferer
+from common.services.specification import SpecificationService
+from common.utils.fipi_urls import FIPI_BASE_URL, FIPI_QUESTIONS_URL, FIPI_SUBJECTS_LIST_URL
 
 logger = logging.getLogger(__name__)
 

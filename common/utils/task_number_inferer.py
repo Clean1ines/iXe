@@ -9,7 +9,7 @@ the task number; it only provides KES/KOS codes.
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 import json
-from services.specification import SpecificationService
+from common.services.specification import SpecificationService
 
 
 class TaskNumberInferer:
@@ -20,7 +20,7 @@ class TaskNumberInferer:
     to possible task numbers, and applies heuristic rules for disambiguation.
     """
 
-    def __init__(self, spec_service: SpecificationService, rules_path: Path = Path("config/task_number_rules.json")):
+    def __init__(self, spec_service: SpecificationService, rules_path: Path = Path("common/config/task_number_rules.json")):
         """
         Initializes the inferer with the official specification and rules.
 
@@ -88,7 +88,7 @@ class TaskNumberInferer:
 
     # test utility
     @classmethod
-    def from_paths(cls, spec_path: str, kes_kos_path: str, rules_path: str = "config/task_number_rules.json") -> 'TaskNumberInferer':
+    def from_paths(cls, spec_path: str, kes_kos_path: str, rules_path: str = "common/config/task_number_rules.json") -> 'TaskNumberInferer':
         """
         Convenience factory method to create an instance from file paths.
 

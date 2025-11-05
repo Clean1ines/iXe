@@ -6,8 +6,8 @@ from contextlib import asynccontextmanager
 from playwright.async_api import async_playwright, Page, Browser
 # OLD IMPORT: from utils.answer_checker import FIPIAnswerChecker
 # NEW IMPORT: Use the centralized mapping utility
-from utils.subject_mapping import get_proj_id_for_subject
-from utils.fipi_urls import FIPI_SUBJECTS_LIST_URL # Import the correct URL
+from common.utils.subject_mapping import get_proj_id_for_subject
+from common.utils.fipi_urls import FIPI_SUBJECTS_LIST_URL # Import the correct URL
 
 logger = logging.getLogger(__name__)
 

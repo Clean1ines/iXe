@@ -11,9 +11,9 @@ from typing import List, Optional, Tuple, Dict, Any
 import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker
 
-from models.database_models import Base, DBProblem, DBAnswer
-from models.problem_schema import Problem
-from utils.model_adapter import db_problem_to_problem
+from common.models.database_models import Base, DBProblem, DBAnswer
+from common.models.problem_schema import Problem
+from common.utils.model_adapter import db_problem_to_problem
 
 logger = logging.getLogger(__name__)
 

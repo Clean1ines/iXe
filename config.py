@@ -1,7 +1,7 @@
 """Application configuration settings."""
 
 import os
-from utils.fipi_urls import FIPI_QUESTIONS_URL, FIPI_SUBJECTS_LIST_URL
+from common.utils.fipi_urls import FIPI_QUESTIONS_URL, FIPI_SUBJECTS_LIST_URL
 
 # --- Database ---
 DB_PATH: str = os.getenv("DB_PATH", "data/tasks.db")

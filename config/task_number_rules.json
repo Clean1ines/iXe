@@ -1,8 +1,0 @@
-{
-  "direct_mappings": [
-    {"kes_code": "7.5", "task_number": 2},
-    {"kes_code": "6.2", "task_number": 4, "answer_type": "short"},
-    {"kes_code": "4.2", "task_number": 12},
-    {"kes_codes": ["1.5", "1.8"], "task_number": 7}
-  ]
-}

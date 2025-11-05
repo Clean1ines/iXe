@@ -6,7 +6,7 @@ from utils.answer_checker import FIPIAnswerChecker
 from api.services.quiz_service import QuizService
 from api.services.answer_service import AnswerService
 from utils.skill_graph import InMemorySkillGraph
-from services.specification import SpecificationService
+from common.services.specification import SpecificationService
 from utils.retriever import QdrantProblemRetriever
 from pathlib import Path
 from config import DB_PATH, USE_LOCAL_STORAGE, FIPI_QUESTIONS_URL, QDRANT_HOST, QDRANT_PORT

@@ -1,8 +1,8 @@
 import logging
 from typing import Dict, List
 from utils.database_manager import DatabaseManager
-from services.specification import SpecificationService
-from models.problem_schema import Problem
+from common.services.specification import SpecificationService
+from common.models.problem_schema import Problem
 
 logger = logging.getLogger(__name__)
 
