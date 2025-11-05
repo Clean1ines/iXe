@@ -12,7 +12,7 @@ from bs4.element import Tag
 from utils.downloader import AssetDownloader
 from utils.element_pairer import ElementPairer
 from utils.metadata_extractor import MetadataExtractor
-from models.problem_builder import ProblemBuilder
+from common.models.problem_builder import ProblemBuilder
 from processors.html import (
     ImageScriptProcessor,
     FileLinkProcessor,
@@ -21,7 +21,7 @@ from processors.html import (
     MathMLRemover,
     UnwantedElementRemover
 )
-from models.problem_schema import Problem
+from common.models.problem_schema import Problem
 from processors.block_processor import BlockProcessor
 from utils.task_number_inferer import TaskNumberInferer
 from services.specification import SpecificationService

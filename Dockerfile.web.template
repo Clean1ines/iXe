@@ -1,0 +1,17 @@
+# Используйте этот шаблон как основу для Dockerfile.web
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Копируем зависимости
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копируем common и устанавливаем его как редактируемый пакет
+COPY common/ ./common/
+RUN pip install -e ./common/
+
+# Копируем остальной код
+COPY . .
+
+CMD ["python", "run.py"]

@@ -25,9 +25,9 @@ from processors.html import (
     UnwantedElementRemover
 )
 from utils.metadata_extractor import MetadataExtractor
-from models.problem_builder import ProblemBuilder
+from common.models.problem_builder import ProblemBuilder
 from models.problem_schema import Problem
-from utils.task_number_inferer import TaskNumberInferer
+from common.utils.task_number_inferer import TaskNumberInferer
 
 
 logger = logging.getLogger(__name__)

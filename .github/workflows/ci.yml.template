@@ -1,0 +1,31 @@
+# Используйте этот шаблон как основу для .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt # или установить common локально
+        pip install -e ./common/ # Установка common как редактируемого пакета
+    - name: Run tests
+      run: |
+        pytest
+    - name: Security scan
+      run: |
+        pip install bandit
+        bandit -r common/ -lll

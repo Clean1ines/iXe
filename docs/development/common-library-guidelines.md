@@ -4,7 +4,7 @@
 `common/` организована по модулям, отражающим функциональность:
 - `models/`: Pydantic и SQLAlchemy модели данных.
 - `utils/`: Stateless утилиты (конвертеры, мапперы, вспомогательные функции).
-- `processors/`: Обработчики данных (например, `page_processor`, `block_processor`).
+- `processors/`: Обработчики данных (независимые от BrowserManager/Playwright).
 - `services/`: Сервисы с общей логикой (например, `specification`).
 - `config/`: Конфигурационные файлы (JSON, правила и т.д.).
 
