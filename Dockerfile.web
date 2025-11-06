@@ -1,0 +1,49 @@
+# Многоступенчатая сборка для оптимизации Docker-образа веб-API
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Установка системных зависимостей для сборки, если необходимы
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Установка зависимостей веб-API из requirements_web.txt
+COPY requirements_web.txt .
+RUN pip install --user --no-cache-dir -r requirements_web.txt \
+    && pip cache purge
+
+# Копируем и устанавливаем common как редактируемый пакет
+COPY common/ ./common/
+RUN pip install --user -e ./common/ \
+    && pip cache purge
+
+FROM python:3.11-slim as runtime
+
+WORKDIR /app
+
+# Установка минимальных системных зависимостей, необходимых для работы
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копируем установленные пакеты из builder stage
+COPY --from=builder /root/.local /root/.local
+
+# Устанавливаем PATH для пакетов, установленных в --user
+ENV PATH=/root/.local/bin:$PATH
+
+# Копируем только файлы, необходимые для веб-API
+COPY api/ ./api/
+COPY run.py ./
+COPY config.py ./
+COPY templates/ ./templates/
+COPY .env ./
+# Копируем также квадратный сервис, так как он теперь использует адаптер
+COPY api/services/quiz_service_adapter.py ./api/services/quiz_service_adapter.py
+
+# Переменные окружения
+ENV PYTHONUNBUFFERED=1
+
+# Запуск через run.py
+CMD ["python", "run.py"]
