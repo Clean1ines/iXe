@@ -1,511 +1,1111 @@
-(venv) haku@DESKTOP-1O36F54:~/iXe$ cat << 'EOF' > processors/block_processor.py                                 grep -E "(INFO|ERROR|WARNING|DEBUG.*ImageScriptProcessor|DEBUG.*asset)" Pastecat << 'EOF' > processors/block_processor.py                                 python -m scripts.scrape_tasks
+haku@DESKTOP-1O36F54:~/iXe$ # Вывести текущий скрипт скрапинга
+cat scripts/scrape_tasks.py
+# Вывести связанные утилиты
+cat scraper/fipi_scraper.py
+"""
+Script for scraping FIPI tasks and saving them to the database.
 
-[INFO] __main__ [scrape_tasks.py:57 - setup_logging()] - CLI Scraper initialized.
-[INFO] __main__ [scrape_tasks.py:258 - run()] - FIPI Parser Started (Scraping Mode)
-🚀 Welcome to the FIPI Parser!
-📋 1. Scrape a new subject or update existing data
-🔄 2. Parallel scrape subjects
-�� 3. Exit
-----------------------------------------
-👉 Enter your choice (1/2/3): 2
+This script contains the main scraping logic that was previously in main.py.
+It provides an interactive command-line interface to select subjects and
+initiate scraping. Data is saved in a structured format (SQLite database
+and HTML files) to a designated directory.
 
-📋 Available subjects for parallel scraping:
-1. math (Математика. Базовый уровень)
-2. promath (Математика. Профильный уровень)
-3. informatics (Информатика и ИКТ)
-4. russian (Русский язык)
-5. physics (Физика)
-6. chemistry (Химия)
-7. biology (Биология)
-8. history (История)
-9. social (Обществознание)
-10. literature (Литература)
-11. geography (География)
-12. english (Английский язык)
-13. german (Немецкий язык)
-14. french (Французский язык)
-15. spanish (Испанский язык)
-16. chinese (Китайский язык)
+The scraping is iterative: it starts from the 'init' page and then
+proceeds through numbered pages (1, 2, ...) until the last page is reached
+or a specified number of consecutive empty pages is encountered.
+"""
 
-🔢 Enter subject numbers (comma-separated) or 'all': 2
-Selected subjects for parallel scraping: promath
-[INFO] utils.browser_pool_manager [browser_pool_manager.py:36 - initialize()] - Initializing BrowserPoolManager with pool size 1
-[INFO] utils.browser_manager [browser_manager.py:29 - __aenter__()] - Initializing BrowserManager and launching browser.
-[INFO] utils.browser_pool_manager [browser_pool_manager.py:42 - initialize()] - BrowserPoolManager initialized with 1 browsers
-[INFO] __main__ [scrape_tasks.py:213 - parallel_scrape_logic()] - Mapped subject key 'promath' to proj_id 'AC437B34557F88EA4115D2F374B0A07B'
+import asyncio
+import config
+from scraper.fipi_scraper import FIPIScraper
+from utils.database_manager import DatabaseManager
+from utils.logging_config import setup_logging
+from utils.browser_pool_manager import BrowserPoolManager
+from utils.subject_mapping import SUBJECT_ALIAS_MAP, SUBJECT_KEY_MAP, SUBJECT_TO_PROJ_ID_MAP, SUBJECT_TO_OFFICIAL_NAME_MAP, get_alias_from_official_name, get_subject_key_from_alias, get_proj_id_for_subject, get_official_name_from_alias
+import logging
+from pathlib import Path
+import shutil
+from typing import Optional, Dict, Any
 
-⚠️  Data for 'Математика. Профильный уровень' already exists at data/promath/2026.
-1. Restart scraping (delete existing data)
-2. Skip this subject
-Enter choice for Математика. Профильный уровень (1/2): 1
-✅ Deleted existing data in data/promath/2026
-[DEBUG] utils.database_manager [database_manager.py:38 - __init__()] - DatabaseManager initialized with path: data/promath/2026/fipi_data.db
-[INFO] utils.database_manager [database_manager.py:42 - initialize_db()] - Initializing database tables...
-[INFO] utils.database_manager [database_manager.py:45 - initialize_db()] - Database tables initialized (or verified to exist).
-📁 Output directory: data/promath/2026
-�� Started scraping task for Математика. Профильный уровень
-[INFO] __main__ [scrape_tasks.py:244 - parallel_scrape_logic()] - Started scraping task for Математика. Профильный уровень
 
-⏳ Waiting for 1 scraping tasks to complete...
-[DEBUG] utils.browser_pool_manager [browser_pool_manager.py:51 - get_available_browser()] - Waiting for available browser from pool
-[INFO] utils.browser_pool_manager [browser_pool_manager.py:53 - get_available_browser()] - Browser retrieved from pool. Pool usage: 0/1
-📄 Starting scraping for subject: Математика. Профильный уровень (proj_id: AC437B34557F88EA4115D2F374B0A07B)
-[INFO] __main__ [scrape_tasks.py:89 - scrape_subject_logic()] - Starting scraping for subject: Математика. Профильный уровень (proj_id: AC437B34557F88EA4115D2F374B0A07B)
-[DEBUG] __main__ [scrape_tasks.py:94 - scrape_subject_logic()] - Attempting to scrape page 'init' for proj_id 'AC437B34557F88EA4115D2F374B0A07B' and subject 'promath'
-[INFO] scraper.fipi_scraper [fipi_scraper.py:166 - scrape_page()] - Scraping page init for project AC437B34557F88EA4115D2F374B0A07B (subject: promath)...
-[DEBUG] scraper.fipi_scraper [fipi_scraper.py:172 - scrape_page()] - Navigating to URL: https://ege.fipi.ru/bank/questions.php?proj=AC437B34557F88EA4115D2F374B0A07B&page=init
-[INFO] utils.browser_manager [browser_manager.py:147 - get_general_page()] - Creating new general-purpose page.
-[DEBUG] scraper.fipi_scraper [fipi_scraper.py:183 - scrape_page()] - Waiting for .qblock elements to appear...
-[DEBUG] scraper.fipi_scraper [fipi_scraper.py:188 - scrape_page()] - Page content length: 139187 characters
-[DEBUG] scraper.fipi_scraper [fipi_scraper.py:212 - scrape_page()] - Starting page processing orchestrator...
-[DEBUG] utils.element_pairer [element_pairer.py:35 - pair()] - Starting element pairing process.
---- DEBUG: ordered_elements (with other divs) ---
-  [0]: other_div, id='None', class='None', extracted_id='None', text='...'
-  [1]: other_div, id='MathJax_Message', class='None', extracted_id='None', text='...'
-  [2]: qblock, id='q40B442', class='['qblock']', extracted_id='40B442', text='Впишите правильный ответ.Даны ...'
-  [3]: header, id='i40B442', class='None', extracted_id='40B442', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.5 Коорд...'
-  [4]: qblock, id='q4CBD4E', class='['qblock']', extracted_id='4CBD4E', text='Впишите правильный ответ.Найди...'
-  [5]: header, id='i4CBD4E', class='None', extracted_id='4CBD4E', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.1 Целые...'
-  [6]: qblock, id='qFDA042', class='['qblock', 'hide-form']', extracted_id='FDA042', text='Дайте развернутый ответ.а) Реш...'
-  [7]: header, id='iFDA042', class='None', extracted_id='FDA042', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.3 Триго...'
-  [8]: qblock, id='q0A394E', class='['qblock']', extracted_id='0A394E', text='Впишите правильный ответ.Даны ...'
-  [9]: header, id='i0A394E', class='None', extracted_id='0A394E', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.5 Коорд...'
-  [10]: qblock, id='q75244F', class='['qblock']', extracted_id='75244F', text='Впишите правильный ответ.Фабри...'
-  [11]: header, id='i75244F', class='None', extracted_id='75244F', text='iСВОЙСТВА ЗАДАНИЯКЭС:6.2 Вероя...'
-  [12]: qblock, id='q71A34E', class='['qblock']', extracted_id='71A34E', text='Впишите правильный ответ.Найди...'
-  [13]: header, id='i71A34E', class='None', extracted_id='71A34E', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.4 Показ...'
-  [14]: qblock, id='q71BC43', class='['qblock']', extracted_id='71BC43', text='Впишите правильный ответ.На ри...'
-  [15]: header, id='i71BC43', class='None', extracted_id='71BC43', text='iСВОЙСТВА ЗАДАНИЯКЭС:4.2 Приме...'
-  [16]: qblock, id='qB5214D', class='['qblock']', extracted_id='B5214D', text='Впишите правильный ответ.На ол...'
-  [17]: header, id='iB5214D', class='None', extracted_id='B5214D', text='iСВОЙСТВА ЗАДАНИЯКЭС:6.2 Вероя...'
-  [18]: qblock, id='q1FE24C', class='['qblock']', extracted_id='1FE24C', text='Впишите правильный ответ.Найди...'
-  [19]: header, id='i1FE24C', class='None', extracted_id='1FE24C', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.2 Иррац...'
-  [20]: qblock, id='q2D494A', class='['qblock']', extracted_id='2D494A', text='Впишите правильный ответ.Найди...'
-  [21]: header, id='i2D494A', class='None', extracted_id='2D494A', text='iСВОЙСТВА ЗАДАНИЯКЭС:1.5 Синус...'
-  [22]: other_div, id='bottom_marker', class='None', extracted_id='None', text='...'
-  [23]: other_div, id='None', class='None', extracted_id='None', text='...'
---------- END DEBUG ---------
---- DEBUG: Processing qblock at i=2 (id=40B442), next_matching_header_idx=3 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q40B442) with Header 'i40B442' (id i40B442) (next)
-  -> PAIRED (q->h, next): (i40B442, '...Впишите правильный ответ.Даны ...')
---- DEBUG: Processing qblock at i=4 (id=4CBD4E), next_matching_header_idx=5 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q4CBD4E) with Header 'i4CBD4E' (id i4CBD4E) (next)
-  -> PAIRED (q->h, next): (i4CBD4E, '...Впишите правильный ответ.Найди...')
---- DEBUG: Processing qblock at i=6 (id=FDA042), next_matching_header_idx=7 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock', 'hide-form']' (id qFDA042) with Header 'iFDA042' (id iFDA042) (next)
-  -> PAIRED (q->h, next): (iFDA042, '...Дайте развернутый ответ.а) Реш...')
---- DEBUG: Processing qblock at i=8 (id=0A394E), next_matching_header_idx=9 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q0A394E) with Header 'i0A394E' (id i0A394E) (next)
-  -> PAIRED (q->h, next): (i0A394E, '...Впишите правильный ответ.Даны ...')
---- DEBUG: Processing qblock at i=10 (id=75244F), next_matching_header_idx=11 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q75244F) with Header 'i75244F' (id i75244F) (next)
-  -> PAIRED (q->h, next): (i75244F, '...Впишите правильный ответ.Фабри...')
---- DEBUG: Processing qblock at i=12 (id=71A34E), next_matching_header_idx=13 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q71A34E) with Header 'i71A34E' (id i71A34E) (next)
-  -> PAIRED (q->h, next): (i71A34E, '...Впишите правильный ответ.Найди...')
---- DEBUG: Processing qblock at i=14 (id=71BC43), next_matching_header_idx=15 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q71BC43) with Header 'i71BC43' (id i71BC43) (next)
-  -> PAIRED (q->h, next): (i71BC43, '...Впишите правильный ответ.На ри...')
---- DEBUG: Processing qblock at i=16 (id=B5214D), next_matching_header_idx=17 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id qB5214D) with Header 'iB5214D' (id iB5214D) (next)
-  -> PAIRED (q->h, next): (iB5214D, '...Впишите правильный ответ.На ол...')
---- DEBUG: Processing qblock at i=18 (id=1FE24C), next_matching_header_idx=19 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q1FE24C) with Header 'i1FE24C' (id i1FE24C) (next)
-  -> PAIRED (q->h, next): (i1FE24C, '...Впишите правильный ответ.Найди...')
---- DEBUG: Processing qblock at i=20 (id=2D494A), next_matching_header_idx=21 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q2D494A) with Header 'i2D494A' (id i2D494A) (next)
-  -> PAIRED (q->h, next): (i2D494A, '...Впишите правильный ответ.Найди...')
-[INFO] utils.element_pairer [element_pairer.py:207 - pair()] - Successfully paired 10 header-qblock sets.
---- DEBUG: Final result length: 10 ---
-[DEBUG] processors.page_processor [page_processor.py:113 - process()] - Found 10 header-qblock pairs on page init.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 0...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '40B442'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.5']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.5']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 0.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_40B442
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 0 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 1...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '4CBD4E'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 1.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_4CBD4E
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 1 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 2...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'FDA042'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.3']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.3']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 2.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_FDA042
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 2 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 3...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '0A394E'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.5']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.5']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 3.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_0A394E
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 3 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 4...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '75244F'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['6.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['6.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 4.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_75244F
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 4 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 5...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '71A34E'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.4']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.4']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 5.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_71A34E
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 5 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 6...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '71BC43'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['4.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['4.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/69FC87BA2A03B8724426E1086DEBB45A(copy1)/xs3qstsrc69FC87BA2A03B8724426E1086DEBB45A_1_1676461317.png: 'coroutine' object has no attribute 'name'
-/home/haku/iXe/processors/block_processor.py:152: RuntimeWarning: coroutine 'AssetDownloader.download' was never awaited
-  processed_soup, proc_metadata = processor.process(
-RuntimeWarning: Enable tracemalloc to get the object allocation traceback
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 6.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_71BC43
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 6 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 7...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'B5214D'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['6.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['6.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 7.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_B5214D
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 7 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 8...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '1FE24C'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 8.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_1FE24C
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 8 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 9...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '2D494A'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['1.5']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['1.5']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 9.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: init_2D494A
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 9 with task_number=0.
-[INFO] scraper.fipi_scraper [fipi_scraper.py:223 - scrape_page()] - Successfully scraped 10 problems from page init
-[DEBUG] __main__ [scrape_tasks.py:101 - scrape_subject_logic()] - Scraping page 'init' returned 10 problems.
-[INFO] utils.database_manager [database_manager.py:58 - save_problems()] - Saving 10 problems to database...
-[INFO] utils.database_manager [database_manager.py:89 - save_problems()] - Successfully saved 10 problems to database.
- ✅ Saved 10 problems from page init
-[INFO] utils.browser_manager [browser_manager.py:147 - get_general_page()] - Creating new general-purpose page.
-[WARNING] __main__ [scrape_tasks.py:144 - scrape_subject_logic()] - Could not determine last page number from pager: Page.wait_for_selector: Timeout 10000ms exceeded.
-Call log:
-waiting for locator(".pager") to be visible
-. Falling back to max_empty logic.
-📄 Trying page 1 ...
-[DEBUG] __main__ [scrape_tasks.py:166 - scrape_subject_logic()] - Attempting to scrape page '1' for proj_id 'AC437B34557F88EA4115D2F374B0A07B' and subject 'promath'
-[INFO] scraper.fipi_scraper [fipi_scraper.py:166 - scrape_page()] - Scraping page 1 for project AC437B34557F88EA4115D2F374B0A07B (subject: promath)...
-[DEBUG] scraper.fipi_scraper [fipi_scraper.py:172 - scrape_page()] - Navigating to URL: https://ege.fipi.ru/bank/questions.php?proj=AC437B34557F88EA4115D2F374B0A07B&page=1
-[INFO] utils.browser_manager [browser_manager.py:147 - get_general_page()] - Creating new general-purpose page.
-[DEBUG] scraper.fipi_scraper [fipi_scraper.py:183 - scrape_page()] - Waiting for .qblock elements to appear...
-[DEBUG] scraper.fipi_scraper [fipi_scraper.py:188 - scrape_page()] - Page content length: 143035 characters
-[DEBUG] scraper.fipi_scraper [fipi_scraper.py:212 - scrape_page()] - Starting page processing orchestrator...
-[DEBUG] utils.element_pairer [element_pairer.py:35 - pair()] - Starting element pairing process.
---- DEBUG: ordered_elements (with other divs) ---
-  [0]: other_div, id='None', class='None', extracted_id='None', text='...'
-  [1]: other_div, id='MathJax_Message', class='None', extracted_id='None', text='...'
-  [2]: qblock, id='qD13540', class='['qblock']', extracted_id='D13540', text='Впишите правильный ответ.На ри...'
-  [3]: header, id='iD13540', class='None', extracted_id='D13540', text='iСВОЙСТВА ЗАДАНИЯКЭС:4.1 Произ...'
-  [4]: qblock, id='qD9AF4A', class='['qblock', 'hide-form']', extracted_id='D9AF4A', text='Дайте развернутый ответ.В июле...'
-  [5]: header, id='iD9AF4A', class='None', extracted_id='D9AF4A', text='iСВОЙСТВА ЗАДАНИЯКЭС:1.1 Натур...'
-  [6]: qblock, id='qA33A46', class='['qblock']', extracted_id='A33A46', text='Впишите правильный ответ.В тре...'
-  [7]: header, id='iA33A46', class='None', extracted_id='A33A46', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.1 Фигур...'
-  [8]: qblock, id='qC9C646', class='['qblock']', extracted_id='C9C646', text='Впишите правильный ответ.На ко...'
-  [9]: header, id='iC9C646', class='None', extracted_id='C9C646', text='iСВОЙСТВА ЗАДАНИЯКЭС:6.2 Вероя...'
-  [10]: qblock, id='q91CD43', class='['qblock']', extracted_id='91CD43', text='Впишите правильный ответ.Найди...'
-  [11]: header, id='i91CD43', class='None', extracted_id='91CD43', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.4 Показ...'
-  [12]: qblock, id='qE02843', class='['qblock']', extracted_id='E02843', text='Впишите правильный ответ.Вероя...'
-  [13]: header, id='iE02843', class='None', extracted_id='E02843', text='iСВОЙСТВА ЗАДАНИЯКЭС:6.2 Вероя...'
-  [14]: qblock, id='q37164B', class='['qblock']', extracted_id='37164B', text='Впишите правильный ответ.Цилин...'
-  [15]: header, id='i37164B', class='None', extracted_id='37164B', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.4 Тела ...'
-  [16]: qblock, id='q80A34C', class='['qblock']', extracted_id='80A34C', text='Впишите правильный ответ.Отрез...'
-  [17]: header, id='i80A34C', class='None', extracted_id='80A34C', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.1 Фигур...'
-  [18]: qblock, id='q4C69F7', class='['qblock']', extracted_id='4C69F7', text='Впишите правильный ответ.Найди...'
-  [19]: header, id='i4C69F7', class='None', extracted_id='4C69F7', text='iСВОЙСТВА ЗАДАНИЯКЭС:2.2 Иррац...'
-  [20]: qblock, id='q7FA4FB', class='['qblock']', extracted_id='7FA4FB', text='Впишите правильный ответ.В тре...'
-  [21]: header, id='i7FA4FB', class='None', extracted_id='7FA4FB', text='iСВОЙСТВА ЗАДАНИЯКЭС:7.1 Фигур...'
-  [22]: other_div, id='bottom_marker', class='None', extracted_id='None', text='...'
-  [23]: other_div, id='None', class='None', extracted_id='None', text='...'
---------- END DEBUG ---------
---- DEBUG: Processing qblock at i=2 (id=D13540), next_matching_header_idx=3 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id qD13540) with Header 'iD13540' (id iD13540) (next)
-  -> PAIRED (q->h, next): (iD13540, '...Впишите правильный ответ.На ри...')
---- DEBUG: Processing qblock at i=4 (id=D9AF4A), next_matching_header_idx=5 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock', 'hide-form']' (id qD9AF4A) with Header 'iD9AF4A' (id iD9AF4A) (next)
-  -> PAIRED (q->h, next): (iD9AF4A, '...Дайте развернутый ответ.В июле...')
---- DEBUG: Processing qblock at i=6 (id=A33A46), next_matching_header_idx=7 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id qA33A46) with Header 'iA33A46' (id iA33A46) (next)
-  -> PAIRED (q->h, next): (iA33A46, '...Впишите правильный ответ.В тре...')
---- DEBUG: Processing qblock at i=8 (id=C9C646), next_matching_header_idx=9 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id qC9C646) with Header 'iC9C646' (id iC9C646) (next)
-  -> PAIRED (q->h, next): (iC9C646, '...Впишите правильный ответ.На ко...')
---- DEBUG: Processing qblock at i=10 (id=91CD43), next_matching_header_idx=11 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q91CD43) with Header 'i91CD43' (id i91CD43) (next)
-  -> PAIRED (q->h, next): (i91CD43, '...Впишите правильный ответ.Найди...')
---- DEBUG: Processing qblock at i=12 (id=E02843), next_matching_header_idx=13 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id qE02843) with Header 'iE02843' (id iE02843) (next)
-  -> PAIRED (q->h, next): (iE02843, '...Впишите правильный ответ.Вероя...')
---- DEBUG: Processing qblock at i=14 (id=37164B), next_matching_header_idx=15 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q37164B) with Header 'i37164B' (id i37164B) (next)
-  -> PAIRED (q->h, next): (i37164B, '...Впишите правильный ответ.Цилин...')
---- DEBUG: Processing qblock at i=16 (id=80A34C), next_matching_header_idx=17 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q80A34C) with Header 'i80A34C' (id i80A34C) (next)
-  -> PAIRED (q->h, next): (i80A34C, '...Впишите правильный ответ.Отрез...')
---- DEBUG: Processing qblock at i=18 (id=4C69F7), next_matching_header_idx=19 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q4C69F7) with Header 'i4C69F7' (id i4C69F7) (next)
-  -> PAIRED (q->h, next): (i4C69F7, '...Впишите правильный ответ.Найди...')
---- DEBUG: Processing qblock at i=20 (id=7FA4FB), next_matching_header_idx=21 ---
-[DEBUG] utils.element_pairer [element_pairer.py:102 - pair()] - Paired: QBlock class '['qblock']' (id q7FA4FB) with Header 'i7FA4FB' (id i7FA4FB) (next)
-  -> PAIRED (q->h, next): (i7FA4FB, '...Впишите правильный ответ.В тре...')
-[INFO] utils.element_pairer [element_pairer.py:207 - pair()] - Successfully paired 10 header-qblock sets.
---- DEBUG: Final result length: 10 ---
-[DEBUG] processors.page_processor [page_processor.py:113 - process()] - Found 10 header-qblock pairs on page 1.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 0...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'D13540'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['4.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['4.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/96A1CCD4FC1A9FED47689887747631F0(copy1)/xs3qstsrc96A1CCD4FC1A9FED47689887747631F0_1_1638185246.png: 'coroutine' object has no attribute 'name'
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 0.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_D13540
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 0 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 1...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'D9AF4A'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['1.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['1.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 1.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_D9AF4A
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 1 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 2...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'A33A46'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/09DEE915266DAB9A4B7D1903883E736A/xs3qstsrcB3F8CC4C3D5CA7194B8FC7EA12D13DAB_1_1478531278.png: 'coroutine' object has no attribute 'name'
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 2.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_A33A46
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 2 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 3...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'C9C646'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['6.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['6.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 3.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_C9C646
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 3 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 4...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '91CD43'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.4']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.4']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 4.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_91CD43
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 4 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 5...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: 'E02843'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['6.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['6.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/0EAF5F4054BCAB954FA570B08B75D1D0(copy1)/xs3qstsrc0EAF5F4054BCAB954FA570B08B75D1D0_1_1576247873.gif: 'coroutine' object has no attribute 'name'
-/home/haku/iXe/processors/html/image_processor.py:67: RuntimeWarning: coroutine 'AssetDownloader.download' was never awaited
-  local_path = downloader.download(full_img_url, assets_dir, asset_type='image')
-RuntimeWarning: Enable tracemalloc to get the object allocation traceback
-[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/0EAF5F4054BCAB954FA570B08B75D1D0(copy1)/xs3qstsrc0EAF5F4054BCAB954FA570B08B75D1D0_1_1576247873.gif: 'coroutine' object has no attribute 'name'
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 5.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_E02843
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 5 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 6...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '37164B'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.4']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.4']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/E6EFE322D98AA0874F8B5E9642525DB5(copy1)/xs3qstsrcE6EFE322D98AA0874F8B5E9642525DB5_1_1478534085.png: 'coroutine' object has no attribute 'name'
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 6.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_37164B
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 6 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 7...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '80A34C'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/38145AE420079F9D4C19246517C7086D(copy1)/xs3qstsrc38145AE420079F9D4C19246517C7086D_1_1642161503.png: 'coroutine' object has no attribute 'name'
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 7.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_80A34C
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 7 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 8...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '4C69F7'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['2.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['2.2']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 8.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_4C69F7
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 8 with task_number=0.
-[WARNING] processors.page_processor [page_processor.py:123 - process()] - TaskInferer is not initialized. Task numbers will be inferred with default values.
-[DEBUG] processors.block_processor [block_processor.py:86 - process()] - Processing block 9...
-[DEBUG] utils.downloader [downloader.py:19 - __init__()] - AssetDownloader initialized with page: True
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:50 - extract()] - Extracted task_id: '7FA4FB'
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:62 - extract()] - task_number pattern not found in header text
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:74 - extract()] - Found КЭС matches with pattern 'КЭС\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)*)': ['7.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:76 - extract()] - Final kes_codes: ['7.1']
-[DEBUG] utils.metadata_extractor [metadata_extractor.py:90 - extract()] - Final kos_codes: []
-[ERROR] processors.html.image_processor [image_processor.py:77 - process()] - Error downloading image from img tag https://ege.fipi.ru/docs/AC437B34557F88EA4115D2F374B0A07B/questions/1349102ABB7E826C4346526E5D9FDB72/xs3qstsrcDA5103E67E0BB354406C6ACF8BFC2E84_1_1478531281.png: 'coroutine' object has no attribute 'name'
-[WARNING] processors.block_processor [block_processor.py:224 - process()] - BlockProcessor.task_inferer is None, using default values for block 9.
-[DEBUG] models.problem_builder [problem_builder.py:66 - build()] - Building Problem instance for ID: 1_7FA4FB
-[DEBUG] processors.block_processor [block_processor.py:246 - process()] - Finished processing block 9 with task_number=0.
-[INFO] scraper.fipi_scraper [fipi_scraper.py:223 - scrape_page()] - Successfully scraped 10 problems from page 1
-[DEBUG] __main__ [scrape_tasks.py:173 - scrape_subject_logic()] - Scraping page '1' returned 10 problems.
-[INFO] utils.database_manager [database_manager.py:58 - save_problems()] - Saving 10 problems to database...
-[INFO] utils.database_manager [database_manager.py:89 - save_problems()] - Successfully saved 10 problems to database.
-   ✅ Saved 10 problems from page 1
-📄 Trying page 2 ...
-[DEBUG] __main__ [scrape_tasks.py:166 - scrape_subject_logic()] - Attempting to scrape page '2' for proj_id 'AC437B34557F88EA4115D2F374B0A07B' and subject 'promath'
-[INFO] scraper.fipi_scraper [fipi_scraper.py:166 - scrape_page()] - Scraping page 2 for project AC437B34557F88EA4115D2F374B0A07B (subject: promath)...
-[DEBUG] scraper.fipi_scraper [fipi_scraper.py:172 - scrape_page()] - Navigating to URL: https://ege.fipi.ru/bank/questions.php?proj=AC437B34557F88EA4115D2F374B0A07B&page=2
-[INFO] utils.browser_manager [browser_manager.py:147 - get_general_page()] - Creating new general-purpose page.
-^C[DEBUG] utils.browser_pool_manager [browser_pool_manager.py:63 - return_browser()] - Returning browser to pool
-[INFO] utils.browser_pool_manager [browser_pool_manager.py:65 - return_browser()] - Browser returned to pool. Pool usage: 1/1
-[INFO] utils.browser_pool_manager [browser_pool_manager.py:69 - close_all()] - Closing all browsers in pool
-[INFO] utils.browser_manager [browser_manager.py:40 - close()] - Closing BrowserManager and all pages.
-[ERROR] utils.browser_manager [browser_manager.py:59 - close()] - Error closing browser: Browser.close: Connection closed while reading from the driver
-[ERROR] utils.browser_manager [browser_manager.py:66 - close()] - Error stopping Playwright: invalid state
-[INFO] utils.browser_pool_manager [browser_pool_manager.py:82 - close_all()] - All browsers in pool closed
-Traceback (most recent call last):
-  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
-    return self._loop.run_until_complete(task)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
-    return future.result()
-           ^^^^^^^^^^^^^^^
-  File "/home/haku/iXe/scripts/scrape_tasks.py", line 373, in main
+# === ГОД ЭКЗАМЕНА (можно вынести в config позже) ===
+EXAM_YEAR = "2026"
+
+def get_subject_output_dir(subject_name: str) -> Path:
+    """
+    Returns the output directory path for a given subject.
+
+    Constructs the path as data/{alias}/{year}/ based on the subject name.
+    Uses the mapping utility to get the alias.
+
+    Args:
+        subject_name (str): The official Russian name of the subject.
+
+    Returns:
+        Path: The pathlib.Path object representing the output directory.
+    """
+    alias = get_alias_from_official_name(subject_name)
+    return Path("data") / alias / EXAM_YEAR
+
+class CLIScraper:
+    """
+    Class to encapsulate the CLI scraping logic.
+    """
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        self.setup_logging()
+
+    def setup_logging(self):
+        """Initialize logging."""
+        setup_logging(level="DEBUG") # Use DEBUG for detailed output during scraping
+        self.logger.info("CLI Scraper initialized.")
+
+    def get_available_subjects(self) -> Dict[str, str]:
+        """
+        Get available subjects from subject_mapping, excluding those without PROJ_IDS.
+        Returns a mapping of subject_key to official_name.
+        """
+        available = {}
+        # Iterate through SUBJECT_KEY_MAP to get subject_key and alias
+        for alias, subject_key in SUBJECT_KEY_MAP.items():
+            # Check if this subject_key has a corresponding proj_id
+            if subject_key in SUBJECT_TO_PROJ_ID_MAP:
+                # Get the official name using the alias
+                official_name = SUBJECT_TO_OFFICIAL_NAME_MAP.get(alias, alias) # Fallback to alias if official name not found
+                available[subject_key] = official_name
+        return available
+
+    async def scrape_subject_logic(self, proj_id: str, subject_name: str, scraping_subject_key: str, subject_dir: Path, db_manager: DatabaseManager, browser_pool: BrowserPoolManager):
+        """
+        Performs the iterative scraping for a given subject.
+        """
+        # --- ИНТЕГРАЦИЯ BROWSERMANAGER и FIPISCRAPER ---
+        # Получаем browser_manager из пула
+        browser_manager = await browser_pool.get_available_browser()
+        try:
+            scraper = FIPIScraper(
+                base_url=config.FIPI_QUESTIONS_URL,
+                browser_manager=browser_manager,  # Pass the individual manager, not the pool
+                subjects_url=config.FIPI_SUBJECTS_URL
+            )
+            # === ИТЕРАТИВНЫЙ СКРАПИНГ ===
+            print(f"📄 Starting scraping for subject: {subject_name} (proj_id: {proj_id})")
+            self.logger.info(f"Starting scraping for subject: {subject_name} (proj_id: {proj_id})")
+            total_saved = 0
+
+            # Скрапим страницу "init"
+            try:
+                self.logger.debug(f"Attempting to scrape page 'init' for proj_id '{proj_id}' and subject '{scraping_subject_key}'")
+                problems, scraped_data = await scraper.scrape_page(
+                    proj_id=proj_id,
+                    page_num="init",
+                    run_folder=subject_dir,
+                    subject=scraping_subject_key # PASS SUBJECT KEY
+                )
+                self.logger.debug(f"Scraping page 'init' returned {len(problems)} problems.")
+                if problems:
+                    for problem in problems:
+                        if not getattr(problem, 'subject', None):
+                            problem.subject = scraping_subject_key
+                    db_manager.save_problems(problems)
+                    total_saved += len(problems)
+                    print(f" ✅ Saved {len(problems)} problems from page init")
+                else:
+                    print(" ⚠️  Page init is empty")
+            except Exception as e:
+                print(f" ❌ Error on page init: {e}")
+                self.logger.error(f"Error scraping page init: {e}", exc_info=True)
+
+            # --- НОВАЯ ЛОГИКА: Определение последней страницы ---
+            last_page_num = None
+            try:
+                # Navigate to page 1 to get the pager information
+                general_page_for_pager = await browser_manager.get_general_page()
+                page_1_url = f"{config.FIPI_QUESTIONS_URL}?proj={proj_id}&page=1"
+                await general_page_for_pager.goto(page_1_url, wait_until="networkidle", timeout=30000)
+                await general_page_for_pager.wait_for_selector(".pager", timeout=10000)
+
+                last_page_js_handle = await general_page_for_pager.evaluate_handle(
+                    """() => {
+                        const pager = document.querySelector('.pager');
+                        if (!pager) return null;
+                        const buttons = Array.from(pager.querySelectorAll('.button'));
+                        if (buttons.length === 0) return null;
+                        // Get the 'p' attribute of the last button
+                        const lastButton = buttons[buttons.length - 1];
+                        return lastButton.getAttribute('p');
+                    }"""
+                )
+                last_page_text = await last_page_js_handle.json_value()
+                if last_page_text and last_page_text.isdigit():
+                    last_page_num = int(last_page_text)
+                    self.logger.info(f"Determined last page number: {last_page_num}")
+                else:
+                    self.logger.warning(f"Could not determine last page number from pager, got: {last_page_text}. Falling back to max_empty logic.")
+                    last_page_num = None
+                await general_page_for_pager.close()
+            except Exception as e:
+                self.logger.warning(f"Could not determine last page number from pager: {e}. Falling back to max_empty logic.")
+                last_page_num = None
+            # --- /НОВАЯ ЛОГИКА ---
+
+            # Скрапим страницы 1, 2, 3, ... до last_page_num или пока не будет max_empty пустых подряд
+            page_num = 1
+            empty_count = 0
+            max_empty = 2 # Keep this as a fallback if last_page_num is not determined
+
+            while True:
+                # Check if we've reached the determined last page
+                if last_page_num is not None and page_num > last_page_num:
+                    self.logger.info(f"Reached determined last page ({last_page_num}). Stopping scraping.")
+                    break
+
+                # Check if we've hit the max_empty limit (fallback if last_page_num is unknown)
+                if last_page_num is None and empty_count >= max_empty:
+                    self.logger.info(f"Reached {max_empty} consecutive empty pages. Stopping scraping.")
+                    break
+
+                print(f"📄 Trying page {page_num} ...")
+                try:
+                    self.logger.debug(f"Attempting to scrape page '{page_num}' for proj_id '{proj_id}' and subject '{scraping_subject_key}'")
+                    problems, _ = await scraper.scrape_page(
+                        proj_id=proj_id,
+                        page_num=str(page_num),
+                        run_folder=subject_dir,
+                        subject=scraping_subject_key # PASS SUBJECT KEY
+                    )
+                    self.logger.debug(f"Scraping page '{page_num}' returned {len(problems)} problems.")
+                    if len(problems) == 0:
+                        empty_count += 1
+                        print(f"   ⚠️  Page {page_num} is empty ({empty_count}/{max_empty})")
+                    else:
+                        empty_count = 0 # Reset counter on non-empty page
+                        for problem in problems:
+                            if not getattr(problem, 'subject', None):
+                                problem.subject = scraping_subject_key
+                        db_manager.save_problems(problems)
+                        total_saved += len(problems)
+                        print(f"   ✅ Saved {len(problems)} problems from page {page_num}")
+                except Exception as e:
+                    print(f"   ❌ Error on page {page_num}: {e}")
+                    self.logger.error(f"Error scraping page {page_num}: {e}", exc_info=True)
+                    # Increment empty count on error as well, to prevent infinite loops on consistently failing pages
+                    empty_count += 1
+                page_num += 1
+
+            print(f"\n🎉 Scraping completed for {subject_name}! Total problems saved: {total_saved}")
+            self.logger.info(f"Scraping finished for '{subject_name}', {total_saved} problems saved.")
+        finally:
+            # Возвращаем browser_manager обратно в пул
+            await browser_pool.return_browser(browser_manager)
+
+    async def parallel_scrape_logic(self, selected_subject_keys: list, browser_pool: BrowserPoolManager):
+        """
+        Performs parallel scraping for multiple subjects.
+        """
+        available_subjects = self.get_available_subjects()
+        tasks = []
+
+        for subject_key in selected_subject_keys:
+            if subject_key in available_subjects:
+                subject_name = available_subjects[subject_key]
+                subject_dir = get_subject_output_dir(subject_name)
+                db_path = subject_dir / "fipi_data.db"
+
+                # Get proj_id using the mapping utility
+                proj_id = get_proj_id_for_subject(subject_key)
+                self.logger.info(f"Mapped subject key '{subject_key}' to proj_id '{proj_id}'")
+
+                # Check if data already exists
+                if db_path.exists():
+                    print(f"\n⚠️  Data for '{subject_name}' already exists at {subject_dir}.")
+                    print("1. Restart scraping (delete existing data)")
+                    print("2. Skip this subject")
+                    action = input(f"Enter choice for {subject_name} (1/2): ").strip()
+                    if action == '1':
+                        shutil.rmtree(subject_dir, ignore_errors=True)
+                        print(f"✅ Deleted existing data in {subject_dir}")
+                    else:
+                        print(f"⏭️  Skipping {subject_name}")
+                        continue
+
+                # Create directory and database manager
+                subject_dir.mkdir(parents=True, exist_ok=True)
+                db_manager = DatabaseManager(str(db_path))
+                db_manager.initialize_db()
+                print(f"📁 Output directory: {subject_dir}")
+
+                # Determine the subject key for scraping
+                alias = get_alias_from_official_name(subject_name)
+                scraping_subject_key = get_subject_key_from_alias(alias)
+
+                # Create task for this subject
+                task = asyncio.create_task(
+                    self.scrape_subject_logic(proj_id, subject_name, scraping_subject_key, subject_dir, db_manager, browser_pool)
+                )
+                tasks.append(task)
+                print(f"�� Started scraping task for {subject_name}")
+                self.logger.info(f"Started scraping task for {subject_name}")
+
+        # Wait for all tasks to complete
+        if tasks:
+            print(f"\n⏳ Waiting for {len(tasks)} scraping tasks to complete...")
+            await asyncio.gather(*tasks)
+            print(f"\n🎊 All parallel scraping tasks completed!")
+        else:
+            print("No subjects to scrape.")
+
+    async def run(self):
+        """
+        The main asynchronous function providing the CLI loop for scraping.
+        """
+        self.logger.info("FIPI Parser Started (Scraping Mode)")
+
+        print("🚀 Welcome to the FIPI Parser!")
+        print("📋 1. Scrape a new subject or update existing data")
+        print("🔄 2. Parallel scrape subjects")
+        print("�� 3. Exit")
+        print("-" * 40)
+
+        # Define available subjects directly based on subject_mapping
+        available_subjects = self.get_available_subjects()
+
+        while True:
+            choice = input("👉 Enter your choice (1/2/3): ").strip()
+
+            if choice == '1':
+                print("\n📋 Available subjects (from mapping):")
+                subject_keys = list(available_subjects.keys())
+                for idx, key in enumerate(subject_keys, start=1):
+                    print(f"{idx}. {key} ({available_subjects[key]})")
+                print(f"{len(subject_keys) + 1}. Back to Main Menu")
+
+                while True:
+                    selection_input = input(f"\n🔢 Enter the number of the subject to scrape (or 'b' to go back): ").strip()
+                    if selection_input.lower() == 'b':
+                        break
+
+                    try:
+                        selection = int(selection_input)
+                        if 1 <= selection <= len(subject_keys):
+                            selected_key = subject_keys[selection - 1]
+                            subject_name = available_subjects[selected_key]
+                            subject_dir = get_subject_output_dir(subject_name)
+                            db_path = subject_dir / "fipi_data.db"
+
+                            # Get proj_id using the mapping utility
+                            try:
+                                proj_id = get_proj_id_for_subject(selected_key)
+                                self.logger.info(f"Mapped subject key '{selected_key}' to proj_id '{proj_id}'")
+                            except KeyError as e:
+                                print(f"❌ Error: Subject key '{selected_key}' not found in mappings: {e}")
+                                self.logger.error(f"Subject key '{selected_key}' not found in mappings: {e}")
+                                continue
+
+                            if db_path.exists():
+                                print(f"\n⚠️  Data for '{subject_name}' already exists at {subject_dir}.")
+                                print("1. Restart scraping (delete existing data)")
+                                print("2. Cancel")
+                                action = input("Enter choice (1/2): ").strip()
+                                if action == '1':
+                                    shutil.rmtree(subject_dir, ignore_errors=True)
+                                    print(f"✅ Deleted existing data in {subject_dir}")
+                                else:
+                                    print("Scraping cancelled.")
+                                    continue
+
+                            subject_dir.mkdir(parents=True, exist_ok=True)
+                            db_manager = DatabaseManager(str(db_path))
+                            db_manager.initialize_db()
+                            print(f"📁 Output directory: {subject_dir}")
+
+                            # Determine the subject key for scraping based on the selected subject_name
+                            alias = get_alias_from_official_name(subject_name)
+                            scraping_subject_key = get_subject_key_from_alias(alias)
+
+                            # Use a single-browser pool for sequential scraping
+                            async with BrowserPoolManager(pool_size=1) as browser_pool:
+                                # Вызов функции, которая содержит цикл скрапинга внутри контекстного менеджера BrowserManager
+                                await self.scrape_subject_logic(proj_id, subject_name, scraping_subject_key, subject_dir, db_manager, browser_pool)
+
+                        elif selection == len(subject_keys) + 1:
+                            break
+                        else:
+                            print("❌ Invalid number.")
+                    except ValueError:
+                        print("❌ Please enter a valid number.")
+
+            elif choice == '2':
+                print("\n📋 Available subjects for parallel scraping:")
+                subject_keys = list(available_subjects.keys())
+                for idx, key in enumerate(subject_keys, start=1):
+                    print(f"{idx}. {key} ({available_subjects[key]})")
+
+                selection_input = input(f"\n🔢 Enter subject numbers (comma-separated) or 'all': ").strip()
+                
+                selected_subject_keys = []
+                if selection_input.lower() == 'all':
+                    selected_subject_keys = subject_keys
+                else:
+                    try:
+                        selected_indices = [int(x.strip()) - 1 for x in selection_input.split(',')]
+                        for idx in selected_indices:
+                            if 0 <= idx < len(subject_keys):
+                                selected_subject_keys.append(subject_keys[idx])
+                            else:
+                                print(f"❌ Invalid number: {idx + 1}")
+                                break
+                    except ValueError:
+                        print("❌ Invalid input. Please enter numbers separated by commas or 'all'.")
+                        continue
+                
+                if selected_subject_keys:
+                    print(f"Selected subjects for parallel scraping: {', '.join(selected_subject_keys)}")
+                    pool_size = min(len(selected_subject_keys), 3)  # Limit pool size
+                    async with BrowserPoolManager(pool_size=pool_size) as browser_pool:
+                        await self.parallel_scrape_logic(selected_subject_keys, browser_pool)
+
+            elif choice == '3':
+                print("👋 Goodbye!")
+                break
+            else:
+                print("❌ Invalid choice. Please enter 1, 2, or 3.")
+
+
+async def main():
+    scraper = CLIScraper()
     await scraper.run()
-  File "/home/haku/iXe/scripts/scrape_tasks.py", line 362, in run
-    await self.parallel_scrape_logic(selected_subject_keys, browser_pool)
-  File "/home/haku/iXe/scripts/scrape_tasks.py", line 249, in parallel_scrape_logic
-    await asyncio.gather(*tasks)
-  File "/home/haku/iXe/scripts/scrape_tasks.py", line 167, in scrape_subject_logic
-    problems, _ = await scraper.scrape_page(
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/haku/iXe/scraper/fipi_scraper.py", line 180, in scrape_page
-    await page.goto(full_url, wait_until="networkidle", timeout=30000)
-  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/async_api/_generated.py", line 8805, in goto
-    await self._impl_obj.goto(
-  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/_impl/_page.py", line 524, in goto
-    return await self._main_frame.goto(**locals_to_params(locals()))
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/_impl/_frame.py", line 145, in goto
-    await self._channel.send("goto", locals_to_params(locals()))
-  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 59, in send
-    return await self._connection.wrap_api_call(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 512, in wrap_api_call
-    return await cb()
-           ^^^^^^^^^^
-  File "/home/haku/iXe/venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 88, in inner_send
-    done, _ = await asyncio.wait(
-              ^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.12/asyncio/tasks.py", line 464, in wait
-    return await _wait(fs, timeout, return_when, loop)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.12/asyncio/tasks.py", line 550, in _wait
-    await waiter
-asyncio.exceptions.CancelledError
 
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/home/haku/iXe/scripts/scrape_tasks.py", line 376, in <module>
+if __name__ == "__main__":
     asyncio.run(main())
-  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
-    return runner.run(main)
-           ^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
-    raise KeyboardInterrupt()
-KeyboardInterrupt
-[ERROR] asyncio [base_events.py:1821 - default_exception_handler()] - Future exception was never retrieved
-future: <Future finished exception=TargetClosedError('Target page, context or browser has been closed\nCall log:\nnavigating to "https://ege.fipi.ru/bank/questions.php?proj=AC437B34557F88EA4115D2F374B0A07B&page=2", waiting until "networkidle"\n')>
-playwright._impl._errors.TargetClosedError: Target page, context or browser has been closed
-Call log:
-navigating to "https://ege.fipi.ru/bank/questions.php?proj=AC437B34557F88EA4115D2F374B0A07B&page=2", waiting until "networkidle"
+"""
+Module for scraping FIPI website content and orchestrating the processing pipeline.
+"""
+import asyncio
+import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Callable
+from urllib.parse import urljoin, urlparse
+import requests
+from bs4 import BeautifulSoup
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
+from utils.browser_manager import BrowserManager  # Import BrowserManager instead of BrowserPoolManager
+from utils.metadata_extractor import MetadataExtractor
+from models.problem_builder import ProblemBuilder
+from processors.html import (
+    ImageScriptProcessor,
+    FileLinkProcessor,
+    TaskInfoProcessor,
+    InputFieldRemover,
+    MathMLRemover,
+    UnwantedElementRemover
+)
+from processors.page_processor import PageProcessingOrchestrator
+from models.problem_schema import Problem
+from utils.downloader import AssetDownloader
+from utils.task_number_inferer import TaskNumberInferer
+from services.specification import SpecificationService
+from utils.fipi_urls import FIPI_BASE_URL, FIPI_QUESTIONS_URL, FIPI_SUBJECTS_LIST_URL
+
+logger = logging.getLogger(__name__)
 
 
-(venv) haku@DESKTOP-1O36F54:~/iXe$ 
+class FIPIScraper:
+    """
+    Orchestrates the scraping and processing of FIPI website content.
+    This class coordinates browser management, page navigation, HTML parsing,
+    asset downloading, and transformation into structured Problem instances.
+    It relies on dependency injection for components like BrowserManager to
+    enable testing and modularity.
+    """
+
+    def __init__(
+        self,
+        base_url: str,
+        browser_manager: BrowserManager,  # Accept BrowserManager instead of BrowserPoolManager
+        subjects_url: str,
+        page_delay: float = 1.0,
+        builder: Optional[ProblemBuilder] = None,
+        specification_service: Optional[SpecificationService] = None,
+        task_inferer: Optional[TaskNumberInferer] = None,
+        max_retries: int = 3,
+        initial_delay: float = 1.0
+    ):
+        """
+        Initializes the scraper with necessary dependencies and configuration.
+        
+        Args:
+            base_url (str): Base URL of the FIPI questions page.
+            browser_manager (BrowserManager): Instance to manage browser context and pages.
+            subjects_url (str): URL to fetch the list of subjects/projects.
+            page_delay (float): Delay between page operations to avoid detection/blocking.
+            builder (ProblemBuilder, optional): Problem builder instance to use.
+            specification_service (SpecificationService, optional): Service for official specifications.
+            task_inferer (TaskNumberInferer, optional): Component for inferring task numbers.
+            max_retries (int): Maximum number of retry attempts for network operations.
+            initial_delay (float): Initial delay for retry backoff.
+        """
+        self.base_url = base_url
+        self.browser_manager = browser_manager  # Store BrowserManager instance
+        self.subjects_url = subjects_url
+        self.page_delay = page_delay
+        self.session = requests.Session()
+        # Set browser-like headers to avoid blocking
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive"
+        })
+        self.task_inferer = task_inferer
+        self.specification_service = specification_service
+        self.max_retries = max_retries
+        self.initial_delay = initial_delay
+
+    async def get_projects(self, subjects_list_page) -> Dict[str, str]:
+        """
+        Parses the subjects list page HTML to extract project ID to subject name mappings.
+        NOTE: This method relies on static HTML containing <a> tags with 'proj=' in the href.
+        It may not work with dynamically generated subject lists like the current FIPI index.php.
+        """
+        # Handle if Page object is passed instead of HTML content
+        if hasattr(subjects_list_page, 'content') and callable(subjects_list_page.content):
+            logger.debug("Detected Page object, extracting HTML content...")
+            subjects_list_page_content = await subjects_list_page.content()
+            # Heuristic check if the page is likely the new dynamic index.php
+            # This is fragile, but better than nothing for a deprecated capability
+            # Check for common indicators of the subject list container or specific subject names rendered as divs/spans
+            # For now, just warn if proj= is not found in the initial content fetched
+            if 'proj=' not in subjects_list_page_content:
+                 logger.warning("HTML content fetched from page does not contain 'proj=' in href attributes. "
+                                "The page might be dynamically generated (e.g., current FIPI index.php), "
+                                "making static parsing with BeautifulSoup ineffective for project discovery.")
+        elif isinstance(subjects_list_page, str):
+            subjects_list_page_content = subjects_list_page
+        else:
+            logger.warning("Unexpected input type for subjects_list_page. Attempting string conversion.")
+            subjects_list_page_content = str(subjects_list_page)
+
+        logger.info("Extracting projects from subjects list page using BeautifulSoup...")
+        logger.debug(f"Raw HTML content (first 500 chars): {subjects_list_page_content[:500]}")
+        soup = BeautifulSoup(subjects_list_page_content, 'html.parser')
+        projects = {}
+
+        # Look for links with 'proj=' in the href attribute
+        for link in soup.find_all('a', href=True):
+            href = link['href']
+            text = link.get_text(strip=True)
+
+            # Check if the link contains 'proj=' and has text content
+            if 'proj=' in href and text:
+                # Extract proj_id from URL
+                parsed_url = urlparse(href)
+                query_params = parsed_url.query.split('&')
+                proj_param = None
+
+                for param in query_params:
+                    if param.startswith('proj='):
+                        proj_param = param.split('=')[1]
+                        break
+                # Fallback: try to find proj in the href string directly
+                if not proj_param and 'proj=' in href:
+                    parts = href.split('proj=')
+                    if len(parts) > 1:
+                        proj_param = parts[1].split('&')[0].split('#')[0]
+
+                if proj_param:
+                    # Clean subject name - remove extra spaces and non-printable characters
+                    clean_name = ' '.join(text.split())
+                    projects[proj_param] = clean_name
+                    logger.debug(f"Found project: {proj_param} -> {clean_name}")
+
+        logger.info(f"Successfully found {len(projects)} projects")
+        logger.debug(f"Complete projects mapping: {projects}")
+        return projects
+
+    async def scrape_page(
+        self,
+        proj_id: str,
+        page_num: str,
+        run_folder: Path,
+        subject: str,
+    ) -> Tuple[List[Problem], Dict[str, Any]]:
+        """
+        Scrapes a single page of problems for a given project ID.
+        
+        Args:
+            proj_id (str): Project ID for the subject.
+            page_num (str): Page number to scrape (e.g., "1", "init").
+            run_folder (Path): Directory to store downloaded assets and outputs.
+            subject (str): Subject name for context (e.g., "math").
+        
+        Returns:
+            Tuple[List[Problem], Dict[str, Any]]: List of structured Problem objects
+            and additional scraped metadata.
+        """
+        logger.info(f"Scraping page {page_num} for project {proj_id} (subject: {subject})...")
+        
+        # CORRECT URL CONSTRUCTION for FIPI bank
+        # Base URL should be questions.php endpoint
+        base_questions_url = FIPI_QUESTIONS_URL
+        full_url = f"{base_questions_url}?proj={proj_id}&page={page_num}"
+        logger.debug(f"Navigating to URL: {full_url}")
+        
+        # Get a *general* page instance from the browser manager (not tied to a specific subject)
+        page = await self.browser_manager.get_general_page()
+        
+        for attempt in range(self.max_retries):
+            try:
+                # Navigate to the specific questions page
+                await page.goto(full_url, wait_until="networkidle", timeout=30000)
+                
+                # Wait for content to load
+                logger.debug("Waiting for .qblock elements to appear...")
+                await page.wait_for_selector(".qblock", timeout=60000)  # Increased timeout
+                
+                # Get page content
+                page_content = await page.content()
+                logger.debug(f"Page content length: {len(page_content)} characters")
+                
+                # Create asset downloader factory that uses the same page context
+                def asset_downloader_factory(page_obj, base, prefix):
+                    return AssetDownloader(page=page_obj)
+                
+                # Create the processing orchestrator
+                orchestrator = PageProcessingOrchestrator(
+                    asset_downloader_factory=asset_downloader_factory,
+                    processors=[
+                        ImageScriptProcessor(),
+                        FileLinkProcessor(),
+                        TaskInfoProcessor(),
+                        InputFieldRemover(),
+                        MathMLRemover(),
+                        UnwantedElementRemover()
+                    ],
+                    metadata_extractor=MetadataExtractor(),
+                    problem_builder=ProblemBuilder(),
+                    task_inferer=self.task_inferer,
+                    specification_service=self.specification_service,  # Pass specification service
+                )
+                
+                # Process the page content
+                logger.debug("Starting page processing orchestrator...")
+                problems, scraped_data = await orchestrator.process(
+                    page_content=page_content,
+                    proj_id=proj_id,
+                    page_num=page_num,
+                    run_folder=run_folder,
+                    base_url=base_questions_url,  # Pass the correct base URL
+                    subject=subject,
+                    page=page # Pass the page object to the orchestrator
+                )
+                
+                logger.info(f"Successfully scraped {len(problems)} problems from page {page_num}")
+                return problems, scraped_data
+                
+            except (PlaywrightTimeoutError, Exception) as e:
+                logger.warning(f"Attempt {attempt + 1} failed for page {page_num} (proj_id: {proj_id}): {e}")
+                
+                if attempt < self.max_retries - 1:
+                    # Calculate delay with exponential backoff
+                    delay = self.initial_delay * (2 ** attempt)
+                    logger.debug(f"Waiting {delay}s before retry...")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"All {self.max_retries} attempts failed for page {page_num} (proj_id: {proj_id})")
+                    raise
+            finally:
+                # Close the general page after scraping
+                await page.close()
+
+    async def close(self):
+        """Closes the associated browser resources."""
+        await self.browser_manager.close()
+haku@DESKTOP-1O36F54:~/iXe$ cat utils/browser_manager.py # (если используется в скрапере)
+cat utils/browser_pool_manager.py # (если используется в скрапере)
+"""Module for centralized Playwright browser management."""
+
+import logging
+from typing import Dict
+from contextlib import asynccontextmanager
+from playwright.async_api import async_playwright, Page, Browser
+# OLD IMPORT: from utils.answer_checker import FIPIAnswerChecker
+# NEW IMPORT: Use the centralized mapping utility
+from utils.subject_mapping import get_proj_id_for_subject
+from utils.fipi_urls import FIPI_SUBJECTS_LIST_URL # Import the correct URL
+
+logger = logging.getLogger(__name__)
+
+
+class BrowserManager:
+    """Manages a single browser instance and caches pages per subject.
+    Also manages a special page for the subjects listing page (bank/).
+    """
+
+    def __init__(self, base_url: str = "https://ege.fipi.ru  "):
+        self.base_url = base_url.rstrip("/")
+        self._browser: Browser | None = None
+        self._pages: Dict[str, Page] = {} # Key: subject (e.g., 'math')
+        self._subjects_list_page: Page | None = None # Dedicated page for /bank/
+        self._playwright_ctx = None
+
+    async def __aenter__(self):
+        """Initialize the browser context."""
+        logger.info("Initializing BrowserManager and launching browser.")
+        self._playwright_ctx = await async_playwright().start()
+        self._browser = await self._playwright_ctx.chromium.launch(headless=True)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Close the browser and stop Playwright."""
+        await self.close()
+
+    async def close(self):
+        """Close all cached pages and the browser."""
+        logger.info("Closing BrowserManager and all pages.")
+        for subject, page in self._pages.items():
+            try:
+                await page.close()
+            except Exception as e:
+                logger.warning(f"Error closing page for subject '{subject}': {e}")
+        self._pages.clear()
+
+        if self._subjects_list_page:
+            try:
+                await self._subjects_list_page.close()
+            except Exception as e:
+                logger.warning(f"Error closing subjects list page: {e}")
+            self._subjects_list_page = None
+
+        if self._browser:
+            try:
+                await self._browser.close()
+            except Exception as e:
+                logger.error(f"Error closing browser: {e}")
+            self._browser = None
+
+        if self._playwright_ctx:
+            try:
+                await self._playwright_ctx.stop()
+            except Exception as e:
+                logger.error(f"Error stopping Playwright: {e}")
+            self._playwright_ctx = None
+
+    async def get_page(self, subject: str) -> Page:
+        """
+        Get a cached page for a subject or create a new one.
+
+        Args:
+            subject: The subject name (e.g., 'math', 'informatics').
+
+        Returns:
+            A Playwright Page instance configured for the subject's proj_id.
+        """
+        if subject in self._pages:
+            logger.debug(f"Reusing cached page for subject '{subject}'.")
+            return self._pages[subject]
+
+        logger.info(f"Creating new page for subject '{subject}'.")
+        if not self._browser:
+            raise RuntimeError("Browser is not initialized. Use BrowserManager as an async context manager.")
+
+        page = await self._browser.new_page()
+        page.set_default_timeout(30000)  # 30 seconds
+
+        # OLD CODE: proj_id = FIPIAnswerChecker.get_proj_id_by_subject(subject)
+        # NEW CODE: Use the centralized utility
+        proj_id = get_proj_id_for_subject(subject)
+        if proj_id == "UNKNOWN_PROJ_ID":
+             logger.warning(f"Unknown proj_id for subject '{subject}'. Using default or raising error.")
+             # You might want to raise an exception here depending on your error handling policy
+             # raise ValueError(f"proj_id not found for subject: {subject}")
+             # For now, let's assume a default or handle gracefully if possible
+             # For the test, this will likely fail when navigating.
+             pass # Or handle as needed
+
+        main_url = f"{self.base_url}/bank/index.php?proj={proj_id}"
+
+        logger.debug(f"Navigating page for '{subject}' to {main_url}")
+        await page.goto(main_url, wait_until="networkidle", timeout=30000)
+
+        self._pages[subject] = page
+        logger.debug(f"Page for subject '{subject}' created and cached.")
+        return page
+
+    async def get_subjects_list_page(self) -> Page:
+        """
+        Get a dedicated page for the subjects listing page (ege.fipi.ru/bank/index.php).
+        This page is not tied to a specific proj_id and is used for fetching the project list.
+
+        Returns:
+            A Playwright Page instance for the subjects listing page.
+        """
+        if self._subjects_list_page:
+            logger.debug("Reusing cached subjects list page.")
+            return self._subjects_list_page
+
+        logger.info("Creating new page for subjects listing (bank/index.php).")
+        if not self._browser:
+            raise RuntimeError("Browser is not initialized. Use BrowserManager as an async context manager.")
+
+        page = await self._browser.new_page()
+        page.set_default_timeout(30000)  # 30 seconds
+
+        # Use the correct URL for the subjects list page
+        subjects_list_url = FIPI_SUBJECTS_LIST_URL
+
+        logger.debug(f"Navigating subjects list page to {subjects_list_url}")
+        await page.goto(subjects_list_url, wait_until="networkidle", timeout=30000)
+
+        self._subjects_list_page = page
+        logger.debug("Subjects list page created and cached.")
+        return page
+
+    async def get_general_page(self) -> Page:
+        """
+        Get a general-purpose page not tied to a specific subject/proj_id.
+        Useful for tasks like scraping specific question pages that require a direct URL.
+
+        Returns:
+            A Playwright Page instance.
+        """
+        logger.info("Creating new general-purpose page.")
+        if not self._browser:
+            raise RuntimeError("Browser is not initialized. Use BrowserManager as an async context manager.")
+
+        page = await self._browser.new_page()
+        page.set_default_timeout(30000)  # 30 seconds
+        return page
+"""Module for managing a pool of BrowserManager instances for parallel scraping."""
+
+import asyncio
+import logging
+from typing import List
+from utils.browser_manager import BrowserManager
+
+logger = logging.getLogger(__name__)
+
+
+class BrowserPoolManager:
+    """Manages a pool of BrowserManager instances for parallel scraping."""
+
+    def __init__(self, pool_size: int = 3):
+        """
+        Initialize the browser pool.
+
+        Args:
+            pool_size: Number of BrowserManager instances to maintain in the pool.
+        """
+        self.pool_size = pool_size
+        self._browsers: List[BrowserManager] = []
+        self._queue: asyncio.Queue[BrowserManager] = asyncio.Queue()
+
+    async def __aenter__(self):
+        """Initialize the browser pool when entering the context."""
+        await self.initialize()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Close all browsers in the pool when exiting the context."""
+        await self.close_all()
+
+    async def initialize(self):
+        """Initialize all BrowserManager instances and populate the queue."""
+        logger.info(f"Initializing BrowserPoolManager with pool size {self.pool_size}")
+        for i in range(self.pool_size):
+            browser_manager = BrowserManager()
+            await browser_manager.__aenter__()  # Initialize the browser
+            self._browsers.append(browser_manager)
+            await self._queue.put(browser_manager)
+        logger.info(f"BrowserPoolManager initialized with {self.pool_size} browsers")
+
+    async def get_available_browser(self) -> BrowserManager:
+        """
+        Get an available BrowserManager from the pool.
+
+        Returns:
+            An available BrowserManager instance.
+        """
+        logger.debug("Waiting for available browser from pool")
+        browser_manager = await self._queue.get()
+        logger.info(f"Browser retrieved from pool. Pool usage: {self._queue.qsize()}/{self.pool_size}")
+        return browser_manager
+
+    async def return_browser(self, browser_manager: BrowserManager):
+        """
+        Return a BrowserManager instance back to the pool.
+
+        Args:
+            browser_manager: The BrowserManager instance to return.
+        """
+        logger.debug("Returning browser to pool")
+        await self._queue.put(browser_manager)
+        logger.info(f"Browser returned to pool. Pool usage: {self._queue.qsize()}/{self.pool_size}")
+
+    async def close_all(self):
+        """Close all BrowserManager instances in the pool."""
+        logger.info("Closing all browsers in pool")
+        while not self._queue.empty():
+            try:
+                browser_manager = self._queue.get_nowait()
+                await browser_manager.__aexit__(None, None, None)
+            except asyncio.QueueEmpty:
+                break
+
+        for browser_manager in self._browsers:
+            if browser_manager._browser is not None:
+                await browser_manager.__aexit__(None, None, None)
+
+        self._browsers.clear()
+        logger.info("All browsers in pool closed")
+        
+    async def get_general_page(self):
+        """
+        Get a general-purpose page from an available browser in the pool.
+        This method gets a browser, creates a general page, and returns it.
+        The caller is responsible for closing the page and returning the browser.
+        """
+        logger.debug("Getting general-purpose page from pool")
+        browser_manager = await self.get_available_browser()
+        try:
+            page = await browser_manager.get_general_page()
+            # Attach the browser_manager to the page so it can be returned later
+            page._browser_manager_for_return = browser_manager
+            return page
+        except Exception:
+            # If getting the page fails, return the browser to the pool
+            await self.return_browser(browser_manager)
+            raise
+
+    async def _return_page_and_browser(self, page):
+        """
+        Return a page's browser back to the pool.
+        This is a helper method for internal use.
+        """
+        if hasattr(page, '_browser_manager_for_return'):
+            browser_manager = page._browser_manager_for_return
+            await page.close()  # Close the page
+            await self.return_browser(browser_manager)  # Return the browser to pool
+        else:
+            logger.warning("Page does not have associated browser manager for return")
+            if hasattr(page, 'close'):
+                await page.close()
+
+haku@DESKTOP-1O36F54:~/iXe$ # Вывести текущий DatabaseManager (для понимания, как он будет обновлен для Supabase)
+cat utils/database_manager.py
+"""
+Module for managing SQLite connections and performing CRUD operations
+on tasks and answers using SQLAlchemy ORM.
+"""
+
+import datetime
+import logging
+from pathlib import Path
+from typing import List, Optional, Tuple, Dict, Any
+
+import sqlalchemy as sa
+from sqlalchemy.orm import sessionmaker
+
+from models.database_models import Base, DBProblem, DBAnswer
+from models.problem_schema import Problem
+from utils.model_adapter import db_problem_to_problem
+
+logger = logging.getLogger(__name__)
+
+
+class DatabaseManager:
+    """
+    Class for managing SQLite database using SQLAlchemy ORM.
+
+    Encapsulates database connection, table creation, and core operations:
+    saving tasks and answers, retrieving tasks and answer statuses.
+    """
+
+    def __init__(self, db_path: str):
+        """Initializes the manager with the specified path to the SQLite file.
+
+        Args:
+            db_path (str): Path to the SQLite database file.
+        """
+        self.db_path = db_path
+        self.engine = sa.create_engine(f"sqlite:///{db_path}", echo=False)
+        self.SessionLocal = sessionmaker(bind=self.engine)
+        logger.debug(f"DatabaseManager initialized with path: {db_path}")
+
+    def initialize_db(self) -> None:
+        """Creates database tables if they do not exist yet."""
+        logger.info("Initializing database tables...")
+        try:
+            Base.metadata.create_all(self.engine)
+            logger.info("Database tables initialized (or verified to exist).")
+        except Exception as e:
+            logger.error(f"Error initializing database: {e}", exc_info=True)
+            raise
+
+    def save_problems(self, problems: List[Problem]) -> None:
+        """Saves a list of tasks to the database.
+
+        If a task with the same `problem_id` already exists, it will be replaced.
+
+        Args:
+            problems (List[Problem]): List of Pydantic task models.
+        """
+        logger.info(f"Saving {len(problems)} problems to database...")
+        try:
+            with self.SessionLocal() as session:
+                problem_mappings = [
+                    {
+                        'problem_id': prob.problem_id,
+                        'subject': prob.subject,
+                        'type': prob.type,
+                        'text': prob.text,
+                        'options': prob.options,
+                        'answer': prob.answer,
+                        'solutions': None,  # SQLAlchemy model doesn't have this field
+                        'topics': prob.kes_codes,
+                        'skills': None,  # SQLAlchemy model doesn't have this field
+                        'difficulty_level': prob.difficulty_level,
+                        'task_number': prob.task_number,
+                        'kes_codes': prob.kes_codes,
+                        'kos_codes': prob.kos_codes,
+                        'exam_part': prob.exam_part,
+                        'max_score': prob.max_score,
+                        'form_id': prob.form_id,
+                        'source_url': prob.source_url,
+                        'raw_html_path': prob.raw_html_path,
+                        'created_at': prob.created_at,
+                        'updated_at': prob.updated_at,
+                        'metadata_': prob.metadata,
+                    }
+                    for prob in problems
+                ]
+                session.bulk_insert_mappings(DBProblem, problem_mappings)
+                session.commit()
+            logger.info(f"Successfully saved {len(problems)} problems to database.")
+        except Exception as e:
+            logger.error(f"Error saving problems to database: {e}", exc_info=True)
+            raise
+
+    def save_answer(
+        self,
+        task_id: str,
+        user_id: str,
+        user_answer: str,
+        status: str = "not_checked",
+    ) -> None:
+        """Saves or updates a user's answer to a task."""
+        logger.info(f"Saving answer for task {task_id}, user {user_id}, status {status}.")
+        try:
+            with self.SessionLocal() as session:
+                db_answer = DBAnswer(
+                    problem_id=task_id,
+                    user_id=user_id,
+                    user_answer=user_answer,
+                    status=status,
+                    timestamp=datetime.datetime.now(datetime.UTC),
+                )
+                session.merge(db_answer)
+                session.commit()
+            logger.info(f"Successfully saved answer for task {task_id}.")
+        except Exception as e:
+            logger.error(f"Error saving answer for task {task_id}: {e}", exc_info=True)
+            raise
+
+    def get_answer_and_status(
+        self, task_id: str, user_id: str
+    ) -> Tuple[Optional[str], str]:
+        """Gets the answer and status by task identifier."""
+        try:
+            with self.SessionLocal() as session:
+                db_answer = (
+                    session.query(DBAnswer)
+                    .filter_by(problem_id=task_id, user_id=user_id)
+                    .first()
+                )
+                if db_answer:
+                    return db_answer.user_answer, db_answer.status
+                return None, "not_checked"
+        except Exception as e:
+            logger.error(f"Error fetching answer for task {task_id}: {e}", exc_info=True)
+            raise
+
+    def get_problem_by_id(self, problem_id: str) -> Optional[Problem]:
+        """Gets a task by its identifier."""
+        try:
+            with self.SessionLocal() as session:
+                db_problem = session.query(DBProblem).filter_by(problem_id=problem_id).first()
+                if db_problem:
+                    return db_problem_to_problem(db_problem)
+                return None
+        except Exception as e:
+            logger.error(f"Error fetching problem {problem_id}: {e}", exc_info=True)
+            raise
+
+    def get_problems_by_ids(self, problem_ids: List[str]) -> List[Problem]:
+        """
+        Gets multiple tasks by their identifiers in a single query.
+
+        Args:
+            problem_ids (List[str]): A list of problem IDs to retrieve.
+
+        Returns:
+            List[Problem]: A list of Problem objects corresponding to the given IDs.
+                           The order in the returned list might not match the input order.
+        """
+        if not problem_ids:
+            return []
+
+        try:
+            with self.SessionLocal() as session:
+                # Use SQLAlchemy Core for the IN clause for efficiency
+                # Query the DBProblem objects based on the list of IDs
+                db_problems = session.query(DBProblem).filter(DBProblem.problem_id.in_(problem_ids)).all()
+                
+                # Convert DBProblem objects to Pydantic Problem objects
+                problems = [db_problem_to_problem(db_prob) for db_prob in db_problems]
+                
+                logger.debug(f"Fetched {len(problems)} problems out of {len(problem_ids)} requested IDs.")
+                return problems
+        except Exception as e:
+            logger.error(f"Error fetching problems by IDs: {e}", exc_info=True)
+            raise
+
+    def get_all_problems(self) -> List[Problem]:
+        """Gets all tasks from the database."""
+        try:
+            with self.SessionLocal() as session:
+                db_problems = session.query(DBProblem).all()
+                return [db_problem_to_problem(p) for p in db_problems]
+        except Exception as e:
+            logger.error(f"Error fetching all problems: {e}", exc_info=True)
+            raise
+
+    def get_all_subjects(self) -> List[str]:
+        """Returns a list of all unique subjects in the database."""
+        try:
+            with self.SessionLocal() as session:
+                result = session.execute(sa.text("SELECT DISTINCT subject FROM problems WHERE subject IS NOT NULL"))
+                return [row[0] for row in result.fetchall() if row[0]]
+        except Exception as e:
+            logger.error(f"Error fetching subjects: {e}", exc_info=True)
+            raise
+
+    def get_random_problem_ids(self, subject: str, count: int = 10) -> List[str]:
+        """Returns `count` random problem_ids for the given subject."""
+        try:
+            with self.SessionLocal() as session:
+                result = session.execute(
+                    sa.text("""
+                        SELECT problem_id 
+                        FROM problems 
+                        WHERE subject = :subject 
+                        ORDER BY RANDOM() 
+                        LIMIT :count
+                    """),
+                    {"subject": subject, "count": count}
+                )
+                return [row[0] for row in result.fetchall()]
+        except Exception as e:
+            logger.error(f"Error fetching random problem IDs for subject {subject}: {e}", exc_info=True)
+            raise
+haku@DESKTOP-1O36F54:~/iXe$ 

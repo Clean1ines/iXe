@@ -38,6 +38,13 @@ class CheckAnswerResponse(BaseModel):
         checker_type (str): Type of checker used ("external_api", "rule_based", "llm", etc.).
         checked_at (datetime): ISO8601 timestamp when the check was performed.
         metadata (Optional[Dict[str, Any]]): Arbitrary additional data from the check. May be null.
+        verdict: VerdictEnum  # Additional field for cognitive techniques
+        score_float: float  # Additional field for cognitive techniques
+        short_hint: str  # Additional field for cognitive techniques
+        evidence: List[str] = Field(default_factory=list)  # Additional field for cognitive techniques
+        deep_explanation_id: Optional[str] = None  # Additional field for cognitive techniques
+        hint: Optional[str] = None  # Additional field for cognitive techniques
+        next_task_suggestion: Optional[str] = None  # Additional field for cognitive techniques
     """
     problem_id: str
     user_answer: str
@@ -49,4 +56,11 @@ class CheckAnswerResponse(BaseModel):
     checker_type: str
     checked_at: datetime
     metadata: Optional[Dict[str, Any]] = None
-
+    # Additional fields for cognitive techniques (keeping backward compatibility)
+    verdict: Optional[str] = None
+    score_float: Optional[float] = None
+    short_hint: Optional[str] = None
+    evidence: List[str] = Field(default_factory=list)
+    deep_explanation_id: Optional[str] = None
+    hint: Optional[str] = None
+    next_task_suggestion: Optional[str] = None
