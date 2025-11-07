@@ -10,12 +10,7 @@ from services.specification import SpecificationService
 from utils.retriever import QdrantProblemRetriever
 from pathlib import Path
 from config import DB_PATH, USE_LOCAL_STORAGE, FIPI_QUESTIONS_URL, QDRANT_HOST, QDRANT_PORT
-from domain.exceptions.infrastructure import ExternalServiceException
-from domain.exceptions.business import ResourceNotFoundException
-from utils.logging_config import get_logger
-from domain.services.observability_service import ObservabilityService
 
-logger = get_logger(__name__)
 
 class Config:
     @staticmethod
@@ -41,14 +36,7 @@ def get_qdrant_client() -> QdrantClient:
     Returns:
         QdrantClient: An instance of the Qdrant client.
     """
-    try:
-        return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-    except Exception as e:
-        raise ExternalServiceException(
-            service_name="Qdrant",
-            message=f"Failed to connect to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}",
-            details={"error": str(e)}
-        )
+    return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 
 def get_problem_retriever(
@@ -65,18 +53,11 @@ def get_problem_retriever(
     Returns:
         QdrantProblemRetriever: An instance of the problem retriever.
     """
-    try:
-        return QdrantProblemRetriever(
-            qdrant_client=qdrant_client,
-            collection_name="problems",  # Укажите актуальное имя коллекции
-            db_manager=db_manager
-        )
-    except Exception as e:
-        raise ExternalServiceException(
-            service_name="QdrantProblemRetriever",
-            message="Failed to initialize problem retriever",
-            details={"error": str(e)}
-        )
+    return QdrantProblemRetriever(
+        qdrant_client=qdrant_client,
+        collection_name="problems",  # Укажите актуальное имя коллекции
+        db_manager=db_manager
+    )
 
 
 def get_spec_service(subject: str, year: str) -> SpecificationService:
@@ -91,19 +72,9 @@ def get_spec_service(subject: str, year: str) -> SpecificationService:
         SpecificationService: An instance of the specification service.
     """
     SPEC_DIR = Path(__file__).parent.parent / "data" / "specs"
-    spec_path = SPEC_DIR / f"ege_{year}_{subject}_spec.json"
-    kes_kos_path = SPEC_DIR / f"ege_{year}_{subject}_kes_kos.json"
-    
-    if not spec_path.exists():
-        raise ResourceNotFoundException(
-            resource_type="Specification",
-            resource_id=f"{year}_{subject}",
-            details={"spec_path": str(spec_path)}
-        )
-    
     return SpecificationService(
-        spec_path=spec_path,
-        kes_kos_path=kes_kos_path
+        spec_path=SPEC_DIR / f"ege_{year}_{subject}_spec.json",
+        kes_kos_path=SPEC_DIR / f"ege_{year}_{subject}_kes_kos.json"
     )
 
 
@@ -121,14 +92,7 @@ def get_skill_graph(
     Returns:
         InMemorySkillGraph: An instance of the in-memory skill graph.
     """
-    try:
-        return InMemorySkillGraph.build_from_db_and_specs(db, spec_service)
-    except Exception as e:
-        raise ExternalServiceException(
-            service_name="SkillGraphBuilder",
-            message="Failed to build skill graph from database and specs",
-            details={"error": str(e)}
-        )
+    return InMemorySkillGraph.build_from_db_and_specs(db, spec_service)
 
 
 def get_storage() -> LocalStorage | None:
@@ -172,14 +136,7 @@ async def get_answer_checker(browser_manager: object = Depends(get_browser_manag
     # We pass the browser_manager here.
     # The 'base_url' is now handled internally by BrowserManager or FIPIAnswerChecker if needed for other purposes,
     # but the primary page acquisition is through BrowserManager.
-    try:
-        return FIPIAnswerChecker(browser_manager=browser_manager)
-    except Exception as e:
-        raise ExternalServiceException(
-            service_name="FIPIAnswerChecker",
-            message="Failed to initialize answer checker",
-            details={"error": str(e)}
-        )
+    return FIPIAnswerChecker(browser_manager=browser_manager)
 
 
 def get_answer_service(
@@ -202,14 +159,7 @@ def get_answer_service(
     Returns:
         AnswerService: An instance of the answer service.
     """
-    try:
-        return AnswerService(db, checker, storage, skill_graph, spec_service)
-    except Exception as e:
-        raise ExternalServiceException(
-            service_name="AnswerService",
-            message="Failed to initialize answer service",
-            details={"error": str(e)}
-        )
+    return AnswerService(db, checker, storage, skill_graph, spec_service)
 
 
 def get_quiz_service(
@@ -230,14 +180,7 @@ def get_quiz_service(
     Returns:
         QuizService: An instance of the quiz service.
     """
-    try:
-        return QuizService(db, problem_retriever, skill_graph, spec_service)
-    except Exception as e:
-        raise ExternalServiceException(
-            service_name="QuizService",
-            message="Failed to initialize quiz service",
-            details={"error": str(e)}
-        )
+    return QuizService(db, problem_retriever, skill_graph, spec_service)
 
 
 def get_browser_pool_manager(request: Request):
