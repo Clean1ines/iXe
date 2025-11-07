@@ -9,7 +9,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
-from utils.browser_manager import BrowserManager  # Import BrowserManager instead of BrowserPoolManager
+from resource_management.browser_manager import BrowserManager  # Import BrowserManager instead of BrowserPoolManager
 from utils.metadata_extractor import MetadataExtractor
 from models.problem_builder import ProblemBuilder
 from processors.html import (

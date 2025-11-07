@@ -1,43 +1,44 @@
-"""Module for centralized Playwright browser management."""
+"""Module for centralized Playwright browser management implementing IBrowserResource."""
 
 import logging
 from typing import Dict
 from contextlib import asynccontextmanager
 from playwright.async_api import async_playwright, Page, Browser
-# OLD IMPORT: from utils.answer_checker import FIPIAnswerChecker
-# NEW IMPORT: Use the centralized mapping utility
+
+from .interfaces import IBrowserResource
 from utils.subject_mapping import get_proj_id_for_subject
-from utils.fipi_urls import FIPI_SUBJECTS_LIST_URL # Import the correct URL
+from utils.fipi_urls import FIPI_SUBJECTS_LIST_URL
 
 logger = logging.getLogger(__name__)
 
 
-class BrowserManager:
+class BrowserManager(IBrowserResource):
     """Manages a single browser instance and caches pages per subject.
-    Also manages a special page for the subjects listing page (bank/).
+    Implements IBrowserResource for lifecycle management.
     """
 
-    def __init__(self, base_url: str = "https://ege.fipi.ru  "):
+    def __init__(self, base_url: str = "https://ege.fipi.ru"):
         self.base_url = base_url.rstrip("/")
         self._browser: Browser | None = None
-        self._pages: Dict[str, Page] = {} # Key: subject (e.g., 'math')
-        self._subjects_list_page: Page | None = None # Dedicated page for /bank/
+        self._pages: Dict[str, Page] = {}  # Key: subject (e.g., 'math')
+        self._subjects_list_page: Page | None = None  # Dedicated page for /bank/
         self._playwright_ctx = None
+        self._initialized = False
 
-    async def __aenter__(self):
+    async def initialize(self):
         """Initialize the browser context."""
+        if self._initialized:
+            return
+            
         logger.info("Initializing BrowserManager and launching browser.")
         self._playwright_ctx = await async_playwright().start()
         self._browser = await self._playwright_ctx.chromium.launch(headless=True)
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Close the browser and stop Playwright."""
-        await self.close()
+        self._initialized = True
 
     async def close(self):
         """Close all cached pages and the browser."""
         logger.info("Closing BrowserManager and all pages.")
+        
         for subject, page in self._pages.items():
             try:
                 await page.close()
@@ -65,6 +66,21 @@ class BrowserManager:
             except Exception as e:
                 logger.error(f"Error stopping Playwright: {e}")
             self._playwright_ctx = None
+            
+        self._initialized = False
+
+    async def is_healthy(self) -> bool:
+        """Check if the browser resource is healthy."""
+        if not self._browser:
+            return False
+            
+        try:
+            # Check if browser is still connected by trying to create a page
+            test_page = await self._browser.new_page()
+            await test_page.close()
+            return True
+        except Exception:
+            return False
 
     async def get_page(self, subject: str) -> Page:
         """
@@ -82,21 +98,15 @@ class BrowserManager:
 
         logger.info(f"Creating new page for subject '{subject}'.")
         if not self._browser:
-            raise RuntimeError("Browser is not initialized. Use BrowserManager as an async context manager.")
+            raise RuntimeError("Browser is not initialized. Call initialize() first.")
 
         page = await self._browser.new_page()
         page.set_default_timeout(30000)  # 30 seconds
 
-        # OLD CODE: proj_id = FIPIAnswerChecker.get_proj_id_by_subject(subject)
-        # NEW CODE: Use the centralized utility
         proj_id = get_proj_id_for_subject(subject)
         if proj_id == "UNKNOWN_PROJ_ID":
              logger.warning(f"Unknown proj_id for subject '{subject}'. Using default or raising error.")
-             # You might want to raise an exception here depending on your error handling policy
-             # raise ValueError(f"proj_id not found for subject: {subject}")
-             # For now, let's assume a default or handle gracefully if possible
-             # For the test, this will likely fail when navigating.
-             pass # Or handle as needed
+             pass
 
         main_url = f"{self.base_url}/bank/index.php?proj={proj_id}"
 
@@ -121,12 +131,11 @@ class BrowserManager:
 
         logger.info("Creating new page for subjects listing (bank/index.php).")
         if not self._browser:
-            raise RuntimeError("Browser is not initialized. Use BrowserManager as an async context manager.")
+            raise RuntimeError("Browser is not initialized. Call initialize() first.")
 
         page = await self._browser.new_page()
         page.set_default_timeout(30000)  # 30 seconds
 
-        # Use the correct URL for the subjects list page
         subjects_list_url = FIPI_SUBJECTS_LIST_URL
 
         logger.debug(f"Navigating subjects list page to {subjects_list_url}")
@@ -146,7 +155,7 @@ class BrowserManager:
         """
         logger.info("Creating new general-purpose page.")
         if not self._browser:
-            raise RuntimeError("Browser is not initialized. Use BrowserManager as an async context manager.")
+            raise RuntimeError("Browser is not initialized. Call initialize() first.")
 
         page = await self._browser.new_page()
         page.set_default_timeout(30000)  # 30 seconds

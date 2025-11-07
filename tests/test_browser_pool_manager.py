@@ -3,7 +3,7 @@
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch
-from utils.browser_pool_manager import BrowserPoolManager
+from resource_management.browser_pool_manager import BrowserPoolManager
 
 
 @pytest.mark.asyncio

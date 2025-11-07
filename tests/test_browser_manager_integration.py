@@ -5,7 +5,7 @@ Integration tests for BrowserManager, FIPIScraper, FIPIAnswerChecker, and Answer
 import pytest
 import asyncio
 from pathlib import Path
-from utils.browser_manager import BrowserManager
+from resource_management.browser_manager import BrowserManager
 from scraper.fipi_scraper import FIPIScraper
 from utils.answer_checker import FIPIAnswerChecker
 from services.answer_service import AnswerService

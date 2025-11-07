@@ -10,7 +10,7 @@ import re
 from typing import Any, Dict, Optional, Tuple
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 
-from utils.browser_pool_manager import BrowserPoolManager
+from resource_management.browser_pool_manager import BrowserPoolManager
 
 logger = logging.getLogger(__name__)
 
