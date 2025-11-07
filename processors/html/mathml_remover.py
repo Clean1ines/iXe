@@ -1,25 +1,25 @@
 import re
 from pathlib import Path
 from bs4 import BeautifulSoup
+from typing import Tuple, Dict, Any
+from processors.html_processor_interface import IHTMLProcessor
 
-class MathMLRemover:
+class MathMLRemover(IHTMLProcessor):
     """
     Removes MathML elements from the page content.
     """
-    async def process(self, soup: BeautifulSoup, run_folder_page: Path, downloader: 'AssetDownloader' = None, base_url: str = "", files_location_prefix: str = ""):
+    async def process(self, content: str, context: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         """
         Removes math and mml:math tags.
 
         Args:
-            soup: BeautifulSoup object representing the page content.
-            run_folder_page: Path to the page's run folder.
-            downloader: AssetDownloader instance (not used here).
-            base_url: Base URL (not used here).
-            files_location_prefix: Prefix for file paths (not used here).
+            content: Input HTML content as string
+            context: Processing context with additional parameters
 
         Returns:
-            Tuple of modified soup and empty metadata dict.
+            Tuple of processed HTML content and empty metadata dict.
         """
+        soup = BeautifulSoup(content, 'html.parser')
         for tag in soup.find_all(['math', 'mml:math']):
             tag.decompose()
-        return soup, {}
+        return str(soup), {}

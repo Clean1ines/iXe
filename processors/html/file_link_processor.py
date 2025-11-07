@@ -3,33 +3,44 @@ import logging
 from pathlib import Path
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
+from typing import Tuple, Dict, Any
 from utils.downloader import AssetDownloader
+from processors.html_processor_interface import IHTMLProcessor
 
 logger = logging.getLogger(__name__)
 
-class FileLinkProcessor:
+class FileLinkProcessor(IHTMLProcessor):
     """
     Processes file links, downloading files and updating href attributes.
     """
-    async def process(self, soup: BeautifulSoup, run_folder_page: Path, downloader: AssetDownloader = None, base_url: str = "", files_location_prefix: str = ""):
+    async def process(self, content: str, context: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         """
         Processes javascript file links and direct file links.
 
         Args:
-            soup: BeautifulSoup object representing the page content.
-            run_folder_page: Path to the page's run folder.
-            downloader: AssetDownloader instance to use for downloading.
-            base_url: Base URL for constructing full file URLs.
-            files_location_prefix: Prefix for file paths in HTML.
+            content: Input HTML content as string
+            context: Processing context with additional parameters
+                - 'run_folder_page': Path to the page's run folder
+                - 'downloader': AssetDownloader instance to use for downloading
+                - 'base_url': Base URL for constructing full file URLs
+                - 'files_location_prefix': Prefix for file paths in HTML
 
         Returns:
-            Tuple of modified soup and metadata dict containing downloaded files.
+            Tuple of processed HTML content and metadata dict containing downloaded files.
         """
+        run_folder_page = context.get('run_folder_page')
+        downloader = context.get('downloader')
+        base_url = context.get('base_url', '')
+        files_location_prefix = context.get('files_location_prefix', '')
+        
         if downloader is None:
-            raise ValueError("AssetDownloader must be provided")
+            raise ValueError("AssetDownloader must be provided in context")
+        
+        soup = BeautifulSoup(content, 'html.parser')
         assets_dir = run_folder_page / "assets"
         downloaded_files = {}
         downloaded_images = {}
+        
         for a in soup.find_all('a', href=True):
             href = a['href']
             if href.startswith('javascript:'):
@@ -56,4 +67,5 @@ class FileLinkProcessor:
                         downloaded_images[full_file_url] = f"assets/{local_path.name}"
                 except Exception as e:
                     logger.error(f"Error downloading file from direct link {full_file_url}: {e}")
-        return soup, {'downloaded_files': downloaded_files, 'downloaded_images': downloaded_images}
+        
+        return str(soup), {'downloaded_files': downloaded_files, 'downloaded_images': downloaded_images}

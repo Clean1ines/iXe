@@ -3,30 +3,40 @@ import logging
 from pathlib import Path
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
+from typing import Tuple, Dict, Any
 from utils.downloader import AssetDownloader
+from processors.html_processor_interface import IHTMLProcessor
 
 logger = logging.getLogger(__name__)
 
-class ImageScriptProcessor:
+class ImageScriptProcessor(IHTMLProcessor):
     """
     Processes image-related scripts and direct img tags, downloading images and updating src attributes.
     """
-    async def process(self, soup: BeautifulSoup, run_folder_page: Path, downloader: AssetDownloader = None, base_url: str = "", files_location_prefix: str = ""):
+    async def process(self, content: str, context: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         """
         Processes ShowPicture scripts and direct <img> tags.
 
         Args:
-            soup: BeautifulSoup object representing the page content.
-            run_folder_page: Path to the page's run folder.
-            downloader: AssetDownloader instance to use for downloading.
-            base_url: Base URL for constructing full image URLs.
-            files_location_prefix: Prefix for file paths in HTML.
+            content: Input HTML content as string
+            context: Processing context with additional parameters
+                - 'run_folder_page': Path to the page's run folder
+                - 'downloader': AssetDownloader instance to use for downloading
+                - 'base_url': Base URL for constructing full image URLs
+                - 'files_location_prefix': Prefix for file paths in HTML
 
         Returns:
-            Tuple of modified soup and metadata dict containing downloaded images.
+            Tuple of processed HTML content and metadata dict containing downloaded images.
         """
+        run_folder_page = context.get('run_folder_page')
+        downloader = context.get('downloader')
+        base_url = context.get('base_url', '')
+        files_location_prefix = context.get('files_location_prefix', '')
+        
         if downloader is None:
-            raise ValueError("AssetDownloader must be provided")
+            raise ValueError("AssetDownloader must be provided in context")
+        
+        soup = BeautifulSoup(content, 'html.parser')
         assets_dir = run_folder_page / "assets"
         downloaded_files = {}
         downloaded_images = {}
@@ -37,8 +47,6 @@ class ImageScriptProcessor:
             if match:
                 img_url = match.group(1)
                 try:
-                    # The AssetDownloader.download method is async, so we need to handle it properly in an async context
-                    # For now, we'll assume the downloader instance passed here has been adapted or the calling code is async
                     local_path = await downloader.download(img_url, assets_dir, asset_type='image')
                     if local_path:
                         img_tag = soup.new_tag('img', src=f"assets/{local_path.name}")
@@ -62,8 +70,6 @@ class ImageScriptProcessor:
             full_img_url = urljoin(base_url, img_src) if base_url else img_src
             
             try:
-                # The AssetDownloader.download method is async, so we need to handle it properly in an async context
-                # For now, we'll assume the downloader instance passed here has been adapted or the calling code is async
                 local_path = await downloader.download(full_img_url, assets_dir, asset_type='image')
                 if local_path:
                     # Use the correct path structure: assets/filename.ext
@@ -74,6 +80,6 @@ class ImageScriptProcessor:
                 else:
                     logger.warning(f"Failed to download image from img tag: {full_img_url}")
             except Exception as e:
-                logger.error(f"Error downloading image from img tag {full_img_url}: {e}")
+                logger.error(f"Error downloading image from img tag {img_url}: {e}")
         
-        return soup, {'downloaded_files': downloaded_files, 'downloaded_images': downloaded_images}
+        return str(soup), {'downloaded_files': downloaded_files, 'downloaded_images': downloaded_images}

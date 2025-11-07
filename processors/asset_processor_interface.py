@@ -9,9 +9,10 @@ import abc
 from pathlib import Path
 from typing import Any, Dict, Tuple
 from bs4 import BeautifulSoup
+from processors.html_processor_interface import IHTMLProcessor
 
 
-class AssetProcessor(abc.ABC):
+class AssetProcessor(IHTMLProcessor, abc.ABC):
     """Abstract base class defining the interface for asset processors.
 
     All concrete asset processors (e.g., ImageScriptProcessor, FileLinkProcessor)
@@ -22,22 +23,21 @@ class AssetProcessor(abc.ABC):
     """
 
     @abc.abstractmethod
-    def process(self, soup: BeautifulSoup, assets_dir: Path, **kwargs) -> Tuple[BeautifulSoup, Dict[str, Any]]:
-        """Process the BeautifulSoup object, potentially downloading or transforming assets.
+    def process(self, content: str, context: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+        """Process the HTML content string, potentially downloading or transforming assets.
 
         Args:
-            soup (BeautifulSoup): The BeautifulSoup object representing the HTML fragment to process.
-            assets_dir (Path): The directory where downloaded assets should be saved.
-                               Relative paths in the returned metadata should be relative to
-                               the parent of this directory (i.e., the HTML page directory).
-            **kwargs: Additional keyword arguments that may be required by specific implementations.
+            content (str): The HTML content string to process.
+            context (Dict[str, Any]): A dictionary containing processing context.
                       Common examples include:
+                      - `run_folder_page`: The directory containing the HTML page.
                       - `downloader`: An instance of `AssetDownloader` for downloading assets.
-                      - `run_folder_page`: The directory containing the HTML page (alternative to `assets_dir.parent`).
+                      - `base_url`: Base URL for constructing full file URLs.
+                      - `files_location_prefix`: Prefix for file paths in HTML.
 
         Returns:
-            Tuple[BeautifulSoup, Dict[str, Any]]: A tuple containing:
-                - The (potentially modified) BeautifulSoup object after processing.
+            Tuple[str, Dict[str, Any]]: A tuple containing:
+                - The (potentially modified) HTML content string after processing.
                 - A dictionary of metadata describing changes made, typically mapping original
                   asset identifiers (e.g., URLs) to local relative paths or other relevant info.
                   Example: {"original_image_url.jpg": "assets/image.jpg"}.
