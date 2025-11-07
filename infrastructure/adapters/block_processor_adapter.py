@@ -1,10 +1,11 @@
 """
-Module for processing individual blocks of HTML content from FIPI pages.
+Infrastructure adapter for processing individual blocks of HTML content from FIPI pages.
 
-This module provides the `BlockProcessor` class which encapsulates the logic
-for processing a single block pair (header_container, qblock), including
-applying HTML processors, downloading assets, extracting metadata, and
-building Problem instances with correct task_number inferred from KES codes.
+This module provides the `BlockProcessorAdapter` class which implements the domain
+interface IHTMLProcessor and encapsulates the logic for processing a single block
+pair (header_container, qblock), including applying HTML processors, downloading
+assets, extracting metadata, and building Problem instances with correct task_number
+inferred from KES codes.
 """
 import logging
 import re
@@ -27,19 +28,21 @@ from processors.html import (
 from utils.metadata_extractor import MetadataExtractor
 from models.problem_builder import ProblemBuilder
 from models.problem_schema import Problem
-from domain.services.task_classifier import TaskClassificationService
+from domain.interfaces.html_processor import IHTMLProcessor
+from domain.interfaces.task_inferer import ITaskNumberInferer
+from domain.interfaces.html_processor import ITaskClassifier
 from domain.services.answer_type_detector import AnswerTypeService
 from domain.services.metadata_enhancer import MetadataExtractionService
 from services.specification import SpecificationService
-from processors.html_processor_interface import IHTMLProcessor
+from processors.html_processor_interface import IHTMLProcessor as IHTMLProcessorImpl
 
 
 logger = logging.getLogger(__name__)
 
 
-class BlockProcessor:
+class BlockProcessorAdapter(IHTMLProcessor):
     """
-    A class responsible for processing a single problem block from FIPI pages.
+    Infrastructure adapter implementing domain interface for processing a single problem block from FIPI pages.
     
     It takes paired header and question blocks, applies a series of transformations
     (asset downloading, HTML cleaning), extracts metadata, and builds a Problem instance.
@@ -47,26 +50,29 @@ class BlockProcessor:
 
     def __init__(
         self,
-        task_classifier: TaskClassificationService,
+        task_inferer: ITaskNumberInferer,
+        task_classifier: ITaskClassifier,
         answer_type_service: AnswerTypeService,
         metadata_enhancer: MetadataExtractionService,
         spec_service: Optional[SpecificationService] = None,
     ):
         """
-        Initializes the BlockProcessor with required services.
+        Initializes the BlockProcessorAdapter with required services.
 
         Args:
-            task_classifier: Service for classifying tasks based on KES/KOS codes
+            task_inferer: Domain interface for inferring task numbers
+            task_classifier: Domain interface for classifying tasks
             answer_type_service: Service for detecting answer types
             metadata_enhancer: Service for enhancing metadata with spec data
             spec_service: Optional specification service (needed for metadata enhancer)
         """
+        self.task_inferer = task_inferer
         self.task_classifier = task_classifier
         self.answer_type_service = answer_type_service
         self.metadata_enhancer = metadata_enhancer
         self.spec_service = spec_service
 
-    async def process_block(
+    async def process_html_block(
         self,
         header_container: Tag,
         qblock: Tag,
@@ -76,9 +82,10 @@ class BlockProcessor:
         run_folder_page: Path,
         downloader: AssetDownloader,
         files_location_prefix: str = "",
-    ) -> Problem:
+        **kwargs
+    ) -> Dict[str, Any]:
         """
-        Processes a single block pair (header_container, qblock) into a Problem instance.
+        Processes a single block pair (header_container, qblock) into structured data.
 
         Args:
             header_container: The BeautifulSoup Tag containing the header panel.
@@ -89,9 +96,10 @@ class BlockProcessor:
             run_folder_page: Path to the run folder for this page's assets.
             downloader: AssetDownloader instance for downloading files.
             files_location_prefix: Prefix for file paths in the output.
+            **kwargs: Additional keyword arguments.
 
         Returns:
-            A Problem instance built from the processed block.
+            A dictionary containing structured data from the processed block.
         """
         logger.debug(f"Starting processing of block {block_index} for subject '{subject}'.")
 
@@ -124,14 +132,14 @@ class BlockProcessor:
         html_content_str = str(combined_soup)
         answer_type = self.answer_type_service.detect_answer_type(html_content_str)
 
-        # --- 4. Classify the task using domain service ---
+        # --- 4. Classify the task using domain interface ---
         classification_result = self.task_classifier.classify_task(kes_codes, kos_codes, answer_type)
-        task_number = classification_result.task_number or 0
-        difficulty_level = classification_result.difficulty_level
-        max_score = classification_result.max_score
+        task_number = classification_result.get('task_number', 0) or 0
+        difficulty_level = classification_result.get('difficulty_level', 'basic')
+        max_score = classification_result.get('max_score', 1)
 
         # --- 5. Apply HTML processors ---
-        processors: List[IHTMLProcessor] = [
+        processors: List[IHTMLProcessorImpl] = [
             MathMLRemover(),
             UnwantedElementRemover(),
             FileLinkProcessor(),
@@ -158,28 +166,27 @@ class BlockProcessor:
         # --- 6. Enhance metadata using domain service ---
         enhanced_metadata = self.metadata_enhancer.enhance_metadata(metadata)
 
-        # --- 7. Build the Problem instance ---
-        problem_builder = ProblemBuilder()
-        problem = problem_builder.build_problem(
-            problem_id=f"{subject}_{block_index}_{hash(processed_html_string) % 1000000}",
-            subject=subject,
-            type=f"task_{task_number}" if task_number > 0 else "unknown",
-            text=processed_html_string,
-            answer=None,  # Answers are not scraped from the question itself
-            options=None,
-            assignment_text=assignment_text,
-            kes_codes=kes_codes,
-            kos_codes=kos_codes,
-            task_number=task_number,
-            exam_part="Part 1" if task_number <= 12 else "Part 2",
-            difficulty=difficulty_level,
-            max_score=max_score,
-            topics=kes_codes,  # topics is an alias for kes_codes
-            requirements=kos_codes,  # requirements is an alias for kos_codes
-        )
+        # --- 7. Return structured data ---
+        result = {
+            'problem_id': f"{subject}_{block_index}_{hash(processed_html_string) % 1000000}",
+            'subject': subject,
+            'type': f"task_{task_number}" if task_number > 0 else "unknown",
+            'text': processed_html_string,
+            'answer': None,  # Answers are not scraped from the question itself
+            'options': None,
+            'assignment_text': assignment_text,
+            'kes_codes': kes_codes,
+            'kos_codes': kos_codes,
+            'task_number': task_number,
+            'exam_part': "Part 1" if task_number <= 12 else "Part 2",
+            'difficulty': difficulty_level,
+            'max_score': max_score,
+            'topics': kes_codes,  # topics is an alias for kes_codes
+            'requirements': kos_codes,  # requirements is an alias for kos_codes
+        }
 
         logger.debug(f"Finished processing block {block_index} with task_number={task_number}.")
-        return problem
+        return result
 
     def _extract_kes_codes_reliable(self, header_container: Tag) -> List[str]:
         """

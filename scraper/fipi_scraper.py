@@ -9,7 +9,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
-from resource_management.browser_manager import BrowserManager  # Import BrowserManager instead of BrowserPoolManager
+from utils.browser_manager import BrowserManager  # Import BrowserManager instead of BrowserPoolManager
 from utils.metadata_extractor import MetadataExtractor
 from models.problem_builder import ProblemBuilder
 from processors.html import (
@@ -23,7 +23,7 @@ from processors.html import (
 from processors.page_processor import PageProcessingOrchestrator
 from models.problem_schema import Problem
 from utils.downloader import AssetDownloader
-from utils.task_number_inferer import TaskNumberInferer
+from infrastructure.adapters.task_number_inferer_adapter import TaskNumberInfererAdapter
 from services.specification import SpecificationService
 from utils.fipi_urls import FIPI_BASE_URL, FIPI_QUESTIONS_URL, FIPI_SUBJECTS_LIST_URL
 
@@ -47,7 +47,7 @@ class FIPIScraper:
         page_delay: float = 1.0,
         builder: Optional[ProblemBuilder] = None,
         specification_service: Optional[SpecificationService] = None,
-        task_inferer: Optional[TaskNumberInferer] = None,
+        task_inferer: Optional[TaskNumberInfererAdapter] = None,
         max_retries: int = 3,
         initial_delay: float = 1.0
     ):
@@ -61,7 +61,7 @@ class FIPIScraper:
             page_delay (float): Delay between page operations to avoid detection/blocking.
             builder (ProblemBuilder, optional): Problem builder instance to use.
             specification_service (SpecificationService, optional): Service for official specifications.
-            task_inferer (TaskNumberInferer, optional): Component for inferring task numbers.
+            task_inferer (TaskNumberInfererAdapter, optional): Component for inferring task numbers.
             max_retries (int): Maximum number of retry attempts for network operations.
             initial_delay (float): Initial delay for retry backoff.
         """

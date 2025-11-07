@@ -1,28 +1,29 @@
 """
-Module for inferring the official ЕГЭ task number (1–19) from extracted KES codes
-and answer type, using the official specification.
+Infrastructure adapter for task number inference.
 
-This is necessary because the FIPI question bank does not explicitly state
-the task number; it only provides KES/KOS codes.
+This module provides the `TaskNumberInfererAdapter` class which implements the domain
+interface ITaskNumberInferer and encapsulates the logic for inferring the official
+ЕГЭ task number from KES codes and answer type.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from pathlib import Path
 import json
+from domain.interfaces.task_inferer import ITaskNumberInferer
 from services.specification import SpecificationService
 
 
-class TaskNumberInferer:
+class TaskNumberInfererAdapter(ITaskNumberInferer):
     """
-    Infers the official ЕГЭ task number based on KES codes and answer type.
-
+    Infrastructure adapter implementing domain interface for inferring task numbers.
+    
     Uses the official `ege_2026_math_spec.json` to map top-level KES sections
     to possible task numbers, and applies heuristic rules for disambiguation.
     """
 
     def __init__(self, spec_service: SpecificationService, rules_path: Path = Path("config/task_number_rules.json")):
         """
-        Initializes the inferer with the official specification and rules.
+        Initializes the adapter with the official specification and rules.
 
         Args:
             spec_service: An instance of SpecificationService loaded with
@@ -88,7 +89,7 @@ class TaskNumberInferer:
 
     # test utility
     @classmethod
-    def from_paths(cls, spec_path: str, kes_kos_path: str, rules_path: str = "config/task_number_rules.json") -> 'TaskNumberInferer':
+    def from_paths(cls, spec_path: str, kes_kos_path: str, rules_path: str = "config/task_number_rules.json") -> 'TaskNumberInfererAdapter':
         """
         Convenience factory method to create an instance from file paths.
 
@@ -98,7 +99,7 @@ class TaskNumberInferer:
             rules_path: Path to task number inference rules.
 
         Returns:
-            A configured TaskNumberInferer instance.
+            A configured TaskNumberInfererAdapter instance.
         """
         spec_svc = SpecificationService(
             spec_path=Path(spec_path),
