@@ -1,18 +1,16 @@
-from fastapi import HTTPException
-import logging
 from typing import Optional
 from utils.database_manager import DatabaseManager
 from utils.local_storage import LocalStorage
 from utils.answer_checker import FIPIAnswerChecker
-from api.schemas import CheckAnswerRequest, CheckAnswerResponse, Feedback
+from api.schemas import CheckAnswerRequest, CheckAnswerResponse
 from services.specification import SpecificationService
 from utils.skill_graph import InMemorySkillGraph
 from utils.task_id_utils import extract_task_id_and_form_id
+from services.interfaces import BaseService, IExternalChecker, IStorageProvider
+import logging
 
-logger = logging.getLogger(__name__)
 
-
-class AnswerService:
+class AnswerService(BaseService):
     """
     Service class for handling answer validation and caching logic.
     """
@@ -20,35 +18,39 @@ class AnswerService:
     def __init__(
         self,
         db: DatabaseManager,
-        checker: FIPIAnswerChecker, # Renamed from 'answer_checker' to 'checker' to match dependencies.py, but type is FIPIAnswerChecker
-        storage: Optional[LocalStorage],
+        checker: IExternalChecker,
+        storage: Optional[IStorageProvider],
         skill_graph: InMemorySkillGraph,
         spec_service: SpecificationService
     ):
-        self.db = db
-        self.checker = checker # This is now an instance of FIPIAnswerChecker
+        super().__init__(db)
+        self.checker = checker
         self.storage = storage
         self.skill_graph = skill_graph
         self.spec_service = spec_service
 
+    async def initialize(self):
+        """Initialize service-specific resources."""
+        self.logger.info("AnswerService initialized")
+
     async def check_answer(self, request: CheckAnswerRequest) -> CheckAnswerResponse:
         problem_id = request.problem_id
         user_answer = request.user_answer
-        # form_id is not used directly here anymore as FIPIAnswerChecker gets subject
 
         # Получаем задачу из БД для извлечения task_number и subject
         db_problem = self.db.get_problem_by_id(problem_id)
         if not db_problem:
+            from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Problem not found in database")
         task_number = db_problem.task_number
-        problem_subject = db_problem.subject # Assuming DBProblem has a 'subject' field
+        problem_subject = db_problem.subject
 
         # 1. Проверка кэша
         cached_response = await self._check_cache(problem_id, task_number)
         if cached_response:
             return cached_response
 
-        # 2. Проверка через внешний API (теперь через FIPIAnswerChecker с BrowserManager)
+        # 2. Проверка через внешний API
         verdict, message = await self._call_external_checker(problem_id, user_answer, problem_subject)
 
         # 3. Сохранение результата
@@ -62,7 +64,7 @@ class AnswerService:
         if self.storage is not None:
             cached_ans, cached_status = self.storage.get_answer_and_status(problem_id)
             if cached_ans is not None and cached_status in ("correct", "incorrect"):
-                logger.info(f"Cache hit for {problem_id}")
+                self.logger.info(f"Cache hit for {problem_id}")
                 feedback = self.spec_service.get_feedback_for_task(task_number)
                 return CheckAnswerResponse(
                     verdict=cached_status,
@@ -75,7 +77,7 @@ class AnswerService:
         return None
 
     async def _call_external_checker(self, problem_id: str, user_answer: str, problem_subject: str) -> tuple[str, str]:
-        """Calls the external answer checker (FIPIAnswerChecker)."""
+        """Calls the external answer checker."""
         try:
             # Extract task_id and form_id from the problem_id using the utility function
             task_id, form_id = extract_task_id_and_form_id(problem_id)
@@ -83,7 +85,8 @@ class AnswerService:
             result = await self.checker.check_answer(task_id, form_id, user_answer, problem_subject)
             return result["status"], result["message"]
         except Exception as e:
-            logger.error(f"Error calling answer checker for {problem_id}: {e}", exc_info=True)
+            self.logger.error(f"Error calling answer checker for {problem_id}: {e}", exc_info=True)
+            from fastapi import HTTPException
             raise HTTPException(status_code=502, detail="Error checking answer with external service")
 
     async def _save_result(self, problem_id: str, user_answer: str, verdict: str) -> None:
@@ -118,7 +121,6 @@ class AnswerService:
 
         # Update feedback with next_steps if they exist
         if next_steps:
-            updated_feedback = feedback.model_copy()
             updated_feedback = feedback.model_copy(update={"next_steps": next_steps})
         else:
             updated_feedback = feedback
@@ -131,4 +133,3 @@ class AnswerService:
             deep_explanation_id=None,
             feedback=updated_feedback
         )
-

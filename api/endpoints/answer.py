@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from api.schemas import CheckAnswerRequest, CheckAnswerResponse
-from api.services.answer_service import AnswerService
+from services.answer_service import AnswerService
 from api.dependencies import get_answer_service
 
 router = APIRouter(tags=["answer"])

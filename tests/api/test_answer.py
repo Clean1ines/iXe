@@ -2,7 +2,7 @@
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch
 from api.app import create_app
-from api.services.answer_service import AnswerService
+from services.answer_service import AnswerService
 from api.schemas import CheckAnswerResponse, CheckAnswerRequest
 from datetime import datetime
 import pytest # <-- Добавляем импорт pytest

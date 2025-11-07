@@ -1,0 +1,11 @@
+Current service classes:
+- AnswerService: Uses instance methods, no static methods found
+- QuizService: Uses instance methods, no static methods found
+- SpecificationService: Uses instance methods, no static methods found
+
+Dependencies identified:
+- AnswerService: DatabaseManager, FIPIAnswerChecker, LocalStorage, InMemorySkillGraph, SpecificationService
+- QuizService: DatabaseManager, QdrantProblemRetriever, InMemorySkillGraph, SpecificationService
+- SpecificationService: Pure data processing, no external deps
+
+No static methods to remove - need to focus on DI pattern and interface extraction

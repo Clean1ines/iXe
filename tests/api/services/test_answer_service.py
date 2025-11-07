@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
-from api.services.answer_service import AnswerService
+from services.answer_service import AnswerService
 from api.schemas import CheckAnswerRequest, Feedback
 
 
@@ -53,7 +53,7 @@ class TestAnswerService:
         mock_checker.check_answer.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("api.services.answer_service.extract_task_id_and_form_id")
+    @patch("services.answer_service.extract_task_id_and_form_id")
     async def test_check_answer_cache_miss_correct(
         self, mock_extract, answer_service, mock_db, mock_storage, mock_checker, mock_spec_service
     ):
@@ -75,7 +75,7 @@ class TestAnswerService:
         mock_storage.save_answer_and_status.assert_called_once_with("123", "42", "correct")
 
     @pytest.mark.asyncio
-    @patch("api.services.answer_service.extract_task_id_and_form_id")
+    @patch("services.answer_service.extract_task_id_and_form_id")
     async def test_check_answer_cache_miss_incorrect_with_recommendations(
         self, mock_extract, answer_service, mock_db, mock_storage, mock_checker, mock_skill_graph, mock_spec_service
     ):
@@ -99,7 +99,7 @@ class TestAnswerService:
         mock_storage.save_answer_and_status.assert_called_once_with("123", "41", "incorrect")
 
     @pytest.mark.asyncio
-    @patch("api.services.answer_service.extract_task_id_and_form_id")
+    @patch("services.answer_service.extract_task_id_and_form_id")
     async def test_check_answer_cache_miss_incorrect_no_recommendations(
         self, mock_extract, answer_service, mock_db, mock_storage, mock_checker, mock_skill_graph, mock_spec_service
     ):
@@ -131,7 +131,7 @@ class TestAnswerService:
         assert exc.value.detail == "Problem not found in database"
 
     @pytest.mark.asyncio
-    @patch("api.services.answer_service.extract_task_id_and_form_id")
+    @patch("services.answer_service.extract_task_id_and_form_id")
     async def test_check_answer_external_checker_error(
         self, mock_extract, answer_service, mock_db, mock_storage, mock_checker
     ):
@@ -163,7 +163,7 @@ class TestAnswerService:
         assert response is None
 
     @pytest.mark.asyncio
-    @patch("api.services.answer_service.extract_task_id_and_form_id")
+    @patch("services.answer_service.extract_task_id_and_form_id")
     async def test_call_external_checker_success(self, mock_extract, answer_service, mock_checker):
         mock_extract.return_value = ("123", "form1")
         mock_checker.check_answer.return_value = {"status": "correct", "message": "Correct!"}
@@ -173,7 +173,7 @@ class TestAnswerService:
         mock_checker.check_answer.assert_awaited_once_with("123", "form1", "42", "math")
 
     @pytest.mark.asyncio
-    @patch("api.services.answer_service.extract_task_id_and_form_id")
+    @patch("services.answer_service.extract_task_id_and_form_id")
     async def test_call_external_checker_error(self, mock_extract, answer_service, mock_checker):
         mock_extract.return_value = ("123", "form1")
         mock_checker.check_answer.side_effect = Exception("Fail")

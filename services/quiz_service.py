@@ -1,19 +1,21 @@
-# api/services/quiz_service.py
 from typing import List
 from fastapi import HTTPException
 import uuid
 import logging
 from utils.database_manager import DatabaseManager
 from api.schemas import StartQuizRequest, StartQuizResponse, QuizItem
+from services.interfaces import BaseService
+from utils.retriever import QdrantProblemRetriever
+from utils.skill_graph import InMemorySkillGraph
+from services.specification import SpecificationService
 
-logger = logging.getLogger(__name__)
 
-class QuizService:
+class QuizService(BaseService):
     """
     Service class for handling quiz-related business logic.
     """
 
-    def __init__(self, db: DatabaseManager, retriever: 'QdrantProblemRetriever', skill_graph: 'InMemorySkillGraph', spec_service: 'SpecificationService'):
+    def __init__(self, db: DatabaseManager, retriever: QdrantProblemRetriever, skill_graph: InMemorySkillGraph, spec_service: SpecificationService):
         """
         Initializes the QuizService with a database manager and adaptive components.
 
@@ -23,10 +25,14 @@ class QuizService:
             skill_graph: Component for tracking and modeling user skills.
             spec_service: Component for applying exam specifications.
         """
-        self.db = db
+        super().__init__(db)
         self.retriever = retriever
         self.skill_graph = skill_graph
         self.spec_service = spec_service
+
+    async def initialize(self):
+        """Initialize service-specific resources."""
+        self.logger.info("QuizService initialized")
 
     def start_quiz(self, request: StartQuizRequest) -> StartQuizResponse:
         """
@@ -41,7 +47,7 @@ class QuizService:
         Raises:
             HTTPException: If an error occurs during quiz creation.
         """
-        logger.info(f"Starting quiz for page: {request.page_name}, user: {request.user_id}, strategy: {request.strategy}")
+        self.logger.info(f"Starting quiz for page: {request.page_name}, user: {request.user_id}, strategy: {request.strategy}")
         all_problems = self.db.get_all_problems()
 
         # Determine strategy and fetch problems accordingly
@@ -91,7 +97,6 @@ class QuizService:
         Retrieves a set of problems for initial skill calibration.
         """
         # Example: Get 10 problems of varying difficulty from the subject
-        # This can be enhanced to pick from specific exam parts or topics
         filtered_by_subject = [p for p in all_problems if p.subject == subject]
         # Sort or sample based on task_number or other criteria for diversity
         sorted_problems = sorted(filtered_by_subject, key=lambda x: x.task_number)
@@ -109,13 +114,8 @@ class QuizService:
         # Example: Identify weak topics or skills
         weak_topics = self.skill_graph.get_weak_areas(user_id, subject)
         # Use the retriever to find relevant problems based on weak areas or next learning steps
-        # This is a placeholder for the actual adaptive logic
-        # which might involve Qdrant, skill graph traversal, etc.
-        # For now, we filter by subject and a sample of 10
-        # In a real implementation, this would be dynamic
         filtered_by_subject = [p for p in all_problems if p.subject == subject]
         # Placeholder: select based on weak topics or next difficulty level
-        # Example: if weak_topics: filter further
         return filtered_by_subject[:10]
 
     def _get_final_problems(self, user_id: str, subject: str, all_problems: List['Problem']) -> List['Problem']:
@@ -126,9 +126,6 @@ class QuizService:
         exam_spec = self.spec_service.get_exam_specification(subject)
         user_history = self.skill_graph.get_user_history(user_id, subject)
         # Identify areas for targeted practice based on spec and history
-        # Example: focus on high-weight parts or consistently weak areas
-        # Use spec_service and skill_graph to determine which `task_number` or `exam_part` to focus on
-        # Filter problems based on these criteria
         filtered_by_subject = [p for p in all_problems if p.subject == subject]
         # Placeholder: select based on exam spec requirements
         return filtered_by_subject[:10]

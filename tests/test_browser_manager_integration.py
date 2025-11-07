@@ -8,7 +8,7 @@ from pathlib import Path
 from utils.browser_manager import BrowserManager
 from scraper.fipi_scraper import FIPIScraper
 from utils.answer_checker import FIPIAnswerChecker
-from api.services.answer_service import AnswerService
+from services.answer_service import AnswerService
 from utils.database_manager import DatabaseManager
 from utils.local_storage import LocalStorage
 from services.specification import SpecificationService

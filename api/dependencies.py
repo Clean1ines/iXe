@@ -3,8 +3,8 @@ from qdrant_client import QdrantClient
 from utils.database_manager import DatabaseManager
 from utils.local_storage import LocalStorage
 from utils.answer_checker import FIPIAnswerChecker
-from api.services.quiz_service import QuizService
-from api.services.answer_service import AnswerService
+from services.quiz_service import QuizService
+from services.answer_service import AnswerService
 from utils.skill_graph import InMemorySkillGraph
 from services.specification import SpecificationService
 from utils.retriever import QdrantProblemRetriever
@@ -163,18 +163,24 @@ def get_answer_service(
 
 
 def get_quiz_service(
-    problem_retriever: QdrantProblemRetriever = Depends(get_problem_retriever)
+    db: DatabaseManager = Depends(get_db_manager),
+    problem_retriever: QdrantProblemRetriever = Depends(get_problem_retriever),
+    skill_graph: InMemorySkillGraph = Depends(get_skill_graph),
+    spec_service: SpecificationService = Depends(get_spec_service)
 ) -> QuizService:
     """
     Dependency to provide an instance of QuizService.
 
     Args:
+        db: The database manager instance.
         problem_retriever: The problem retriever instance.
+        skill_graph: The in-memory skill graph instance.
+        spec_service: The specification service instance.
 
     Returns:
         QuizService: An instance of the quiz service.
     """
-    return QuizService(problem_retriever)
+    return QuizService(db, problem_retriever, skill_graph, spec_service)
 
 
 def get_browser_pool_manager(request: Request):
