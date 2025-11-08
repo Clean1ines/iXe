@@ -20,7 +20,6 @@
             "iXe.processors.html.task_info_processor",
             "iXe.processors.html.unwanted_element_remover",
             "iXe.processors.html_processing_pipeline",
-            "iXe.processors.html_processor_interface",
             "iXe.processors.json_saver",
             "iXe.processors.page_processor",
             "iXe.processors.ui_components",
@@ -42,7 +41,6 @@
         "imported_by": [
             "iXe.processors.asset_processor_interface",
             "iXe.processors.html_processing_pipeline",
-            "iXe.processors.html_processor_interface",
             "iXe.services.base_service",
             "iXe.services.interfaces",
             "os",
@@ -103,7 +101,6 @@
             "iXe.processors.html.mathml_remover",
             "iXe.processors.html.task_info_processor",
             "iXe.processors.html.unwanted_element_remover",
-            "iXe.processors.html_processor_interface",
             "iXe.processors.page_processor",
             "iXe.scraper.fipi_scraper"
         ],
@@ -446,7 +443,6 @@
         "name": "iXe.processors.html_processing_pipeline",
         "path": "/home/haku/iXe/processors/html_processing_pipeline.py"
     },
-    "iXe.processors.html_processor_interface": {
         "bacon": 1,
         "imported_by": [
             "__main__"
@@ -457,8 +453,6 @@
             "pathlib",
             "typing"
         ],
-        "name": "iXe.processors.html_processor_interface",
-        "path": "/home/haku/iXe/processors/html_processor_interface.py"
     },
     "iXe.processors.json_saver": {
         "bacon": 1,
@@ -707,7 +701,6 @@
             "iXe.processors.html.task_info_processor",
             "iXe.processors.html.unwanted_element_remover",
             "iXe.processors.html_processing_pipeline",
-            "iXe.processors.html_processor_interface",
             "iXe.processors.json_saver",
             "iXe.processors.page_processor",
             "iXe.processors.ui_components",
@@ -815,7 +808,6 @@
             "iXe.processors.html.task_info_processor",
             "iXe.processors.html.unwanted_element_remover",
             "iXe.processors.html_processing_pipeline",
-            "iXe.processors.html_processor_interface",
             "iXe.processors.json_saver",
             "iXe.processors.page_processor",
             "iXe.processors.ui_components",

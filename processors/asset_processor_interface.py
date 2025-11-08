@@ -9,7 +9,7 @@ import abc
 from pathlib import Path
 from typing import Any, Dict, Tuple
 from bs4 import BeautifulSoup
-from processors.html_processor_interface import IHTMLProcessor
+from domain.interfaces.html_processor import IHTMLProcessor
 
 
 class AssetProcessor(IHTMLProcessor, abc.ABC):

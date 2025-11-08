@@ -34,7 +34,7 @@ from domain.interfaces.html_processor import ITaskClassifier
 from domain.services.answer_type_detector import AnswerTypeService
 from domain.services.metadata_enhancer import MetadataExtractionService
 from services.specification import SpecificationService
-from processors.html_processor_interface import IHTMLProcessor as IHTMLProcessorImpl
+from domain.interfaces.html_processor import IHTMLProcessor as IHTMLProcessorImpl
 
 
 logger = logging.getLogger(__name__)

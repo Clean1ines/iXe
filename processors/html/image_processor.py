@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from typing import Tuple, Dict, Any
 from utils.downloader import AssetDownloader
-from processors.html_processor_interface import IHTMLProcessor
+from domain.interfaces.html_processor import IHTMLProcessor
 
 logger = logging.getLogger(__name__)
 

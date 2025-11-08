@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 from bs4 import BeautifulSoup
 from typing import Tuple, Dict, Any
-from processors.html_processor_interface import IHTMLProcessor
+from domain.interfaces.html_processor import IHTMLProcessor
 
 class MathMLRemover(IHTMLProcessor):
     """
