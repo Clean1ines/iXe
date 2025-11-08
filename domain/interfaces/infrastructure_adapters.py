@@ -30,16 +30,3 @@ class IStorageProvider(Protocol):
     
     def save_answer_and_status(self, problem_id: str, answer: str, status: str):
         ...
-
-
-class BaseService(ABC):
-    """Base service class providing common initialization and logging."""
-    
-    def __init__(self, db: DatabaseManager):
-        self.db = db
-        self.logger = logging.getLogger(self.__class__.__name__)
-    
-    @abstractmethod
-    async def initialize(self):
-        """Initialize service-specific resources."""
-        pass

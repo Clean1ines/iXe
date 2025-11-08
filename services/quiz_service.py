@@ -4,7 +4,7 @@ import uuid
 import logging
 from utils.database_manager import DatabaseManager
 from api.schemas import StartQuizRequest, StartQuizResponse, QuizItem
-from services.interfaces import BaseService
+from services.base_service import BaseService
 from utils.retriever import QdrantProblemRetriever
 from utils.skill_graph import InMemorySkillGraph
 from services.specification import SpecificationService

@@ -6,7 +6,8 @@ from api.schemas import CheckAnswerRequest, CheckAnswerResponse
 from services.specification import SpecificationService
 from utils.skill_graph import InMemorySkillGraph
 from utils.task_id_utils import extract_task_id_and_form_id
-from services.interfaces import BaseService, IExternalChecker, IStorageProvider
+from domain.interfaces.infrastructure_adapters import IExternalChecker, IStorageProvider
+from services.base_service import BaseService
 import logging
 
 
