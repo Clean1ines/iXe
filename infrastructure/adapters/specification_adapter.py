@@ -1,13 +1,15 @@
 """
-Service for loading and querying official FIPI specifications (KES/KOS).
+Infrastructure adapter for loading and querying official FIPI specifications (KES/KOS).
 Provides human-readable explanations for exam codes and task metadata.
 """
 
 import json
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+from domain.interfaces.specification_provider import ISpecificationProvider
 
-class SpecificationService:
+
+class SpecificationAdapter(ISpecificationProvider):
     def __init__(self, spec_path: Path, kes_kos_path: Path):
         """
         Initialize with paths to official FIPI JSON specifications.

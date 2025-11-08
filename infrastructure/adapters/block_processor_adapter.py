@@ -33,7 +33,7 @@ from domain.interfaces.task_inferer import ITaskNumberInferer
 from domain.interfaces.html_processor import ITaskClassifier
 from domain.services.answer_type_detector import AnswerTypeService
 from domain.services.metadata_enhancer import MetadataExtractionService
-from services.specification import SpecificationService
+from infrastructure.adapters.specification_adapter import SpecificationAdapter
 from domain.interfaces.html_processor import IHTMLProcessor as IHTMLProcessorImpl
 
 
@@ -54,7 +54,7 @@ class BlockProcessorAdapter(IHTMLProcessor):
         task_classifier: ITaskClassifier,
         answer_type_service: AnswerTypeService,
         metadata_enhancer: MetadataExtractionService,
-        spec_service: Optional[SpecificationService] = None,
+        spec_service: Optional[SpecificationAdapter] = None,
     ):
         """
         Initializes the BlockProcessorAdapter with required services.

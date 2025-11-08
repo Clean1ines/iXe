@@ -10,7 +10,7 @@ from typing import List, Optional
 from pathlib import Path
 import json
 from domain.interfaces.task_inferer import ITaskNumberInferer
-from services.specification import SpecificationService
+from infrastructure.adapters.specification_adapter import SpecificationAdapter
 
 
 class TaskNumberInfererAdapter(ITaskNumberInferer):
@@ -21,12 +21,12 @@ class TaskNumberInfererAdapter(ITaskNumberInferer):
     to possible task numbers, and applies heuristic rules for disambiguation.
     """
 
-    def __init__(self, spec_service: SpecificationService, rules_path: Path = Path("config/task_number_rules.json")):
+    def __init__(self, spec_service: from infrastructure.adapters.specification_adapter import SpecificationAdapter, rules_path: Path = Path("config/task_number_rules.json")):
         """
         Initializes the adapter with the official specification and rules.
 
         Args:
-            spec_service: An instance of SpecificationService loaded with
+            spec_service: An instance of from infrastructure.adapters.specification_adapter import SpecificationAdapter loaded with
                           the official ЕГЭ 2026 math spec.
             rules_path: Path to JSON file with inference rules.
         """
@@ -101,7 +101,7 @@ class TaskNumberInfererAdapter(ITaskNumberInferer):
         Returns:
             A configured TaskNumberInfererAdapter instance.
         """
-        spec_svc = SpecificationService(
+        spec_svc = SpecificationAdapter(
             spec_path=Path(spec_path),
             kes_kos_path=Path(kes_kos_path)
         )

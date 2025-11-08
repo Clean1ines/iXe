@@ -11,7 +11,7 @@ from utils.answer_checker import FIPIAnswerChecker
 from services.answer_service import AnswerService
 from utils.database_manager import DatabaseManager
 from utils.local_storage import LocalStorage
-from services.specification import SpecificationService
+from infrastructure.adapters.specification_adapter import SpecificationAdapter
 from utils.skill_graph import InMemorySkillGraph
 from api.schemas import CheckAnswerRequest
 from config import FIPI_QUESTIONS_URL # Используем URL из config
@@ -51,7 +51,7 @@ def test_spec_service():
         # или использовать мок-библиотеку (например, unittest.mock)
         # Для простоты сейчас пропустим тест, если файлы отсутствуют
         pytest.skip(f"Specification files not found: {SPEC_PATH}, {KOS_PATH}")
-    return SpecificationService(spec_path=SPEC_PATH, kes_kos_path=KOS_PATH)
+    return SpecificationAdapter(spec_path=SPEC_PATH, kes_kos_path=KOS_PATH)
 
 # --- Сам интеграционный тест ---
 @pytest.mark.asyncio

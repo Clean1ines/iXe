@@ -6,7 +6,7 @@ from utils.answer_checker import FIPIAnswerChecker
 from services.quiz_service import QuizService
 from services.answer_service import AnswerService
 from utils.skill_graph import InMemorySkillGraph
-from services.specification import SpecificationService
+from infrastructure.adapters.specification_adapter import SpecificationAdapter
 from utils.retriever import QdrantProblemRetriever
 from pathlib import Path
 from config import DB_PATH, USE_LOCAL_STORAGE, FIPI_QUESTIONS_URL, QDRANT_HOST, QDRANT_PORT
@@ -79,16 +79,16 @@ def get_problem_retriever(
         )
 
 
-def get_spec_service(subject: str, year: str) -> SpecificationService:
+def get_spec_service(subject: str, year: str) -> SpecificationAdapter:
     """
-    Dependency to provide an instance of SpecificationService.
+    Dependency to provide an instance of SpecificationAdapter.
 
     Args:
         subject: The subject name (e.g., 'math', 'informatics').
         year: The year for the specifications (e.g., '2026').
 
     Returns:
-        SpecificationService: An instance of the specification service.
+        SpecificationAdapter: An instance of the specification service.
     """
     SPEC_DIR = Path(__file__).parent.parent / "data" / "specs"
     spec_path = SPEC_DIR / f"ege_{year}_{subject}_spec.json"
@@ -101,7 +101,7 @@ def get_spec_service(subject: str, year: str) -> SpecificationService:
             details={"spec_path": str(spec_path)}
         )
     
-    return SpecificationService(
+    return SpecificationAdapter(
         spec_path=spec_path,
         kes_kos_path=kes_kos_path
     )
@@ -109,7 +109,7 @@ def get_spec_service(subject: str, year: str) -> SpecificationService:
 
 def get_skill_graph(
     db: DatabaseManager = Depends(get_db_manager),
-    spec_service: SpecificationService = Depends(get_spec_service)
+    spec_service: SpecificationAdapter = Depends(get_spec_service)
 ) -> InMemorySkillGraph:
     """
     Dependency to provide an instance of InMemorySkillGraph.
@@ -187,7 +187,7 @@ def get_answer_service(
     checker: FIPIAnswerChecker = Depends(get_answer_checker),
     storage: LocalStorage | None = Depends(get_storage),
     skill_graph: InMemorySkillGraph = Depends(get_skill_graph),
-    spec_service: SpecificationService = Depends(get_spec_service)
+    spec_service: SpecificationAdapter = Depends(get_spec_service)
 ) -> AnswerService:
     """
     Dependency to provide an instance of AnswerService.
@@ -216,7 +216,7 @@ def get_quiz_service(
     db: DatabaseManager = Depends(get_db_manager),
     problem_retriever: QdrantProblemRetriever = Depends(get_problem_retriever),
     skill_graph: InMemorySkillGraph = Depends(get_skill_graph),
-    spec_service: SpecificationService = Depends(get_spec_service)
+    spec_service: SpecificationAdapter = Depends(get_spec_service)
 ) -> QuizService:
     """
     Dependency to provide an instance of QuizService.

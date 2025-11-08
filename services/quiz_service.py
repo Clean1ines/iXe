@@ -7,7 +7,7 @@ from api.schemas import StartQuizRequest, StartQuizResponse, QuizItem
 from services.base_service import BaseService
 from utils.retriever import QdrantProblemRetriever
 from utils.skill_graph import InMemorySkillGraph
-from services.specification import SpecificationService
+from infrastructure.adapters.specification_adapter import SpecificationAdapter
 
 
 class QuizService(BaseService):
@@ -15,7 +15,7 @@ class QuizService(BaseService):
     Service class for handling quiz-related business logic.
     """
 
-    def __init__(self, db: DatabaseManager, retriever: QdrantProblemRetriever, skill_graph: InMemorySkillGraph, spec_service: SpecificationService):
+    def __init__(self, db: DatabaseManager, retriever: QdrantProblemRetriever, skill_graph: InMemorySkillGraph, spec_service: SpecificationAdapter):
         """
         Initializes the QuizService with a database manager and adaptive components.
 

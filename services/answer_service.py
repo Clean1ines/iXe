@@ -3,7 +3,7 @@ from utils.database_manager import DatabaseManager
 from utils.local_storage import LocalStorage
 from utils.answer_checker import FIPIAnswerChecker
 from api.schemas import CheckAnswerRequest, CheckAnswerResponse
-from services.specification import SpecificationService
+from infrastructure.adapters.specification_adapter import SpecificationAdapter
 from utils.skill_graph import InMemorySkillGraph
 from utils.task_id_utils import extract_task_id_and_form_id
 from domain.interfaces.infrastructure_adapters import IExternalChecker, IStorageProvider
@@ -22,7 +22,7 @@ class AnswerService(BaseService):
         checker: IExternalChecker,
         storage: Optional[IStorageProvider],
         skill_graph: InMemorySkillGraph,
-        spec_service: SpecificationService
+        spec_service: SpecificationAdapter
     ):
         super().__init__(db)
         self.checker = checker

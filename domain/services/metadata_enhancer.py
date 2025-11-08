@@ -1,20 +1,20 @@
 """Domain service for enhancing metadata using specification data."""
 
 from typing import List, Dict, Any, Optional
-from services.specification import SpecificationService
+from domain.interfaces.specification_provider import ISpecificationProvider
 
 
 class MetadataExtractionService:
     """Service for enhancing extracted metadata with specification data."""
 
-    def __init__(self, specification_service: SpecificationService):
+    def __init__(self, specification_provider: ISpecificationProvider):
         """
         Initialize the service.
 
         Args:
-            specification_service: SpecificationService instance for accessing official specs
+            specification_provider: ISpecificationProvider implementation for accessing official specs
         """
-        self.specification_service = specification_service
+        self.specification_provider = specification_provider
 
     def enhance_metadata(self, extracted_meta: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -36,7 +36,7 @@ class MetadataExtractionService:
             kes_explanations = []
             for code in kes_codes:
                 try:
-                    explanation = self.specification_service.explain_kes(code)
+                    explanation = self.specification_provider.explain_kes(code)
                     kes_explanations.append(explanation)
                 except Exception:
                     kes_explanations.append(f"Unknown KES code: {code}")
@@ -46,7 +46,7 @@ class MetadataExtractionService:
             kos_explanations = []
             for code in kos_codes:
                 try:
-                    explanation = self.specification_service.explain_kos(code)
+                    explanation = self.specification_provider.explain_kos(code)
                     kos_explanations.append(explanation)
                 except Exception:
                     kos_explanations.append(f"Unknown KOS code: {code}")
