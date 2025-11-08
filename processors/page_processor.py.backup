@@ -10,7 +10,12 @@ from typing import List, Optional
 from bs4 import BeautifulSoup
 from utils.downloader import AssetDownloader
 from utils.element_pairer import ElementPairer
-from domain.interfaces.html_processor import IHTMLProcessor
+from infrastructure.adapters.block_processor_adapter import BlockProcessorAdapter
+from domain.services.answer_type_detector import AnswerTypeService
+from domain.services.metadata_enhancer import MetadataExtractionService
+from services.specification import SpecificationService
+from infrastructure.adapters.task_classifier_adapter import TaskClassifierAdapter
+from infrastructure.adapters.task_number_inferer_adapter import TaskNumberInfererAdapter
 
 
 logger = logging.getLogger(__name__)
@@ -25,15 +30,40 @@ class PageProcessingOrchestrator:
 
     def __init__(
         self,
-        html_processor: IHTMLProcessor,
+        task_classifier_adapter: TaskClassifierAdapter,
+        task_inferer_adapter: TaskNumberInfererAdapter,
+        answer_type_service: Optional[AnswerTypeService] = None,
+        metadata_enhancer: Optional[MetadataExtractionService] = None,
+        specification_service: Optional[SpecificationService] = None,
     ):
         """
         Initializes the orchestrator with required services.
 
         Args:
-            html_processor: IHTMLProcessor implementation for processing HTML blocks
+            task_classifier_adapter: TaskClassifierAdapter for task classification logic
+            task_inferer_adapter: TaskNumberInfererAdapter for task number inference
+            answer_type_service: AnswerTypeService for answer type detection
+            metadata_enhancer: MetadataExtractionService for metadata enhancement
+            specification_service: Optional SpecificationService for spec data
         """
-        self.html_processor = html_processor
+        self.task_classifier_adapter = task_classifier_adapter
+        self.task_inferer_adapter = task_inferer_adapter
+        self.answer_type_service = answer_type_service or AnswerTypeService()
+        self.metadata_enhancer = metadata_enhancer or MetadataExtractionService(
+            specification_service or SpecificationService(
+                Path("data/specs/ege_2026_math_spec.json"), 
+                Path("data/specs/ege_2026_math_kes_kos.json")
+            )
+        )
+        
+        # Create block processor with domain services
+        self.block_processor = BlockProcessorAdapter(
+            task_inferer=self.task_inferer_adapter,
+            task_classifier=self.task_classifier_adapter,
+            answer_type_service=self.answer_type_service,
+            metadata_enhancer=self.metadata_enhancer,
+            spec_service=specification_service
+        )
         self.pairer = ElementPairer()
 
     async def process_page(
@@ -66,7 +96,7 @@ class PageProcessingOrchestrator:
 
         results = []
         for i, (header_container, qblock) in enumerate(paired_elements):
-            result = await self.html_processor.process_html_block(
+            result = await self.block_processor.process_html_block(
                 header_container=header_container,
                 qblock=qblock,
                 block_index=i,

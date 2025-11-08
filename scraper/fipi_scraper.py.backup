@@ -4,7 +4,7 @@ Module for scraping FIPI website content and orchestrating the processing pipeli
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Callable
 from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
@@ -12,6 +12,14 @@ from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 from utils.browser_manager import BrowserManager  # Import BrowserManager instead of BrowserPoolManager
 from utils.metadata_extractor import MetadataExtractor
 from models.problem_builder import ProblemBuilder
+from processors.html import (
+    ImageScriptProcessor,
+    FileLinkProcessor,
+    TaskInfoProcessor,
+    InputFieldRemover,
+    MathMLRemover,
+    UnwantedElementRemover
+)
 from processors.page_processor import PageProcessingOrchestrator
 from models.problem_schema import Problem
 from utils.downloader import AssetDownloader
@@ -20,6 +28,9 @@ from infrastructure.adapters.block_processor_adapter import BlockProcessorAdapte
 from domain.services.answer_type_detector import AnswerTypeService
 from domain.services.metadata_enhancer import MetadataExtractionService
 from services.specification import SpecificationService
+from infrastructure.adapters.block_processor_adapter import BlockProcessorAdapter
+from domain.services.answer_type_detector import AnswerTypeService
+from domain.services.metadata_enhancer import MetadataExtractionService
 from utils.fipi_urls import FIPI_BASE_URL, FIPI_QUESTIONS_URL, FIPI_SUBJECTS_LIST_URL
 
 logger = logging.getLogger(__name__)
@@ -76,9 +87,6 @@ class FIPIScraper:
         self.specification_service = specification_service
         self.max_retries = max_retries
         self.initial_delay = initial_delay
-        # Initialize task_classifier here since it's needed for block_processor
-        from infrastructure.adapters.task_classifier_adapter import TaskClassifierAdapter
-        self.task_classifier = TaskClassifierAdapter()
 
     async def get_projects(self, subjects_list_page) -> Dict[str, str]:
         """
@@ -190,57 +198,33 @@ class FIPIScraper:
                     return AssetDownloader(page=page_obj)
                 
                 # Create the processing orchestrator
-                block_processor = BlockProcessorAdapter(
+                                orchestrator = PageProcessingOrchestrator(html_processor=block_processor)
+                    asset_downloader_factory=asset_downloader_factory,
+                    processors=[
+                        ImageScriptProcessor(),
+                        FileLinkProcessor(),
+                        TaskInfoProcessor(),
+                        InputFieldRemover(),
+                        MathMLRemover(),
+                        UnwantedElementRemover()
+                    ],
+                    metadata_extractor=MetadataExtractor(),
+                    problem_builder=ProblemBuilder(),
                     task_inferer=self.task_inferer,
-                    task_classifier=self.task_classifier,
-                    answer_type_service=AnswerTypeService(),
-                    metadata_enhancer=MetadataExtractionService(
-                        self.specification_service or SpecificationService(
-                            Path("data/specs/ege_2026_math_spec.json"), 
-                            Path("data/specs/ege_2026_math_kes_kos.json")
-                        )
-                    ),
-                    spec_service=self.specification_service
+                    specification_service=self.specification_service,  # Pass specification service
                 )
-                
-                orchestrator = PageProcessingOrchestrator(html_processor=block_processor)
                 
                 # Process the page content
                 logger.debug("Starting page processing orchestrator...")
-                results = await orchestrator.process_page(
+                problems, scraped_data = await orchestrator.process(
                     page_content=page_content,
+                    proj_id=proj_id,
+                    page_num=page_num,
+                    run_folder=run_folder,
+                    base_url=base_questions_url,  # Pass the correct base URL
                     subject=subject,
-                    base_url=base_questions_url,
-                    run_folder_page=run_folder / page_num,
-                    downloader=asset_downloader_factory(page, base_questions_url, f"../../"),
-                    files_location_prefix="../../"
+                    page=page # Pass the page object to the orchestrator
                 )
-                
-                # Convert results to Problem objects if needed
-                problems = []
-                for result in results:
-                    # Assuming result is already a dict with problem data
-                    # We need to create Problem objects from the results
-                    problem = Problem(
-                        problem_id=result.get('problem_id', ''),
-                        subject=result.get('subject', subject),
-                        content=result.get('content', ''),
-                        answer=result.get('answer', ''),
-                        task_number=result.get('task_number'),
-                        answer_type=result.get('answer_type', ''),
-                        kes_codes=result.get('kes_codes', []),
-                        kos_codes=result.get('kos_codes', []),
-                        difficulty=result.get('difficulty', ''),
-                        tags=result.get('tags', []),
-                        metadata=result.get('metadata', {})
-                    )
-                    problems.append(problem)
-
-                scraped_data = {
-                    "page_name": page_num,
-                    "url": full_url,
-                    "results": results
-                }
                 
                 logger.info(f"Successfully scraped {len(problems)} problems from page {page_num}")
                 return problems, scraped_data
