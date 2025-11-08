@@ -1,7 +1,10 @@
+from typing import Optional, List, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from models.problem_schema import Problem
 from abc import ABC, abstractmethod
 from typing import Protocol, Optional
 import logging
-from utils.database_manager import DatabaseManager
 from api.schemas import CheckAnswerResponse
 
 
@@ -29,4 +32,31 @@ class IStorageProvider(Protocol):
         ...
     
     def save_answer_and_status(self, problem_id: str, answer: str, status: str):
+        ...
+
+class IDatabaseProvider(Protocol):
+    """Interface for database operations."""
+    
+    def get_problem_by_id(self, problem_id: str) -> Optional[Any]:
+        """Get problem by its ID."""
+        ...
+    
+    def save_problem(self, problem: object) -> None:
+        """Save a problem to the database."""
+        ...
+    
+    def get_answer_status(self, problem_id: str) -> Optional[str]:
+        """Get the status of an answer for a problem."""
+        ...
+    
+    def save_answer_status(self, problem_id: str, status: str) -> None:
+        """Save the status of an answer for a problem."""
+        ...
+
+
+class IProblemRetriever(Protocol):
+    """Interface for problem retrieval operations."""
+    
+    def retrieve_similar_problems(self, query: str, limit: int = 5) -> List[Any]:
+        """Retrieve problems similar to the query."""
         ...

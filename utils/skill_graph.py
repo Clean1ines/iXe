@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, List
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 from infrastructure.adapters.specification_adapter import SpecificationAdapter
 from models.problem_schema import Problem
 
@@ -20,7 +20,7 @@ class InMemorySkillGraph:
 
     @classmethod
     def build_from_db_and_specs(
-        cls, db: DatabaseManager, spec_service: SpecificationAdapter
+        cls, db: DatabaseAdapter, spec_service: SpecificationAdapter
     ) -> 'InMemorySkillGraph':
         """
         Builds the skill graph from database problems and specification files.
@@ -78,7 +78,7 @@ class InMemorySkillGraph:
 _skill_graph_cache: InMemorySkillGraph | None = None
 
 
-def get_skill_graph_cached(db: DatabaseManager, spec_service: SpecificationAdapter) -> InMemorySkillGraph:
+def get_skill_graph_cached(db: DatabaseAdapter, spec_service: SpecificationAdapter) -> InMemorySkillGraph:
     """
     Returns a cached instance of InMemorySkillGraph.
     Builds it on the first call using the provided dependencies.

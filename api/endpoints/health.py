@@ -6,7 +6,7 @@ from datetime import datetime
 import logging
 from resource_management.browser_pool_manager import BrowserPoolManager
 from qdrant_client import QdrantClient
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 from config import DB_PATH, QDRANT_HOST, QDRANT_PORT
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ async def health_check():
     
     # Check database
     try:
-        db_manager = DatabaseManager(DB_PATH)
+        db_manager = DatabaseAdapter(DB_PATH)
         # Try to perform a simple query
         with db_manager.get_session() as session:
             session.execute("SELECT 1")

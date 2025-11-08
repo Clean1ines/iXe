@@ -12,14 +12,14 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
 
 from models.problem_schema import Problem
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 
 logger = logging.getLogger(__name__)
 
 
 class QdrantProblemIndexer:
     """
-    A class to index Problems from a DatabaseManager into a Qdrant collection.
+    A class to index Problems from a DatabaseAdapter into a Qdrant collection.
 
     This indexer fetches Problem instances, generates embeddings for their text,
     and uploads them along with metadata to a specified Qdrant collection.
@@ -27,7 +27,7 @@ class QdrantProblemIndexer:
 
     def __init__(
         self,
-        db_manager: DatabaseManager,
+        db_manager: DatabaseAdapter,
         qdrant_client: QdrantClient,
         collection_name: str
     ):
@@ -35,7 +35,7 @@ class QdrantProblemIndexer:
         Initializes the indexer with database manager, Qdrant client, and collection name.
 
         Args:
-            db_manager (DatabaseManager): Instance to fetch problems from the database.
+            db_manager (DatabaseAdapter): Instance to fetch problems from the database.
             qdrant_client (QdrantClient): Instance of the Qdrant client.
             collection_name (str): The name of the Qdrant collection to index into.
         """

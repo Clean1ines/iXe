@@ -3,7 +3,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from scripts.scrape_tasks import CLIScraper
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 from pathlib import Path
 
 
@@ -17,7 +17,7 @@ class TestCLIScraperScrapeSubjectLogic:
         subject_name = "test_subject"
         scraping_subject_key = "test_key"
         subject_dir = Path("/tmp/test_subject_dir")
-        db_manager = MagicMock(spec=DatabaseManager)
+        db_manager = MagicMock(spec=DatabaseAdapter)
 
         # Create a mock scraper that raises an exception on scrape_page call
         with patch('scripts.scrape_tasks.BrowserPoolManager') as mock_browser_pool_mgr, \

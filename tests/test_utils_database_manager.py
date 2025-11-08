@@ -1,5 +1,5 @@
 """
-Тесты для класса DatabaseManager.
+Тесты для класса DatabaseAdapter.
 Проверяют корректность сохранения и извлечения задач и ответов.
 """
 
@@ -9,16 +9,16 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from models.problem_schema import Problem
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 
 
-class TestDatabaseManager(unittest.TestCase):
-    """Тестовый класс для DatabaseManager."""
+class TestDatabaseAdapter(unittest.TestCase):
+    """Тестовый класс для DatabaseAdapter."""
 
     def setUp(self):
-        """Создаёт временный файл БД и инициализирует DatabaseManager."""
+        """Создаёт временный файл БД и инициализирует DatabaseAdapter."""
         self.temp_db_path = Path(tempfile.mktemp(suffix=".db"))
-        self.db_manager = DatabaseManager(str(self.temp_db_path))
+        self.db_manager = DatabaseAdapter(str(self.temp_db_path))
         self.db_manager.initialize_db()
 
     def tearDown(self):

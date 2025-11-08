@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 from api.dependencies import get_db_manager
 from api.schemas import GetBlockResponse, ProblemResponse
 
@@ -8,7 +8,7 @@ router = APIRouter(tags=["blocks"])
 @router.get("/problem/{problem_id}", response_model=GetBlockResponse)
 async def get_problem_data(
     problem_id: str,
-    db: DatabaseManager = Depends(get_db_manager)
+    db: DatabaseAdapter = Depends(get_db_manager)
 ):
     """
     Returns problem data for frontend rendering.

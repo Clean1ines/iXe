@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 from models.database_models import Base, DBProblem, DBAnswer
 from models.problem_schema import Problem
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 
 
 @pytest.fixture
@@ -25,8 +25,8 @@ def temp_db_path():
 
 @pytest.fixture
 def database_manager(temp_db_path):
-    """Creates a DatabaseManager instance with a temporary database."""
-    db_manager = DatabaseManager(temp_db_path)
+    """Creates a DatabaseAdapter instance with a temporary database."""
+    db_manager = DatabaseAdapter(temp_db_path)
     db_manager.initialize_db()  # Ensure tables are created
     return db_manager
 
@@ -69,12 +69,12 @@ def sample_problem(sample_problem_data):
 # --- Тесты ---
 
 
-class TestDatabaseManagerInitialization:
+class TestDatabaseAdapterInitialization:
     """Tests for database initialization."""
 
     def test_database_initialization(self, temp_db_path):
         """Test that initialize_db creates the necessary tables."""
-        db_manager = DatabaseManager(temp_db_path)
+        db_manager = DatabaseAdapter(temp_db_path)
         # Ensure tables don't exist initially (by creating a fresh engine/session)
         engine = sa.create_engine(f"sqlite:///{temp_db_path}")
         # Reflect the current state of the database
@@ -97,7 +97,7 @@ class TestDatabaseManagerInitialization:
         assert 'answers' in meta_after.tables
 
 
-class TestDatabaseManagerSaveProblems:
+class TestDatabaseAdapterSaveProblems:
     """Tests for the save_problems method."""
 
     def test_save_problems_empty_list(self, database_manager):
@@ -162,7 +162,7 @@ class TestDatabaseManagerSaveProblems:
         assert retrieved_problem.answer == "NewAns" # Проверяем, что ответ обновился
 
 
-class TestDatabaseManagerSaveAndGetAnswer:
+class TestDatabaseAdapterSaveAndGetAnswer:
     """Tests for save_answer and get_answer_and_status methods."""
 
     def test_save_answer_and_get_with_user_id(self, database_manager, sample_problem):
@@ -232,7 +232,7 @@ class TestDatabaseManagerSaveAndGetAnswer:
         assert stat2 == "pending"
 
 
-class TestDatabaseManagerGetAllProblemsAndSubjects:
+class TestDatabaseAdapterGetAllProblemsAndSubjects:
     """Tests for get_all_problems and get_all_subjects methods."""
 
     def test_get_all_problems_empty(self, database_manager):
@@ -304,7 +304,7 @@ class TestDatabaseManagerGetAllProblemsAndSubjects:
         pass # Covered by test_get_all_subjects_populated if subject is non-nullable
 
 
-class TestDatabaseManagerGetRandomProblemIds:
+class TestDatabaseAdapterGetRandomProblemIds:
     """Tests for get_random_problem_ids method."""
 
     def test_get_random_problem_ids_empty_subject(self, database_manager):

@@ -7,7 +7,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
 
 from models.problem_schema import Problem
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 from utils.vector_indexer import QdrantProblemIndexer
 
 
@@ -18,9 +18,9 @@ class TestQdrantProblemIndexer(unittest.TestCase):
 
     def setUp(self):
         """
-        Set up mock instances for DatabaseManager, QdrantClient, and a fake embedding model.
+        Set up mock instances for DatabaseAdapter, QdrantClient, and a fake embedding model.
         """
-        self.mock_db_manager = MagicMock(spec=DatabaseManager)
+        self.mock_db_manager = MagicMock(spec=DatabaseAdapter)
         # Настроим мок, чтобы он возвращал атрибут db_path, чтобы избежать ошибки в __init__
         self.mock_db_manager.db_path = "/mock/path/to/db.sqlite"
 

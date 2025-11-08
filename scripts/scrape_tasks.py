@@ -14,7 +14,7 @@ or a specified number of consecutive empty pages is encountered.
 import asyncio
 import config
 from scraper.fipi_scraper import FIPIScraper
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 from utils.logging_config import setup_logging
 from resource_management.browser_pool_manager import BrowserPoolManager
 from utils.subject_mapping import SUBJECT_ALIAS_MAP, SUBJECT_KEY_MAP, SUBJECT_TO_PROJ_ID_MAP, SUBJECT_TO_OFFICIAL_NAME_MAP, get_alias_from_official_name, get_subject_key_from_alias, get_proj_id_for_subject, get_official_name_from_alias
@@ -71,7 +71,7 @@ class CLIScraper:
                 available[subject_key] = official_name
         return available
 
-    async def scrape_subject_logic(self, proj_id: str, subject_name: str, scraping_subject_key: str, subject_dir: Path, db_manager: DatabaseManager, browser_pool: BrowserPoolManager):
+    async def scrape_subject_logic(self, proj_id: str, subject_name: str, scraping_subject_key: str, subject_dir: Path, db_manager: DatabaseAdapter, browser_pool: BrowserPoolManager):
         """
         Performs the iterative scraping for a given subject.
         """
@@ -227,7 +227,7 @@ class CLIScraper:
 
                 # Create directory and database manager
                 subject_dir.mkdir(parents=True, exist_ok=True)
-                db_manager = DatabaseManager(str(db_path))
+                db_manager = DatabaseAdapter(str(db_path))
                 db_manager.initialize_db()
                 print(f"📁 Output directory: {subject_dir}")
 
@@ -311,7 +311,7 @@ class CLIScraper:
                                     continue
 
                             subject_dir.mkdir(parents=True, exist_ok=True)
-                            db_manager = DatabaseManager(str(db_path))
+                            db_manager = DatabaseAdapter(str(db_path))
                             db_manager.initialize_db()
                             print(f"📁 Output directory: {subject_dir}")
 

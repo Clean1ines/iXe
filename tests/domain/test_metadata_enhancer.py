@@ -15,7 +15,7 @@ class TestMetadataExtractionService:
     @pytest.fixture
     def metadata_enhancer(self, mock_spec_service):
         """Create a MetadataExtractionService instance with mocked dependencies."""
-        return MetadataExtractionService(specification_service=mock_spec_service)
+        return MetadataExtractionService(specification_provider=mock_spec_service)
 
     def test_enhance_metadata_with_kes_codes(self, metadata_enhancer, mock_spec_service):
         """Test enhancement of metadata with KES codes."""

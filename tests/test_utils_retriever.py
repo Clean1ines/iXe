@@ -1,5 +1,5 @@
 """
-Unit tests for the QdrantProblemRetriever class.
+Unit tests for the QdrantRetrieverAdapter class.
 """
 import unittest
 from unittest.mock import MagicMock, patch
@@ -7,21 +7,21 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
 
 from models.problem_schema import Problem
-from utils.database_manager import DatabaseManager
-from utils.retriever import QdrantProblemRetriever
+from infrastructure.adapters.database_adapter import DatabaseAdapter
+from infrastructure.adapters.qdrant_retriever_adapter import QdrantRetrieverAdapter
 
 
-class TestQdrantProblemRetriever(unittest.TestCase):
+class TestQdrantRetrieverAdapter(unittest.TestCase):
     """
-    Test cases for the QdrantProblemRetriever class.
+    Test cases for the QdrantRetrieverAdapter class.
     """
 
     def setUp(self):
         """
-        Set up mock instances for QdrantClient, DatabaseManager, and a fake embedding model.
+        Set up mock instances for QdrantClient, DatabaseAdapter, and a fake embedding model.
         """
         self.mock_qdrant_client = MagicMock(spec=QdrantClient)
-        self.mock_db_manager = MagicMock(spec=DatabaseManager)
+        self.mock_db_manager = MagicMock(spec=DatabaseAdapter)
         # Настроим мок, чтобы он возвращал атрибут db_path
         self.mock_db_manager.db_path = "/mock/path/to/db.sqlite"
 
@@ -32,7 +32,7 @@ class TestQdrantProblemRetriever(unittest.TestCase):
         self.query_embedding = [0.5, 0.5, 0.5]  # Example embedding vector for the query
         self.mock_embedding_model.encode.return_value = self.query_embedding
 
-        self.retriever = QdrantProblemRetriever(
+        self.retriever = QdrantRetrieverAdapter(
             qdrant_client=self.mock_qdrant_client,
             collection_name=self.collection_name,
             db_manager=self.mock_db_manager

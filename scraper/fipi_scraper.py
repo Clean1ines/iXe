@@ -9,7 +9,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
-from utils.browser_manager import BrowserManager  # Import BrowserManager instead of BrowserPoolManager
+from resource_management.browser_pool_manager import BrowserPoolManager
 from utils.metadata_extractor import MetadataExtractor
 from models.problem_builder import ProblemBuilder
 from processors.page_processor import PageProcessingOrchestrator
@@ -19,8 +19,10 @@ from infrastructure.adapters.task_number_inferer_adapter import TaskNumberInfere
 from infrastructure.adapters.block_processor_adapter import BlockProcessorAdapter
 from domain.services.answer_type_detector import AnswerTypeService
 from domain.services.metadata_enhancer import MetadataExtractionService
-from services.specification import SpecificationService
+from infrastructure.adapters.specification_adapter import SpecificationAdapter
 from utils.fipi_urls import FIPI_BASE_URL, FIPI_QUESTIONS_URL, FIPI_SUBJECTS_LIST_URL
+from infrastructure.adapters.database_adapter import DatabaseAdapter
+
 
 logger = logging.getLogger(__name__)
 
@@ -30,19 +32,20 @@ class FIPIScraper:
     Orchestrates the scraping and processing of FIPI website content.
     This class coordinates browser management, page navigation, HTML parsing,
     asset downloading, and transformation into structured Problem instances.
-    It relies on dependency injection for components like BrowserManager to
+    It relies on dependency injection for components like BrowserPoolManager to
     enable testing and modularity.
     """
 
     def __init__(
         self,
         base_url: str,
-        browser_manager: BrowserManager,  # Accept BrowserManager instead of BrowserPoolManager
+        browser_manager: BrowserPoolManager,
         subjects_url: str,
         page_delay: float = 1.0,
         builder: Optional[ProblemBuilder] = None,
-        specification_service: Optional[SpecificationService] = None,
+        specification_service: Optional[SpecificationAdapter] = None,
         task_inferer: Optional[TaskNumberInfererAdapter] = None,
+        db_manager: Optional[DatabaseAdapter] = None,
         max_retries: int = 3,
         initial_delay: float = 1.0
     ):
@@ -51,17 +54,18 @@ class FIPIScraper:
         
         Args:
             base_url (str): Base URL of the FIPI questions page.
-            browser_manager (BrowserManager): Instance to manage browser context and pages.
+            browser_manager (BrowserPoolManager): Instance to manage browser context and pages.
             subjects_url (str): URL to fetch the list of subjects/projects.
             page_delay (float): Delay between page operations to avoid detection/blocking.
             builder (ProblemBuilder, optional): Problem builder instance to use.
-            specification_service (SpecificationService, optional): Service for official specifications.
+            specification_service (SpecificationAdapter, optional): Service for official specifications.
             task_inferer (TaskNumberInfererAdapter, optional): Component for inferring task numbers.
+            db_manager (DatabaseAdapter, optional): Database manager for storing problems.
             max_retries (int): Maximum number of retry attempts for network operations.
             initial_delay (float): Initial delay for retry backoff.
         """
         self.base_url = base_url
-        self.browser_manager = browser_manager  # Store BrowserManager instance
+        self.browser_manager = browser_manager
         self.subjects_url = subjects_url
         self.page_delay = page_delay
         self.session = requests.Session()
@@ -74,10 +78,9 @@ class FIPIScraper:
         })
         self.task_inferer = task_inferer
         self.specification_service = specification_service
+        self.db_manager = db_manager
         self.max_retries = max_retries
         self.initial_delay = initial_delay
-        # Initialize task_classifier here since it's needed for block_processor
-        from infrastructure.adapters.task_classifier_adapter import TaskClassifierAdapter
         self.task_classifier = TaskClassifierAdapter()
 
     async def get_projects(self, subjects_list_page) -> Dict[str, str]:
@@ -195,7 +198,7 @@ class FIPIScraper:
                     task_classifier=self.task_classifier,
                     answer_type_service=AnswerTypeService(),
                     metadata_enhancer=MetadataExtractionService(
-                        self.specification_service or SpecificationService(
+                        self.specification_service or SpecificationAdapter(
                             Path("data/specs/ege_2026_math_spec.json"), 
                             Path("data/specs/ege_2026_math_kes_kos.json")
                         )
@@ -220,7 +223,6 @@ class FIPIScraper:
                 problems = []
                 for result in results:
                     # Assuming result is already a dict with problem data
-                    # We need to create Problem objects from the results
                     problem = Problem(
                         problem_id=result.get('problem_id', ''),
                         subject=result.get('subject', subject),

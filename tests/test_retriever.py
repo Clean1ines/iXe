@@ -3,8 +3,8 @@ import logging
 from io import StringIO
 from unittest.mock import Mock, MagicMock, patch
 from models.problem_schema import Problem
-from utils.retriever import QdrantProblemRetriever
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.qdrant_retriever_adapter import QdrantRetrieverAdapter
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 
 
 def create_sample_problem(problem_id: str, subject: str = "math", text: str = "Sample text"):
@@ -31,20 +31,20 @@ def create_sample_problem(problem_id: str, subject: str = "math", text: str = "S
     )
 
 
-class TestQdrantProblemRetrieverRetrieve:
+class TestQdrantRetrieverAdapterRetrieve:
     """
-    Tests for the retrieve method in QdrantProblemRetriever.
-    Focuses on verifying the interaction with the updated DatabaseManager.get_problems_by_ids method.
+    Tests for the retrieve method in QdrantRetrieverAdapter.
+    Focuses on verifying the interaction with the updated DatabaseAdapter.get_problems_by_ids method.
     """
 
     def setup_method(self):
         """Set up a mock Qdrant client and database manager for each test."""
         self.mock_qdrant_client = Mock()
-        # Создаем мок DatabaseManager, указываем, что у него есть атрибут db_path
-        self.mock_db_manager = Mock(spec=DatabaseManager)
+        # Создаем мок DatabaseAdapter, указываем, что у него есть атрибут db_path
+        self.mock_db_manager = Mock(spec=DatabaseAdapter)
         self.mock_db_manager.db_path = "mocked_db_path_for_test" # Добавляем требуемый атрибут
 
-        self.retriever = QdrantProblemRetriever(
+        self.retriever = QdrantRetrieverAdapter(
             qdrant_client=self.mock_qdrant_client,
             collection_name="test_collection",
             db_manager=self.mock_db_manager

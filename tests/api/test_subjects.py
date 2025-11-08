@@ -2,7 +2,7 @@
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch
 from api.app import create_app
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 
 # --- Импорт зависимостей ДО функций ---
 from api.dependencies import get_db_manager
@@ -21,7 +21,7 @@ def test_get_available_subjects_success():
     app = create_app()
     client = TestClient(app)
 
-    mock_db = Mock(spec=DatabaseManager)
+    mock_db = Mock(spec=DatabaseAdapter)
     # Используем реальные объекты Problem с атрибутом subject
     from models.problem_schema import Problem
     from datetime import datetime
@@ -79,7 +79,7 @@ def test_get_available_subjects_error():
     app = create_app()
     client = TestClient(app)
 
-    mock_db = Mock(spec=DatabaseManager)
+    mock_db = Mock(spec=DatabaseAdapter)
     mock_db.get_all_problems.side_effect = Exception("Database error")
 
     app.dependency_overrides[get_db_manager] = lambda: mock_db

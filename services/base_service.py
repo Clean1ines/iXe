@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Protocol
 import logging
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 
 
 class ICacheProvider(Protocol):
@@ -25,7 +25,7 @@ class IExternalChecker(Protocol):
 class BaseService(ABC):
     """Base service class providing common initialization and logging."""
     
-    def __init__(self, db: DatabaseManager):
+    def __init__(self, db: DatabaseAdapter):
         self.db = db
         self.logger = logging.getLogger(self.__class__.__name__)
     

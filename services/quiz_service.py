@@ -2,10 +2,10 @@ from typing import List
 from fastapi import HTTPException
 import uuid
 import logging
-from utils.database_manager import DatabaseManager
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 from api.schemas import StartQuizRequest, StartQuizResponse, QuizItem
 from services.base_service import BaseService
-from utils.retriever import QdrantProblemRetriever
+from infrastructure.adapters.qdrant_retriever_adapter import QdrantRetrieverAdapter
 from utils.skill_graph import InMemorySkillGraph
 from infrastructure.adapters.specification_adapter import SpecificationAdapter
 
@@ -15,7 +15,7 @@ class QuizService(BaseService):
     Service class for handling quiz-related business logic.
     """
 
-    def __init__(self, db: DatabaseManager, retriever: QdrantProblemRetriever, skill_graph: InMemorySkillGraph, spec_service: SpecificationAdapter):
+    def __init__(self, db: DatabaseAdapter, retriever: QdrantRetrieverAdapter, skill_graph: InMemorySkillGraph, spec_service: SpecificationAdapter):
         """
         Initializes the QuizService with a database manager and adaptive components.
 

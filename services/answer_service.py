@@ -1,7 +1,7 @@
 from typing import Optional
-from utils.database_manager import DatabaseManager
-from utils.local_storage import LocalStorage
-from utils.answer_checker import FIPIAnswerChecker
+from infrastructure.adapters.database_adapter import DatabaseAdapter
+from infrastructure.adapters.local_storage_adapter import LocalStorageAdapterAdapter
+from infrastructure.adapters.answer_checker_adapter import FIPIAnswerCheckerAdapterAdapter
 from api.schemas import CheckAnswerRequest, CheckAnswerResponse
 from infrastructure.adapters.specification_adapter import SpecificationAdapter
 from utils.skill_graph import InMemorySkillGraph
@@ -18,7 +18,7 @@ class AnswerService(BaseService):
 
     def __init__(
         self,
-        db: DatabaseManager,
+        db: DatabaseAdapter,
         checker: IExternalChecker,
         storage: Optional[IStorageProvider],
         skill_graph: InMemorySkillGraph,
@@ -82,7 +82,7 @@ class AnswerService(BaseService):
         try:
             # Extract task_id and form_id from the problem_id using the utility function
             task_id, form_id = extract_task_id_and_form_id(problem_id)
-            # Call the updated FIPIAnswerChecker.check_answer with subject
+            # Call the updated FIPIAnswerCheckerAdapter.check_answer with subject
             result = await self.checker.check_answer(task_id, form_id, user_answer, problem_subject)
             return result["status"], result["message"]
         except Exception as e:

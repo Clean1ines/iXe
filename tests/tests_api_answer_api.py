@@ -5,8 +5,8 @@ import unittest
 from unittest.mock import MagicMock, AsyncMock # Импортируем AsyncMock
 from fastapi.testclient import TestClient
 from api.answer_api import create_app
-from utils.local_storage import LocalStorage
-from utils.answer_checker import FIPIAnswerChecker
+from infrastructure.adapters.local_storage_adapter import LocalStorageAdapterAdapter
+from infrastructure.adapters.answer_checker_adapter import FIPIAnswerCheckerAdapterAdapter
 
 
 class TestAnswerAPI(unittest.TestCase):
@@ -15,8 +15,8 @@ class TestAnswerAPI(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures before each test method."""
         # Create mock instances for dependencies
-        self.mock_storage = MagicMock(spec=LocalStorage)
-        self.mock_checker = MagicMock(spec=FIPIAnswerChecker) # Мок для всего класса
+        self.mock_storage = MagicMock(spec=LocalStorageAdapter)
+        self.mock_checker = MagicMock(spec=FIPIAnswerCheckerAdapter) # Мок для всего класса
         self.app = create_app(self.mock_storage, self.mock_checker)
         self.client = TestClient(self.app)
 

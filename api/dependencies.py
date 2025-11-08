@@ -1,13 +1,13 @@
 from fastapi import Depends, Request
 from qdrant_client import QdrantClient
-from utils.database_manager import DatabaseManager
-from utils.local_storage import LocalStorage
-from utils.answer_checker import FIPIAnswerChecker
+from infrastructure.adapters.database_adapter import DatabaseAdapter
+from infrastructure.adapters.local_storage_adapter import LocalStorageAdapterAdapter
+from infrastructure.adapters.answer_checker_adapter import FIPIAnswerCheckerAdapterAdapter
 from services.quiz_service import QuizService
 from services.answer_service import AnswerService
 from utils.skill_graph import InMemorySkillGraph
 from infrastructure.adapters.specification_adapter import SpecificationAdapter
-from utils.retriever import QdrantProblemRetriever
+from infrastructure.adapters.qdrant_retriever_adapter import QdrantRetrieverAdapter
 from pathlib import Path
 from config import DB_PATH, USE_LOCAL_STORAGE, FIPI_QUESTIONS_URL, QDRANT_HOST, QDRANT_PORT
 from domain.exceptions.infrastructure import ExternalServiceException
@@ -24,14 +24,14 @@ class Config:
         return os.getenv("STATELESS", "false").lower() == "true"
 
 
-def get_db_manager() -> DatabaseManager:
+def get_db_manager() -> DatabaseAdapter:
     """
-    Dependency to provide an instance of DatabaseManager.
+    Dependency to provide an instance of DatabaseAdapter.
 
     Returns:
-        DatabaseManager: An instance of the database manager.
+        DatabaseAdapter: An instance of the database manager.
     """
-    return DatabaseManager(DB_PATH)
+    return DatabaseAdapter(DB_PATH)
 
 
 def get_qdrant_client() -> QdrantClient:
@@ -53,27 +53,27 @@ def get_qdrant_client() -> QdrantClient:
 
 def get_problem_retriever(
     qdrant_client: QdrantClient = Depends(get_qdrant_client),
-    db_manager: DatabaseManager = Depends(get_db_manager)
-) -> QdrantProblemRetriever:
+    db_manager: DatabaseAdapter = Depends(get_db_manager)
+) -> QdrantRetrieverAdapter:
     """
-    Dependency to provide an instance of QdrantProblemRetriever.
+    Dependency to provide an instance of QdrantRetrieverAdapter.
 
     Args:
         qdrant_client: The Qdrant client instance.
         db_manager: The database manager instance.
 
     Returns:
-        QdrantProblemRetriever: An instance of the problem retriever.
+        QdrantRetrieverAdapter: An instance of the problem retriever.
     """
     try:
-        return QdrantProblemRetriever(
+        return QdrantRetrieverAdapter(
             qdrant_client=qdrant_client,
             collection_name="problems",  # Укажите актуальное имя коллекции
             db_manager=db_manager
         )
     except Exception as e:
         raise ExternalServiceException(
-            service_name="QdrantProblemRetriever",
+            service_name="QdrantRetrieverAdapter",
             message="Failed to initialize problem retriever",
             details={"error": str(e)}
         )
@@ -108,7 +108,7 @@ def get_spec_service(subject: str, year: str) -> SpecificationAdapter:
 
 
 def get_skill_graph(
-    db: DatabaseManager = Depends(get_db_manager),
+    db: DatabaseAdapter = Depends(get_db_manager),
     spec_service: SpecificationAdapter = Depends(get_spec_service)
 ) -> InMemorySkillGraph:
     """
@@ -131,15 +131,15 @@ def get_skill_graph(
         )
 
 
-def get_storage() -> LocalStorage | None:
+def get_storage() -> LocalStorageAdapterAdapter | None:
     """
-    Dependency to provide an instance of LocalStorage or None.
+    Dependency to provide an instance of LocalStorageAdapter or None.
 
     Returns:
-        LocalStorage | None: An instance of local storage if enabled and not stateless, otherwise None.
+        LocalStorageAdapter | None: An instance of local storage if enabled and not stateless, otherwise None.
     """
     if USE_LOCAL_STORAGE and not Config.is_stateless():
-        return LocalStorage(Path("answers.json"))
+        return LocalStorageAdapterAdapter(Path("answers.json"))
     return None
 
 
@@ -156,36 +156,36 @@ def get_browser_manager(request: Request):
     return request.app.state.browser_manager
 
 
-async def get_answer_checker(browser_manager: object = Depends(get_browser_manager)) -> FIPIAnswerChecker:
+async def get_answer_checker(browser_manager: object = Depends(get_browser_manager)) -> FIPIAnswerCheckerAdapterAdapter:
     """
-    Dependency to provide an instance of FIPIAnswerChecker.
+    Dependency to provide an instance of FIPIAnswerCheckerAdapter.
 
     Args:
         browser_manager: The shared BrowserManager instance.
 
     Returns:
-        FIPIAnswerChecker: An instance of the answer checker.
+        FIPIAnswerCheckerAdapter: An instance of the answer checker.
     """
-    # Note: The FIPIAnswerChecker now expects a BrowserManager instance in its constructor.
+    # Note: The FIPIAnswerCheckerAdapter now expects a BrowserManager instance in its constructor.
     # This dependency function provides that instance.
-    # The original 'base_url' argument is no longer used by FIPIAnswerChecker.__init__.
+    # The original 'base_url' argument is no longer used by FIPIAnswerCheckerAdapter.__init__.
     # We pass the browser_manager here.
-    # The 'base_url' is now handled internally by BrowserManager or FIPIAnswerChecker if needed for other purposes,
+    # The 'base_url' is now handled internally by BrowserManager or FIPIAnswerCheckerAdapter if needed for other purposes,
     # but the primary page acquisition is through BrowserManager.
     try:
-        return FIPIAnswerChecker(browser_manager=browser_manager)
+        return FIPIAnswerCheckerAdapterAdapter(browser_manager=browser_manager)
     except Exception as e:
         raise ExternalServiceException(
-            service_name="FIPIAnswerChecker",
+            service_name="FIPIAnswerCheckerAdapter",
             message="Failed to initialize answer checker",
             details={"error": str(e)}
         )
 
 
 def get_answer_service(
-    db: DatabaseManager = Depends(get_db_manager),
-    checker: FIPIAnswerChecker = Depends(get_answer_checker),
-    storage: LocalStorage | None = Depends(get_storage),
+    db: DatabaseAdapter = Depends(get_db_manager),
+    checker: FIPIAnswerCheckerAdapterAdapter = Depends(get_answer_checker),
+    storage: LocalStorageAdapterAdapter | None = Depends(get_storage),
     skill_graph: InMemorySkillGraph = Depends(get_skill_graph),
     spec_service: SpecificationAdapter = Depends(get_spec_service)
 ) -> AnswerService:
@@ -213,8 +213,8 @@ def get_answer_service(
 
 
 def get_quiz_service(
-    db: DatabaseManager = Depends(get_db_manager),
-    problem_retriever: QdrantProblemRetriever = Depends(get_problem_retriever),
+    db: DatabaseAdapter = Depends(get_db_manager),
+    problem_retriever: QdrantRetrieverAdapter = Depends(get_problem_retriever),
     skill_graph: InMemorySkillGraph = Depends(get_skill_graph),
     spec_service: SpecificationAdapter = Depends(get_spec_service)
 ) -> QuizService:

@@ -20,7 +20,7 @@ except ImportError:
 
 # Assuming utility modules are in a 'utils' subdirectory
 try:
-    from utils.database_manager import DatabaseManager
+    from infrastructure.adapters.database_adapter import DatabaseAdapter
     from utils.vector_indexer import QdrantProblemIndexer
     from utils.logging_config import setup_logging
 except ImportError as e:
@@ -63,10 +63,10 @@ def main():
 
     # --- 3. Initialize Database Manager ---
     try:
-        db_manager = DatabaseManager(db_path=str(db_path))
+        db_manager = DatabaseAdapter(db_path=str(db_path))
         logger.info("Database manager initialized.")
     except Exception as e:
-        logger.error(f"Failed to initialize DatabaseManager: {e}")
+        logger.error(f"Failed to initialize DatabaseAdapter: {e}")
         sys.exit(1)
 
     # --- 4. Initialize Qdrant Client ---

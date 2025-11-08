@@ -1,5 +1,5 @@
 """
-Integration tests for BrowserManager, FIPIScraper, FIPIAnswerChecker, and AnswerService.
+Integration tests for BrowserManager, FIPIScraper, FIPIAnswerCheckerAdapter, and AnswerService.
 """
 
 import pytest
@@ -7,10 +7,10 @@ import asyncio
 from pathlib import Path
 from resource_management.browser_manager import BrowserManager
 from scraper.fipi_scraper import FIPIScraper
-from utils.answer_checker import FIPIAnswerChecker
+from infrastructure.adapters.answer_checker_adapter import FIPIAnswerCheckerAdapterAdapter
 from services.answer_service import AnswerService
-from utils.database_manager import DatabaseManager
-from utils.local_storage import LocalStorage
+from infrastructure.adapters.database_adapter import DatabaseAdapter
+from infrastructure.adapters.local_storage_adapter import LocalStorageAdapterAdapter
 from infrastructure.adapters.specification_adapter import SpecificationAdapter
 from utils.skill_graph import InMemorySkillGraph
 from api.schemas import CheckAnswerRequest
@@ -33,7 +33,7 @@ KOS_PATH = Path("data") / "specs" / "ege_2026_math_kes_kos.json" # ПРАВИЛ�
 @pytest.fixture
 def test_db():
     """Создает временную тестовую БД."""
-    db = DatabaseManager(str(TEST_DB_PATH))
+    db = DatabaseAdapter(str(TEST_DB_PATH))
     db.initialize_db()
     yield db
     # Очистка после теста (опционально, можно вручную удалить файл)
@@ -65,8 +65,8 @@ async def test_full_integration_pipeline(test_db, test_spec_service):
     3. Gets the PROJ_ID for SUBJECT_TO_TEST from subject_mapping (instead of get_projects).
     4. Scrapes one page for the found proj_id.
     5. Saves problems to the test database.
-    6. Creates FIPIAnswerChecker with BrowserManager.
-    7. Creates AnswerService with FIPIAnswerChecker and other dependencies.
+    6. Creates FIPIAnswerCheckerAdapter with BrowserManager.
+    7. Creates AnswerService with FIPIAnswerCheckerAdapter and other dependencies.
     8. Executes answer checking for a problem scraped in step 4.
     9. Asserts that the BrowserManager's page caching works as expected (optional).
     """
@@ -117,13 +117,13 @@ async def test_full_integration_pipeline(test_db, test_spec_service):
         test_db.save_problems(problems)
 
         # 6-9. (Остальная логика теста - AnswerChecker, AnswerService, проверка ответов)
-        # Эти шаги зависят от реализации FIPIAnswerChecker и AnswerService,
+        # Эти шаги зависят от реализации FIPIAnswerCheckerAdapter и AnswerService,
         # которые, судя по памяти, могли быть связаны с BrowserManager.
         # Если BrowserManager используется для AnswerChecker, то он должен быть доступен.
         # Пока пропустим эти шаги, если они зависят от сложной интеграции в этом тесте,
         # и сосредоточимся на основной цепочке: получение proj_id -> скрапинг -> сохранение.
         # Для полной интеграции возможно потребуется отдельный тест или рефакторинг самих
-        # FIPIAnswerChecker/AnswerService.
+        # FIPIAnswerCheckerAdapter/AnswerService.
 
         # Просто проверим, что задачи были сохранены
         all_problems = test_db.get_all_problems()

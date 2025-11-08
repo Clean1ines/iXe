@@ -1,4 +1,4 @@
-"""Tests for the LocalStorage class."""
+"""Tests for the LocalStorageAdapter class."""
 
 import json
 import os
@@ -52,7 +52,7 @@ from pathlib import Path
 # import sys
 # from pathlib import Path
 # sys.path.insert(0, str(Path(__file__).parent.parent)) # Добавить корень проекта в путь
-# from utils.local_storage import LocalStorage
+# from infrastructure.adapters.local_storage_adapter import LocalStorageAdapterAdapter
 # --- КОНЕЦ КОММЕНТАРИЯ ---
 
 # Ниже приведен вариант с добавлением пути, чтобы тест работал из корня проекта,
@@ -67,18 +67,18 @@ project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from utils.local_storage import LocalStorage
+from infrastructure.adapters.local_storage_adapter import LocalStorageAdapterAdapter
 
 
-class TestLocalStorage(unittest.TestCase):
-    """Test case for LocalStorage class."""
+class TestLocalStorageAdapterAdapter(unittest.TestCase):
+    """Test case for LocalStorageAdapter class."""
 
     def test_save_and_get(self) -> None:
         """Test saving and retrieving an answer and status."""
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
             tmp_path = Path(tmp.name)
 
-        storage = LocalStorage(tmp_path)
+        storage = LocalStorageAdapterAdapter(tmp_path)
         storage.save_answer_and_status("task1", "ans1", "correct")
 
         answer, status = storage.get_answer_and_status("task1")
@@ -93,7 +93,7 @@ class TestLocalStorage(unittest.TestCase):
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
             tmp_path = Path(tmp.name)
 
-        storage = LocalStorage(tmp_path)
+        storage = LocalStorageAdapterAdapter(tmp_path)
         answer, status = storage.get_answer_and_status("task999")
 
         self.assertIsNone(answer)
@@ -107,7 +107,7 @@ class TestLocalStorage(unittest.TestCase):
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
             tmp_path = Path(tmp.name)
 
-        storage = LocalStorage(tmp_path)
+        storage = LocalStorageAdapterAdapter(tmp_path)
         storage.save_answer_and_status("task1", "ans1", "not_checked")
 
         # Verify initial state
@@ -127,16 +127,16 @@ class TestLocalStorage(unittest.TestCase):
         os.unlink(tmp_path)
 
     def test_persistence(self) -> None:
-        """Test that data persists between different instances of LocalStorage."""
+        """Test that data persists between different instances of LocalStorageAdapter."""
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
             tmp_path = Path(tmp.name)
 
         # Create first instance, save data
-        storage1 = LocalStorage(tmp_path)
+        storage1 = LocalStorageAdapterAdapter(tmp_path)
         storage1.save_answer_and_status("task_persist", "persisted_answer", "correct")
 
         # Create a second instance with the same file path
-        storage2 = LocalStorage(tmp_path)
+        storage2 = LocalStorageAdapterAdapter(tmp_path)
 
         # Retrieve data using the second instance
         answer, status = storage2.get_answer_and_status("task_persist")

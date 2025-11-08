@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock, patch
 import httpx
 from httpx import Response
 
-from utils.answer_checker import FIPIAnswerChecker
+from infrastructure.adapters.answer_checker_adapter import FIPIAnswerCheckerAdapterAdapter
 
 
-class TestFIPIAnswerChecker(unittest.IsolatedAsyncioTestCase):
-    """Тесты для класса FIPIAnswerChecker."""
+class TestFIPIAnswerCheckerAdapterAdapter(unittest.IsolatedAsyncioTestCase):
+    """Тесты для класса FIPIAnswerCheckerAdapter."""
 
     def setUp(self) -> None:
-        self.checker = FIPIAnswerChecker("https://fipi.ru")
+        self.checker = FIPIAnswerCheckerAdapterAdapter("https://fipi.ru")
 
     async def test_check_answer_correct(self) -> None:
         """Тест успешной проверки правильного ответа."""
