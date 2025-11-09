@@ -1,8 +1,8 @@
 from fastapi import Depends, Request
 from qdrant_client import QdrantClient
-from infrastructure.adapters.database_adapter import DatabaseAdapter
+from domain.interfaces.infrastructure_adapters import IDatabaseProvider
 from infrastructure.adapters.local_storage_adapter import LocalStorageAdapterAdapter
-from infrastructure.adapters.answer_checker_adapter import FIPIAnswerCheckerAdapterAdapter
+from domain.interfaces.infrastructure_adapters import IExternalChecker
 from services.quiz_service import QuizService
 from services.answer_service import AnswerService
 from utils.skill_graph import InMemorySkillGraph
@@ -173,7 +173,7 @@ async def get_answer_checker(browser_manager: object = Depends(get_browser_manag
     # The 'base_url' is now handled internally by BrowserManager or FIPIAnswerCheckerAdapter if needed for other purposes,
     # but the primary page acquisition is through BrowserManager.
     try:
-        return FIPIAnswerCheckerAdapterAdapter(browser_manager=browser_manager)
+        return IExternalChecker(browser_manager=browser_manager)
     except Exception as e:
         raise ExternalServiceException(
             service_name="FIPIAnswerCheckerAdapter",

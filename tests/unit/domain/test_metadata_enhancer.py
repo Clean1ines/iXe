@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import Mock
 from domain.services.metadata_enhancer import MetadataExtractionService
-from infrastructure.adapters.specification_adapter import SpecificationAdapter
+from unittest.mock import MagicMock
 
 
 class TestMetadataExtractionService:
@@ -9,7 +9,7 @@ class TestMetadataExtractionService:
 
     @pytest.fixture
     def mock_spec_service(self):
-        """Create a mock from infrastructure.adapters.specification_adapter import SpecificationAdapter."""
+        """Create a mock from unittest.mock import MagicMock."""
         return Mock(spec=SpecificationAdapter)
 
     @pytest.fixture

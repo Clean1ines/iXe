@@ -96,3 +96,17 @@ class MetadataExtractor:
             "kos_codes": kos_codes
             # 'form_id' больше не извлекается здесь
         }
+
+    def extract_metadata_from_header(self, header_container: Tag) -> Dict[str, any]:
+        """
+        Extracts metadata from a header container specifically for the BlockProcessorAdapter.
+        This method maintains compatibility with the existing codebase that calls
+        extract_metadata_from_header on MetadataExtractor instances.
+        
+        Args:
+            header_container (Tag): The BeautifulSoup Tag representing the header container.
+
+        Returns:
+            Dict[str, any]: A dictionary containing extracted metadata.
+        """
+        return self.extract(header_container)

@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from pathlib import Path
 import asyncio
 from processors.page_processor import PageProcessingOrchestrator
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 from utils.element_pairer import ElementPairer
 from domain.interfaces.html_processor import IHTMLProcessor
 from utils.downloader import AssetDownloader

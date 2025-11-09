@@ -2,8 +2,8 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 from bs4.element import Tag
 from domain.interfaces.html_processor import IHTMLProcessor
-from models.problem_builder import ProblemBuilder
-from models.problem_schema import Problem
+from domain.models.problem_builder import ProblemBuilder
+from domain.models.problem_schema import Problem
 
 
 class HTMLProcessingService:

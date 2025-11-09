@@ -8,7 +8,7 @@ and extracted metadata, using the current minimal Problem schema.
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from models.database_models import Base, DBProblem, DBAnswer
+from domain.models.database_models import Base, DBProblem, DBAnswer
 
 
 class TestDatabaseModels(unittest.TestCase):

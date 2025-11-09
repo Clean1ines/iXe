@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from domain.interfaces.specification_provider import ISpecificationProvider
+from domain.interfaces.task_inferer import ITaskNumberInferer
 
 
-class TaskNumberInfererAdapter:
+class TaskNumberInfererAdapter(ITaskNumberInferer):
     """
     Adapter for inferring task numbers based on rules and specifications.
     
@@ -74,3 +75,48 @@ class TaskNumberInfererAdapter:
         # Return default if no pattern matched
         default = self.rules.get("default")
         return int(default) if default is not None else None
+
+    def infer(self, kes_codes: List[str], answer_type: str) -> Optional[int]:
+        """
+        Infer the official ЕГЭ task number from KES codes and answer type.
+        
+        Args:
+            kes_codes: List of KES codes extracted from the problem header
+            answer_type: Type of answer expected (e.g., 'number', 'text', 'formula')
+            
+        Returns:
+            The inferred task number, or None if it could not be inferred.
+        """
+        if not kes_codes:
+            return None
+
+        # Load direct mappings from rules
+        direct_mappings = self.rules.get("direct_mappings", [])
+        
+        # Check for single KES code mappings
+        for mapping in direct_mappings:
+            if "kes_code" in mapping and mapping["kes_code"] in kes_codes:
+                # Check if answer_type is also specified and matches
+                if "answer_type" in mapping:
+                    if mapping["answer_type"] == answer_type:
+                        return mapping["task_number"]
+                else:
+                    # If no answer_type specified in rule, just return the task number
+                    return mapping["task_number"]
+        
+        # Check for multi-KES code mappings
+        for mapping in direct_mappings:
+            if "kes_codes" in mapping:
+                required_codes = mapping["kes_codes"]
+                # Check if all required codes are present in the input kes_codes
+                if all(code in kes_codes for code in required_codes):
+                    # Check if answer_type is also specified and matches
+                    if "answer_type" in mapping:
+                        if mapping["answer_type"] == answer_type:
+                            return mapping["task_number"]
+                    else:
+                        # If no answer_type specified in rule, just return the task number
+                        return mapping["task_number"]
+        
+        # If no direct mapping found, return None
+        return None

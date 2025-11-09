@@ -1,5 +1,5 @@
 import unittest
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 
 class TestProblemSchema(unittest.TestCase):
     def test_valid_problem_creation(self):

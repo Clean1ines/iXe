@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch
 from api.app import create_app
 from services.quiz_service import QuizService
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 from datetime import datetime
 from api.schemas import StartQuizResponse, QuizItem, StartQuizRequest
 import pytest # <-- Добавляем импорт pytest

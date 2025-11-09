@@ -4,8 +4,8 @@ Provides adapter functions that handle attribute mismatches gracefully.
 """
 import logging
 from typing import Any, Dict, Optional
-from models.problem_schema import Problem
-from models.database_models import DBProblem
+from domain.models.problem_schema import Problem
+from domain.models.database_models import DBProblem
 
 logger = logging.getLogger(__name__)
 

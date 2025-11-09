@@ -7,8 +7,8 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker
 
-from models.database_models import Base, DBProblem, DBAnswer
-from models.problem_schema import Problem
+from domain.models.database_models import Base, DBProblem, DBAnswer
+from domain.models.problem_schema import Problem
 from infrastructure.adapters.database_adapter import DatabaseAdapter
 
 

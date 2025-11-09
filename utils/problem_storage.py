@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 
 
 class ProblemStorage:

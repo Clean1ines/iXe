@@ -15,6 +15,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 import asyncio
+from datetime import datetime
 
 from utils.downloader import AssetDownloader
 from processors.html import (
@@ -25,9 +26,9 @@ from processors.html import (
     MathMLRemover,
     UnwantedElementRemover
 )
-from utils.metadata_extractor import MetadataExtractor
-from models.problem_builder import ProblemBuilder
-from models.problem_schema import Problem
+from infrastructure.adapters.html_metadata_extractor_adapter import HTMLMetadataExtractorAdapter
+from domain.models.problem_builder import ProblemBuilder
+from domain.models.problem_schema import Problem
 from domain.interfaces.html_processor import IHTMLProcessor
 from domain.interfaces.task_inferer import ITaskNumberInferer
 from domain.interfaces.html_processor import ITaskClassifier
@@ -122,7 +123,7 @@ class BlockProcessorAdapter(IHTMLProcessor):
             combined_soup.append(task_header_panel.extract())
 
         # --- 2. Extract metadata (KES, KOS codes) ---
-        metadata_extractor = MetadataExtractor()
+        metadata_extractor = HTMLMetadataExtractorAdapter()
         metadata = metadata_extractor.extract_metadata_from_header(header_container)
         kes_codes = metadata.get('kes_codes', [])
         kos_codes = metadata.get('kos_codes', [])
@@ -166,7 +167,7 @@ class BlockProcessorAdapter(IHTMLProcessor):
         # --- 6. Enhance metadata using domain service ---
         enhanced_metadata = self.metadata_enhancer.enhance_metadata(metadata)
 
-        # --- 7. Return structured data ---
+        # --- 7. Return structured data with all required Problem fields ---
         result = {
             'problem_id': f"{subject}_{block_index}_{hash(processed_html_string) % 1000000}",
             'subject': subject,
@@ -174,15 +175,24 @@ class BlockProcessorAdapter(IHTMLProcessor):
             'text': processed_html_string,
             'answer': None,  # Answers are not scraped from the question itself
             'options': None,
-            'assignment_text': assignment_text,
+            'solutions': None,
             'kes_codes': kes_codes,
-            'kos_codes': kos_codes,
+            'skills': None,
+            'difficulty_level': difficulty_level,
             'task_number': task_number,
+            'kos_codes': kos_codes,
             'exam_part': "Part 1" if task_number <= 12 else "Part 2",
-            'difficulty': difficulty_level,
             'max_score': max_score,
-            'topics': kes_codes,  # topics is an alias for kes_codes
-            'requirements': kos_codes,  # requirements is an alias for kos_codes
+            'form_id': None,
+            'source_url': base_url,
+            'raw_html_path': None,
+            'created_at': datetime.now(),
+            'updated_at': None,
+            'metadata': enhanced_metadata,
+            # These are aliases, not direct fields in Problem
+            # 'assignment_text': assignment_text,
+            # 'topics': kes_codes,
+            # 'requirements': kos_codes,
         }
 
         logger.debug(f"Finished processing block {block_index} with task_number={task_number}.")
@@ -220,7 +230,7 @@ class BlockProcessorAdapter(IHTMLProcessor):
 
     def _extract_kos_codes_reliable(self, header_container: Tag) -> List[str]:
         """
-        Extracts KOS codes reliably by parsing the structured 'КОС:' line.
+        Extracts KOS codes reliably by parsing the structured 'КЭС:' line.
 
         Args:
             header_container: The BeautifulSoup Tag containing the header panel.

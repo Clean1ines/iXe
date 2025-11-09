@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
 
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 from infrastructure.adapters.database_adapter import DatabaseAdapter
 
 

@@ -1,62 +1,54 @@
-from typing import Optional, List, Any, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from models.problem_schema import Problem
 from abc import ABC, abstractmethod
-from typing import Protocol, Optional
-import logging
-from api.schemas import CheckAnswerResponse
+from typing import List, Optional, Dict, Any
+from domain.models import Problem
+from domain.models.answer_schema import AnswerCheckResult, UserAnswer
 
-
-class ICacheProvider(Protocol):
-    """Interface for cache operations."""
-    async def get(self, key: str):
-        ...
+class ICacheProvider(ABC):
+    """Interface for cache operations"""
+    @abstractmethod
+    async def get(self, key: str) -> Optional[Any]:
+        pass
     
-    async def set(self, key: str, value, ttl: int = None):
-        ...
-    
-    async def delete(self, key: str):
-        ...
+    @abstractmethod
+    async def set(self, key: str, value: Any, ttl: int = None) -> None:
+        pass
 
+class IExternalChecker(ABC):
+    """Interface for external answer checking services"""
+    @abstractmethod
+    async def check_answer(self, problem_id: str, user_answer: UserAnswer, subject: str) -> AnswerCheckResult:
+        pass
 
-class IExternalChecker(Protocol):
-    """Interface for external answer checking services."""
-    async def check_answer(self, task_id: str, form_id: str, user_answer: str, subject: str) -> dict:
-        ...
+class IStorageProvider(ABC):
+    """Interface for local storage operations"""
+    @abstractmethod
+    def get_answer_and_status(self, problem_id: str, user_id: str) -> Optional[Dict]:
+        pass
+    
+    @abstractmethod
+    def save_answer_and_status(self, problem_id: str, user_id: str, answer: str, is_correct: bool, score: float):
+        pass
 
+class IDatabaseProvider(ABC):
+    """Interface for database operations"""
+    @abstractmethod
+    async def get_problem_by_id(self, problem_id: str) -> Optional[Problem]:
+        pass
+    
+    @abstractmethod
+    async def save_problem(self, problem: Problem) -> None:
+        pass
+    
+    @abstractmethod
+    async def get_answer_status(self, problem_id: str, user_id: str) -> Optional[Dict]:
+        pass
+    
+    @abstractmethod
+    async def save_answer_status(self, problem_id: str, user_id: str, answer: str, is_correct: bool, score: float) -> None:
+        pass
 
-class IStorageProvider(Protocol):
-    """Interface for local storage operations."""
-    def get_answer_and_status(self, problem_id: str):
-        ...
-    
-    def save_answer_and_status(self, problem_id: str, answer: str, status: str):
-        ...
-
-class IDatabaseProvider(Protocol):
-    """Interface for database operations."""
-    
-    def get_problem_by_id(self, problem_id: str) -> Optional[Any]:
-        """Get problem by its ID."""
-        ...
-    
-    def save_problem(self, problem: object) -> None:
-        """Save a problem to the database."""
-        ...
-    
-    def get_answer_status(self, problem_id: str) -> Optional[str]:
-        """Get the status of an answer for a problem."""
-        ...
-    
-    def save_answer_status(self, problem_id: str, status: str) -> None:
-        """Save the status of an answer for a problem."""
-        ...
-
-
-class IProblemRetriever(Protocol):
-    """Interface for problem retrieval operations."""
-    
-    def retrieve_similar_problems(self, query: str, limit: int = 5) -> List[Any]:
-        """Retrieve problems similar to the query."""
-        ...
+class IProblemRetriever(ABC):
+    """Interface for problem retrieval operations"""
+    @abstractmethod
+    async def retrieve_similar_problems(self, query: str, limit: int = 5) -> List[Problem]:
+        pass

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List, Optional
 from bs4 import BeautifulSoup
 from utils.downloader import AssetDownloader
-from utils.element_pairer import ElementPairer
+from infrastructure.adapters.html_pairer_adapter import HTMLPairerAdapter
 from domain.interfaces.html_processor import IHTMLProcessor
 
 
@@ -34,7 +34,7 @@ class PageProcessingOrchestrator:
             html_processor: IHTMLProcessor implementation for processing HTML blocks
         """
         self.html_processor = html_processor
-        self.pairer = ElementPairer()
+        self.pairer = HTMLPairerAdapter()
 
     async def process_page(
         self,
@@ -62,7 +62,7 @@ class PageProcessingOrchestrator:
         logger.info(f"Starting to process page for subject '{subject}' with {len(page_content)} characters of content.")
 
         soup = BeautifulSoup(page_content, 'html.parser')
-        paired_elements = self.pairer.pair(soup)
+        paired_elements = self.pairer.pair_elements(soup)
 
         results = []
         for i, (header_container, qblock) in enumerate(paired_elements):

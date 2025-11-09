@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List
 from infrastructure.adapters.database_adapter import DatabaseAdapter
 from infrastructure.adapters.specification_adapter import SpecificationAdapter
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 
 logger = logging.getLogger(__name__)
 

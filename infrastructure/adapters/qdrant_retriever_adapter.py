@@ -7,7 +7,7 @@ from typing import List, Optional
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
 
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 from domain.interfaces.infrastructure_adapters import IProblemRetriever
 from infrastructure.adapters.database_adapter import DatabaseAdapter
 

@@ -4,8 +4,8 @@ Unit tests for the ProblemBuilder class.
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
-from models.problem_builder import ProblemBuilder
-from models.problem_schema import Problem
+from domain.models.problem_builder import ProblemBuilder
+from domain.models.problem_schema import Problem
 
 
 class TestProblemBuilder(unittest.TestCase):

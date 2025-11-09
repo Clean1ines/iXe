@@ -2,23 +2,20 @@
 ├── .benchmarks/
 ├── .github/
 │   └── workflows/
+├── .hypothesis/
+│   └── unicode_data/
+│       └── 15.0.0/
 ├── .mypy_cache/
 ├── api/
 │   ├── endpoints/
 │   │   ├── answer.py (472.0 B)
-│   │   ├── block.py (996.0 B)
-│   │   │   function get_problem_data: Returns problem data for frontend rendering.
-│   │   ├── health.py (4.6 KB)
-│   │   │   module __main__: Health check endpoint for monitoring application status.
-│   │   │   function health_check: Health check endpoint that returns the status of all dependencies.  Returns:     JSON response wi...
-│   │   │   function browser_resources_health: Health check endpoint for browser resources. Returns metrics and status of browser resource pool.
+│   │   ├── block.py (1.0 KB)
+│   │   ├── health.py (4.7 KB)
 │   │   ├── plan.py (471.0 B)
 │   │   │   function generate_study_plan: API endpoint to generate a study plan (stub).  This is a placeholder for future adaptive study pl...
 │   │   ├── quiz.py (643.0 B)
 │   │   │   function start_daily_quiz: API endpoint to start a new daily quiz.  This endpoint takes a subject/page name and returns a li...
-│   │   └── subjects.py (1.5 KB)
-│   │       function get_available_subjects: API endpoint to get a list of available subjects. The list reflects subjects present in the datab...
-│   │       function get_random_problems: Returns `count` random problem IDs for the given subject.
+│   │   └── subjects.py (1.6 KB)
 │   ├── middleware/
 │   │   └── logging_middleware.py (3.7 KB)
 │   │       module __main__: Middleware for adding structured logging and trace ID to requests.
@@ -35,15 +32,15 @@
 │   │   function domain_exception_handler: Handles domain exceptions globally.
 │   │   function global_exception_handler: Handles unhandled exceptions globally.
 │   │   function root: Health check endpoint.
-│   ├── dependencies.py (8.2 KB)
-│   │   function get_db_manager: Dependency to provide an instance of DatabaseManager.  Returns:     DatabaseManager: An instance ...
+│   ├── dependencies.py (8.5 KB)
+│   │   function get_db_manager: Dependency to provide an instance of DatabaseAdapter.  Returns:     DatabaseAdapter: An instance ...
 │   │   function get_qdrant_client: Dependency to provide an instance of QdrantClient.  Returns:     QdrantClient: An instance of the...
-│   │   function get_problem_retriever: Dependency to provide an instance of QdrantProblemRetriever.  Args:     qdrant_client: The Qdrant...
-│   │   function get_spec_service: Dependency to provide an instance of SpecificationService.  Args:     subject: The subject name (...
+│   │   function get_problem_retriever: Dependency to provide an instance of QdrantRetrieverAdapter.  Args:     qdrant_client: The Qdrant...
+│   │   function get_spec_service: Dependency to provide an instance of SpecificationAdapter.  Args:     subject: The subject name (...
 │   │   function get_skill_graph: Dependency to provide an instance of InMemorySkillGraph.  Args:     db: The database manager inst...
-│   │   function get_storage: Dependency to provide an instance of LocalStorage or None.  Returns:     LocalStorage | None: An ...
+│   │   function get_storage: Dependency to provide an instance of LocalStorageAdapter or None.  Returns:     LocalStorageAdapt...
 │   │   function get_browser_manager: Dependency to provide the shared BrowserManager instance.  Args:     request: The incoming reques...
-│   │   function get_answer_checker: Dependency to provide an instance of FIPIAnswerChecker.  Args:     browser_manager: The shared Br...
+│   │   function get_answer_checker: Dependency to provide an instance of FIPIAnswerCheckerAdapter.  Args:     browser_manager: The sh...
 │   │   function get_answer_service: Dependency to provide an instance of AnswerService.  Args:     db: The database manager instance....
 │   │   function get_quiz_service: Dependency to provide an instance of QuizService.  Args:     db: The database manager instance.  ...
 │   │   function get_browser_pool_manager: Dependency to provide the shared BrowserPoolManager instance.  Args:     request: The incoming re...
@@ -98,6 +95,8 @@
 │   │       class ExternalServiceException: Raised when an external service call fails.
 │   │       class ResourceUnavailableException: Raised when a required resource is temporarily unavailable.
 │   ├── interfaces/
+│   │   ├── core/
+│   │   │   └── __init__.py (323.0 B)
 │   │   ├── html_processor.py (891.0 B)
 │   │   │   class IHTMLProcessor: Domain interface for HTML processing operations.
 │   │   │   method IHTMLProcessor.process_html_block: Process a single HTML block pair and return structured data.
@@ -105,10 +104,44 @@
 │   │   │   method ITaskClassifier.classify_task: Classify a task based on KES/KOS codes and return classification result.
 │   │   │   function process_html_block: Process a single HTML block pair and return structured data.
 │   │   │   function classify_task: Classify a task based on KES/KOS codes and return classification result.
+│   │   ├── infrastructure_adapters.py (1.8 KB)
+│   │   │   class ICacheProvider: Interface for cache operations
+│   │   │   class IExternalChecker: Interface for external answer checking services
+│   │   │   class IStorageProvider: Interface for local storage operations
+│   │   │   class IDatabaseProvider: Interface for database operations
+│   │   │   class IProblemRetriever: Interface for problem retrieval operations
+│   │   ├── metadata_parser.py (398.0 B)
+│   │   ├── specification_provider.py (898.0 B)
+│   │   │   class ISpecificationProvider: Domain interface for specification data access.
+│   │   │   method ISpecificationProvider.get_task_spec: Get official task specification by number (1–19).
+│   │   │   method ISpecificationProvider.explain_kos: Return human-readable KOS description.
+│   │   │   method ISpecificationProvider.explain_kes: Return human-readable KES description.
+│   │   │   method ISpecificationProvider.get_feedback_for_task: Generate pedagogical feedback for a given task number. Returns structured feedback including KOS ...
+│   │   │   function get_task_spec: Get official task specification by number (1–19).
+│   │   │   function explain_kos: Return human-readable KOS description.
+│   │   │   function explain_kes: Return human-readable KES description.
+│   │   │   function get_feedback_for_task: Generate pedagogical feedback for a given task number. Returns structured feedback including KOS ...
 │   │   └── task_inferer.py (368.0 B)
 │   │       class ITaskNumberInferer: Domain interface for task number inference operations.
 │   │       method ITaskNumberInferer.infer: Infer the official ЕГЭ task number from KES codes and answer type.
 │   │       function infer: Infer the official ЕГЭ task number from KES codes and answer type.
+│   ├── models/
+│   │   ├── __init__.py (678.0 B)
+│   │   ├── answer_schema.py (533.0 B)
+│   │   │   class UserAnswer: Represents a user's answer to a problem.
+│   │   │   class AnswerCheckResult: Represents the result of checking a user's answer.
+│   │   ├── database_models.py (2.6 KB)
+│   │   │   module __main__: SQLAlchemy ORM-модели для хранения задач и пользовательских ответов.  Соответствуют обновлённой P...
+│   │   │   class DBProblem: ORM-модель задачи из ЕГЭ.  Соответствует обновлённой Pydantic-модели `Problem`.
+│   │   │   class DBAnswer: ORM-модель пользовательского ответа на задачу.
+│   │   ├── problem_builder.py (2.9 KB)
+│   │   │   module __main__: Module for building Problem instances from extracted data.  This module provides the `ProblemBuil...
+│   │   │   class ProblemBuilder: A class responsible for constructing Problem instances from raw data.
+│   │   │   method ProblemBuilder.build: Builds a Problem instance from extracted data.  Args:     problem_id: Unique identifier for the p...
+│   │   │   function build: Builds a Problem instance from extracted data.  Args:     problem_id: Unique identifier for the p...
+│   │   └── problem_schema.py (2.9 KB)
+│   │       module __main__: Pydantic model representing an EGE problem scraped from the FIPI website. Contains all necessary ...
+│   │       class Problem: Model representing an EGE problem.  Attributes:     problem_id (str): Unique problem identifier, ...
 │   └── services/
 │       ├── alert_service.py (3.9 KB)
 │       │   module __main__: Service for centralized alerting on critical errors.
@@ -131,9 +164,9 @@
 │       ├── metadata_enhancer.py (2.0 KB)
 │       │   module __main__: Domain service for enhancing metadata using specification data.
 │       │   class MetadataExtractionService: Service for enhancing extracted metadata with specification data.
-│       │   method MetadataExtractionService.__init__: Initialize the service.  Args:     specification_service: SpecificationService instance for acces...
+│       │   method MetadataExtractionService.__init__: Initialize the service.  Args:     specification_provider: ISpecificationProvider implementation ...
 │       │   method MetadataExtractionService.enhance_metadata: Enhance extracted metadata with additional information from specifications.  Args:     extracted_...
-│       │   function __init__: Initialize the service.  Args:     specification_service: SpecificationService instance for acces...
+│       │   function __init__: Initialize the service.  Args:     specification_provider: ISpecificationProvider implementation ...
 │       │   function enhance_metadata: Enhance extracted metadata with additional information from specifications.  Args:     extracted_...
 │       └── observability_service.py (6.9 KB)
 │           module __main__: Service for centralized observability (logging, metrics, tracing).
@@ -180,19 +213,98 @@
 │   ├── package.json (808.0 B)
 │   ├── tsconfig.json (486.0 B)
 │   └── vite.config.ts (2.1 KB)
+├── header_analysis/
+├── header_debug/
 ├── infrastructure/
 │   └── adapters/
-│       ├── block_processor_adapter.py (10.7 KB)
+│       ├── answer_checker_adapter.py (3.9 KB)
+│       │   module __main__: Infrastructure adapter for checking answers against the official FIPI answer service.
+│       │   class FIPIAnswerCheckerAdapterAdapter: A class to check answers against the official FIPI service.  This class handles the browser autom...
+│       │   method FIPIAnswerCheckerAdapterAdapter.__init__: Initializes the answer checker with a browser manager.  Args:     browser_pool: BrowserPoolManage...
+│       │   method FIPIAnswerCheckerAdapterAdapter.check_answer: Check the user's answer against the official FIPI answer.  Args:     task_id: The ID of the task ...
+│       │   function __init__: Initializes the answer checker with a browser manager.  Args:     browser_pool: BrowserPoolManage...
+│       │   function check_answer: Check the user's answer against the official FIPI answer.  Args:     task_id: The ID of the task ...
+│       ├── block_processor_adapter.py (11.1 KB)
 │       │   module __main__: Infrastructure adapter for processing individual blocks of HTML content from FIPI pages.  This mo...
 │       │   class BlockProcessorAdapter: Infrastructure adapter implementing domain interface for processing a single problem block from F...
 │       │   method BlockProcessorAdapter.__init__: Initializes the BlockProcessorAdapter with required services.  Args:     task_inferer: Domain int...
 │       │   method BlockProcessorAdapter.process_html_block: Processes a single block pair (header_container, qblock) into structured data.  Args:     header_...
 │       │   method BlockProcessorAdapter._extract_kes_codes_reliable: Extracts KES codes reliably by parsing the structured 'КЭС:' line.  Args:     header_container: T...
-│       │   method BlockProcessorAdapter._extract_kos_codes_reliable: Extracts KOS codes reliably by parsing the structured 'КОС:' line.  Args:     header_container: T...
+│       │   method BlockProcessorAdapter._extract_kos_codes_reliable: Extracts KOS codes reliably by parsing the structured 'КЭС:' line.  Args:     header_container: T...
 │       │   function __init__: Initializes the BlockProcessorAdapter with required services.  Args:     task_inferer: Domain int...
 │       │   function process_html_block: Processes a single block pair (header_container, qblock) into structured data.  Args:     header_...
 │       │   function _extract_kes_codes_reliable: Extracts KES codes reliably by parsing the structured 'КЭС:' line.  Args:     header_container: T...
-│       │   function _extract_kos_codes_reliable: Extracts KOS codes reliably by parsing the structured 'КОС:' line.  Args:     header_container: T...
+│       │   function _extract_kos_codes_reliable: Extracts KOS codes reliably by parsing the structured 'КЭС:' line.  Args:     header_container: T...
+│       ├── database_adapter.py (4.1 KB)
+│       │   module __main__: Infrastructure adapter for managing SQLite connections and performing CRUD operations on tasks an...
+│       │   class DatabaseAdapter: Class for managing SQLite database using SQLAlchemy ORM.  Encapsulates database connection, table...
+│       │   method DatabaseAdapter.__init__: Initializes the manager with the specified path to the SQLite file.  Args:     db_path: Path to t...
+│       │   method DatabaseAdapter.initialize_db: Initialize the database (idempotent operation).
+│       │   method DatabaseAdapter._create_tables: Creates database tables if they don't exist.
+│       │   method DatabaseAdapter.get_problem_by_id: Get problem by its ID.
+│       │   method DatabaseAdapter.save_problem: Save a problem to the database.
+│       │   method DatabaseAdapter.get_answer_status: Get the status of an answer for a problem.
+│       │   method DatabaseAdapter.save_answer_status: Save the status of an answer for a problem.
+│       │   function __init__: Initializes the manager with the specified path to the SQLite file.  Args:     db_path: Path to t...
+│       │   function initialize_db: Initialize the database (idempotent operation).
+│       │   function _create_tables: Creates database tables if they don't exist.
+│       │   function get_problem_by_id: Get problem by its ID.
+│       │   function save_problem: Save a problem to the database.
+│       │   function get_answer_status: Get the status of an answer for a problem.
+│       │   function save_answer_status: Save the status of an answer for a problem.
+│       ├── html_metadata_extractor_adapter.py (5.5 KB)
+│       │   method HTMLMetadataExtractorAdapter.extract_metadata_from_header: Извлекает метаданные из header-элемента в формате bs4.element.Tag
+│       │   method HTMLMetadataExtractorAdapter._needs_encoding_fix: Проверяет необходимость исправления двойной кодировки
+│       │   method HTMLMetadataExtractorAdapter._fix_encoding: Исправляет двойную кодировку текста
+│       │   method HTMLMetadataExtractorAdapter._extract_task_number: Извлекает номер задания из текста
+│       │   method HTMLMetadataExtractorAdapter._extract_kes_codes: Извлекает коды КЭС из текста
+│       │   method HTMLMetadataExtractorAdapter._extract_kos_codes: Извлекает коды КОС из текста
+│       │   method HTMLMetadataExtractorAdapter._extract_codes: Вспомогательный метод для извлечения кодов
+│       │   function extract_metadata_from_header: Извлекает метаданные из header-элемента в формате bs4.element.Tag
+│       │   function _needs_encoding_fix: Проверяет необходимость исправления двойной кодировки
+│       │   function _fix_encoding: Исправляет двойную кодировку текста
+│       │   function _extract_task_number: Извлекает номер задания из текста
+│       │   function _extract_kes_codes: Извлекает коды КЭС из текста
+│       │   function _extract_kos_codes: Извлекает коды КОС из текста
+│       │   function _extract_codes: Вспомогательный метод для извлечения кодов
+│       ├── html_pairer_adapter.py (12.3 KB)
+│       │   class HTMLPairerAdapter: Infrastructure adapter for pairing 'header container' divs with their corresponding 'qblock' divs...
+│       │   method HTMLPairerAdapter.pair_elements: Finds and pairs 'qblock' divs with their corresponding 'header container' divs based on matching ...
+│       │   function pair_elements: Finds and pairs 'qblock' divs with their corresponding 'header container' divs based on matching ...
+│       ├── local_storage_adapter.py (2.9 KB)
+│       │   module __main__: Local storage adapter module for managing task answers and statuses.
+│       │   class LocalStorageAdapterAdapter: Manages local storage for task answers and their statuses with in-memory caching.
+│       │   method LocalStorageAdapterAdapter.__init__: Initializes the LocalStorageAdapter with a path to the storage file.  Args:     storage_path: Pat...
+│       │   method LocalStorageAdapterAdapter._load_data_from_disk: Loads data from the storage file on disk.  Returns:     A dictionary with the loaded data.
+│       │   method LocalStorageAdapterAdapter._save_data_to_disk: Saves the in-memory data to the storage file on disk.
+│       │   method LocalStorageAdapterAdapter.get_answer_and_status: Gets the stored answer and status for a problem.  Args:     problem_id: The ID of the problem.  R...
+│       │   method LocalStorageAdapterAdapter.save_answer_and_status: Saves an answer and its status for a problem.  Args:     problem_id: The ID of the problem.     a...
+│       │   function __init__: Initializes the LocalStorageAdapter with a path to the storage file.  Args:     storage_path: Pat...
+│       │   function _load_data_from_disk: Loads data from the storage file on disk.  Returns:     A dictionary with the loaded data.
+│       │   function _save_data_to_disk: Saves the in-memory data to the storage file on disk.
+│       │   function get_answer_and_status: Gets the stored answer and status for a problem.  Args:     problem_id: The ID of the problem.  R...
+│       │   function save_answer_and_status: Saves an answer and its status for a problem.  Args:     problem_id: The ID of the problem.     a...
+│       ├── qdrant_retriever_adapter.py (3.0 KB)
+│       │   module __main__: Infrastructure adapter for retrieving Problem instances from the database based on semantic simil...
+│       │   class QdrantRetrieverAdapter: A class to retrieve Problems from the database based on semantic similarity using a Qdrant vector...
+│       │   method QdrantRetrieverAdapter.__init__: Initializes the retriever with Qdrant client and database manager.  Args:     qdrant_client: The ...
+│       │   method QdrantRetrieverAdapter.retrieve_similar_problems: Retrieve problems similar to the query.  Args:     query: The query text to find similar problems...
+│       │   function __init__: Initializes the retriever with Qdrant client and database manager.  Args:     qdrant_client: The ...
+│       │   function retrieve_similar_problems: Retrieve problems similar to the query.  Args:     query: The query text to find similar problems...
+│       ├── specification_adapter.py (3.4 KB)
+│       │   module __main__: Infrastructure adapter for loading and querying official FIPI specifications (KES/KOS). Provides ...
+│       │   method SpecificationAdapter.__init__: Initialize with paths to official FIPI JSON specifications.  Args:     spec_path: Path to e.g. eg...
+│       │   method SpecificationAdapter._load_json: Helper to load JSON safely.
+│       │   method SpecificationAdapter.get_task_spec: Get official task specification by number (1–19).
+│       │   method SpecificationAdapter.explain_kos: Return human-readable KOS description.
+│       │   method SpecificationAdapter.explain_kes: Return human-readable KES description.
+│       │   method SpecificationAdapter.get_feedback_for_task: Generate pedagogical feedback for a given task number. Returns structured feedback including KOS ...
+│       │   function __init__: Initialize with paths to official FIPI JSON specifications.  Args:     spec_path: Path to e.g. eg...
+│       │   function _load_json: Helper to load JSON safely.
+│       │   function get_task_spec: Get official task specification by number (1–19).
+│       │   function explain_kos: Return human-readable KOS description.
+│       │   function explain_kes: Return human-readable KES description.
+│       │   function get_feedback_for_task: Generate pedagogical feedback for a given task number. Returns structured feedback including KOS ...
 │       ├── task_classifier_adapter.py (1.4 KB)
 │       │   module __main__: Infrastructure adapter for task classification.
 │       │   class TaskClassifierAdapter: Infrastructure adapter implementing domain interface for task classification.
@@ -200,54 +312,56 @@
 │       │   method TaskClassifierAdapter.classify_task: Classify a task based on KES/KOS codes and answer type.  Args:     kes_codes: List of KES codes  ...
 │       │   function __init__: Initialize the adapter.  Args:     task_inferer: Implementation of ITaskNumberInferer for inferri...
 │       │   function classify_task: Classify a task based on KES/KOS codes and answer type.  Args:     kes_codes: List of KES codes  ...
-│       └── task_number_inferer_adapter.py (4.2 KB)
-│           module __main__: Infrastructure adapter for task number inference.  This module provides the `TaskNumberInfererAda...
-│           class TaskNumberInfererAdapter: Infrastructure adapter implementing domain interface for inferring task numbers.  Uses the offici...
-│           method TaskNumberInfererAdapter.__init__: Initializes the adapter with the official specification and rules.  Args:     spec_service: An in...
-│           method TaskNumberInfererAdapter.infer: Infers the most probable task number (1-19).  Args:     kes_codes: List of KES codes extracted fr...
-│           method TaskNumberInfererAdapter.from_paths: Convenience factory method to create an instance from file paths.  Args:     spec_path: Path to e...
-│           function __init__: Initializes the adapter with the official specification and rules.  Args:     spec_service: An in...
-│           function infer: Infers the most probable task number (1-19).  Args:     kes_codes: List of KES codes extracted fr...
-│           function from_paths: Convenience factory method to create an instance from file paths.  Args:     spec_path: Path to e...
+│       └── task_number_inferer_adapter.py (5.0 KB)
+│           module __main__: Infrastructure adapter for inferring task numbers from problem IDs using official FIPI specificat...
+│           class TaskNumberInfererAdapter: Adapter for inferring task numbers based on rules and specifications.  This class implements the ...
+│           method TaskNumberInfererAdapter.__init__: Initialize the inferer with specification service and rules.  Args:     spec_service: An instance...
+│           method TaskNumberInfererAdapter._load_rules: Load inference rules from a JSON file.
+│           method TaskNumberInfererAdapter.infer_task_number: Infer the task number from a problem ID using loaded rules.  Args:     problem_id: The ID of the ...
+│           method TaskNumberInfererAdapter.infer: Infer the official ЕГЭ task number from KES codes and answer type.  Args:     kes_codes: List of ...
+│           function __init__: Initialize the inferer with specification service and rules.  Args:     spec_service: An instance...
+│           function _load_rules: Load inference rules from a JSON file.
+│           function infer_task_number: Infer the task number from a problem ID using loaded rules.  Args:     problem_id: The ID of the ...
+│           function infer: Infer the official ЕГЭ task number from KES codes and answer type.  Args:     kes_codes: List of ...
 ├── models/
-│   ├── database_models.py (2.6 KB)
-│   │   module __main__: SQLAlchemy ORM-модели для хранения задач и пользовательских ответов.  Соответствуют обновлённой P...
-│   │   class DBProblem: ORM-модель задачи из ЕГЭ.  Соответствует обновлённой Pydantic-модели `Problem`.
-│   │   class DBAnswer: ORM-модель пользовательского ответа на задачу.
-│   ├── problem_builder.py (2.9 KB)
-│   │   module __main__: Module for building Problem instances from extracted data.  This module provides the `ProblemBuil...
-│   │   class ProblemBuilder: A class responsible for constructing Problem instances from raw data.
-│   │   method ProblemBuilder.build: Builds a Problem instance from extracted data.  Args:     problem_id: Unique identifier for the p...
-│   │   function build: Builds a Problem instance from extracted data.  Args:     problem_id: Unique identifier for the p...
-│   └── problem_schema.py (2.9 KB)
-│       module __main__: Pydantic model representing an EGE problem scraped from the FIPI website. Contains all necessary ...
-│       class Problem: Model representing an EGE problem.  Attributes:     problem_id (str): Unique problem identifier, ...
 ├── processors/
 │   ├── html/
 │   │   ├── __init__.py (475.0 B)
-│   │   ├── file_link_processor.py (3.4 KB)
+│   │   ├── file_link_processor.py (6.5 KB)
 │   │   │   class FileLinkProcessor: Processes file links, downloading files and updating href attributes.
+│   │   │   method FileLinkProcessor.process_html_block: Process a single HTML block pair and return structured data. This method processes file links in ...
 │   │   │   method FileLinkProcessor.process: Processes javascript file links and direct file links.  Args:     content: Input HTML content as ...
+│   │   │   function process_html_block: Process a single HTML block pair and return structured data. This method processes file links in ...
 │   │   │   function process: Processes javascript file links and direct file links.  Args:     content: Input HTML content as ...
-│   │   ├── image_processor.py (4.0 KB)
+│   │   ├── image_processor.py (7.7 KB)
 │   │   │   class ImageScriptProcessor: Processes image-related scripts and direct img tags, downloading images and updating src attributes.
+│   │   │   method ImageScriptProcessor.process_html_block: Process a single HTML block pair and return structured data. This method processes image-related ...
 │   │   │   method ImageScriptProcessor.process: Processes ShowPicture scripts and direct <img> tags.  Args:     content: Input HTML content as st...
+│   │   │   function process_html_block: Process a single HTML block pair and return structured data. This method processes image-related ...
 │   │   │   function process: Processes ShowPicture scripts and direct <img> tags.  Args:     content: Input HTML content as st...
-│   │   ├── input_field_remover.py (839.0 B)
+│   │   ├── input_field_remover.py (1.9 KB)
 │   │   │   class InputFieldRemover: Removes input fields from the page content.
+│   │   │   method InputFieldRemover.process_html_block: Process a single HTML block pair and return structured data. This method removes input fields fro...
 │   │   │   method InputFieldRemover.process: Removes input fields with name 'answer'.  Args:     content: Input HTML content as string     con...
+│   │   │   function process_html_block: Process a single HTML block pair and return structured data. This method removes input fields fro...
 │   │   │   function process: Removes input fields with name 'answer'.  Args:     content: Input HTML content as string     con...
-│   │   ├── mathml_remover.py (816.0 B)
+│   │   ├── mathml_remover.py (1.9 KB)
 │   │   │   class MathMLRemover: Removes MathML elements from the page content.
+│   │   │   method MathMLRemover.process_html_block: Process a single HTML block pair and return structured data. This method removes MathML elements ...
 │   │   │   method MathMLRemover.process: Removes math and mml:math tags.  Args:     content: Input HTML content as string     context: Pro...
+│   │   │   function process_html_block: Process a single HTML block pair and return structured data. This method removes MathML elements ...
 │   │   │   function process: Removes math and mml:math tags.  Args:     content: Input HTML content as string     context: Pro...
-│   │   ├── task_info_processor.py (892.0 B)
+│   │   ├── task_info_processor.py (3.0 KB)
 │   │   │   class TaskInfoProcessor: Processes task info buttons, updating onclick attributes.
-│   │   │   method TaskInfoProcessor.process: Updates onclick attributes for info buttons.  Args:     content: Input HTML content as string    ...
-│   │   │   function process: Updates onclick attributes for info buttons.  Args:     content: Input HTML content as string    ...
-│   │   └── unwanted_element_remover.py (1.6 KB)
+│   │   │   method TaskInfoProcessor.process_html_block: Process a single HTML block pair and return structured data. This method processes task info butt...
+│   │   │   method TaskInfoProcessor.process: Process HTML content string and return updated content with metadata. This method is needed to ma...
+│   │   │   function process_html_block: Process a single HTML block pair and return structured data. This method processes task info butt...
+│   │   │   function process: Process HTML content string and return updated content with metadata. This method is needed to ma...
+│   │   └── unwanted_element_remover.py (3.1 KB)
 │   │       class UnwantedElementRemover: Removes unwanted HTML elements from the page content.
+│   │       method UnwantedElementRemover.process_html_block: Process a single HTML block pair and return structured data. This method removes unwanted element...
 │   │       method UnwantedElementRemover.process: Removes hint divs, status title spans, task status spans, and table rows with bgcolor.  Args:    ...
+│   │       function process_html_block: Process a single HTML block pair and return structured data. This method removes unwanted element...
 │   │       function process: Removes hint divs, status title spans, task status spans, and table rows with bgcolor.  Args:    ...
 │   ├── __init__.py (129.0 B)
 │   ├── asset_processor_interface.py (2.0 KB)
@@ -274,22 +388,17 @@
 │   │   function execute: Extract metadata from HTML content.  Args:     content: HTML content     context: Processing cont...
 │   │   function __init__: Initialize the pipeline.  Args:     stages: List of processing stages to execute in order
 │   │   function process: Process content through all stages of the pipeline.  Args:     content: Input content to process ...
-│   ├── html_processor_interface.py (680.0 B)
-│   │   module __main__: Interface for HTML processors to ensure consistent processing pipeline.
-│   │   class IHTMLProcessor: Interface for HTML processors.
-│   │   method IHTMLProcessor.process: Process HTML content.  Args:     content: Input HTML content as string     context: Processing co...
-│   │   function process: Process HTML content.  Args:     content: Input HTML content as string     context: Processing co...
 │   ├── json_saver.py (3.0 KB)
 │   │   module __main__: Module for saving parsed data into JSON format.  This module provides the `JSONSaver` class, whic...
 │   │   class JSONSaver: A class responsible for saving data structures to JSON files.  This class provides a method to se...
 │   │   method JSONSaver.save: Saves the provided data structure to a JSON file.  This method takes any serializable Python obje...
 │   │   function save: Saves the provided data structure to a JSON file.  This method takes any serializable Python obje...
-│   ├── page_processor.py (4.7 KB)
+│   ├── page_processor.py (3.0 KB)
 │   │   module __main__: Module for orchestrating the processing of a single scraped HTML page into structured data. This ...
 │   │   class PageProcessingOrchestrator: Orchestrates the processing of a complete HTML page into structured data.  It handles the entire ...
-│   │   method PageProcessingOrchestrator.__init__: Initializes the orchestrator with required services.  Args:     task_classifier_adapter: TaskClas...
+│   │   method PageProcessingOrchestrator.__init__: Initializes the orchestrator with required services.  Args:     html_processor: IHTMLProcessor im...
 │   │   method PageProcessingOrchestrator.process_page: Processes the entire page content into a list of structured data dictionaries.  Args:     page_co...
-│   │   function __init__: Initializes the orchestrator with required services.  Args:     task_classifier_adapter: TaskClas...
+│   │   function __init__: Initializes the orchestrator with required services.  Args:     html_processor: IHTMLProcessor im...
 │   │   function process_page: Processes the entire page content into a list of structured data dictionaries.  Args:     page_co...
 │   └── ui_components.py (3.2 KB)
 │       module __main__: Module for rendering reusable UI components for HTML pages.  This module provides classes and fun...
@@ -318,7 +427,7 @@
 │   │   function get_page: Get a cached page for a subject or create a new one.  Args:     subject: The subject name (e.g., ...
 │   │   function get_subjects_list_page: Get a dedicated page for the subjects listing page (ege.fipi.ru/bank/index.php). This page is not...
 │   │   function get_general_page: Get a general-purpose page not tied to a specific subject/proj_id. Useful for tasks like scraping...
-│   ├── browser_pool_manager.py (2.4 KB)
+│   ├── browser_pool_manager.py (2.8 KB)
 │   │   module __main__: Module for managing a pool of BrowserManager instances for parallel scraping using resource pool.
 │   │   class BrowserPoolManager: Manages a pool of BrowserManager instances for parallel scraping using resource pool.
 │   │   method BrowserPoolManager.__init__: Initialize the browser pool.  Args:     pool_size: Number of BrowserManager instances to maintain...
@@ -329,6 +438,8 @@
 │   │   method BrowserPoolManager.close_all: Close all BrowserManager instances in the pool.
 │   │   method BrowserPoolManager.get_stats: Get pool statistics.
 │   │   method BrowserPoolManager.pool: Get access to the underlying resource pool for advanced operations.
+│   │   method BrowserPoolManager.__aenter__: Async context manager entry.
+│   │   method BrowserPoolManager.__aexit__: Async context manager exit.
 │   │   function __init__: Initialize the browser pool.  Args:     pool_size: Number of BrowserManager instances to maintain...
 │   │   function _create_browser_manager: Factory method to create a new BrowserManager instance.
 │   │   function initialize: Initialize the resource pool.
@@ -337,6 +448,8 @@
 │   │   function close_all: Close all BrowserManager instances in the pool.
 │   │   function get_stats: Get pool statistics.
 │   │   function pool: Get access to the underlying resource pool for advanced operations.
+│   │   function __aenter__: Async context manager entry.
+│   │   function __aexit__: Async context manager exit.
 │   ├── circuit_breaker.py (3.3 KB)
 │   │   class CircuitBreaker: Circuit breaker pattern for browser resource resilience.
 │   │   method CircuitBreaker.call: Execute function with circuit breaker protection.
@@ -392,7 +505,7 @@
 │       function get_resource: Context manager for resource acquisition and release.
 ├── scraper/
 │   ├── __init__.py (0 B)
-│   └── fipi_scraper.py (11.5 KB)
+│   └── fipi_scraper.py (14.1 KB)
 │       module __main__: Module for scraping FIPI website content and orchestrating the processing pipeline.
 │       class FIPIScraper: Orchestrates the scraping and processing of FIPI website content. This class coordinates browser ...
 │       method FIPIScraper.__init__: Initializes the scraper with necessary dependencies and configuration.  Args:     base_url (str):...
@@ -404,16 +517,18 @@
 │       function scrape_page: Scrapes a single page of problems for a given project ID.  Args:     proj_id (str): Project ID fo...
 │       function close: Closes the associated browser resources.
 ├── scripts/
-│   ├── index_problems.py (4.4 KB)
+│   ├── index_problems.py (4.5 KB)
 │   │   module __main__: Script to index problems from the SQLite database into a Qdrant collection.  This script loads pr...
 │   │   function main: Main function to orchestrate the indexing process.
+│   ├── migrate_database.py (2.2 KB)
+│   │   function initialize_database: Initialize database with required tables if they don't exist
 │   ├── migrate_offline_html.py (7.2 KB)
 │   │   module __main__: Скрипт для миграции offline_html в базу данных fipi_data.db.  Извлекает содержимое задачи из файл...
 │   │   function add_offline_html_column: Добавляет столбец offline_html в таблицу problems, если он не существует.
 │   │   function extract_task_content_and_id: Извлекает содержимое задачи (.qblock) и суффикс problem_id (data-task-id из .processed_qblock) из...
 │   │   function find_problem_id_by_suffix: Ищет problem_id в базе данных по суффиксу (task_id_suffix). Возвращает полный problem_id или None...
 │   │   function migrate_blocks_to_db: Основная функция миграции.
-│   └── scrape_tasks.py (18.7 KB)
+│   └── scrape_tasks.py (21.4 KB)
 │       module __main__: Script for scraping FIPI tasks and saving them to the database.  This script contains the main sc...
 │       function get_subject_output_dir: Returns the output directory path for a given subject.  Constructs the path as data/{alias}/{year...
 │       class CLIScraper: Class to encapsulate the CLI scraping logic.
@@ -429,7 +544,7 @@
 │       function run: The main asynchronous function providing the CLI loop for scraping.
 ├── services/
 │   ├── __init__.py (0 B)
-│   ├── answer_service.py (6.0 KB)
+│   ├── answer_service.py (6.2 KB)
 │   │   class AnswerService: Service class for handling answer validation and caching logic.
 │   │   method AnswerService.initialize: Initialize service-specific resources.
 │   │   method AnswerService._check_cache: Checks the local cache for a result.
@@ -441,532 +556,42 @@
 │   │   function _call_external_checker: Calls the external answer checker.
 │   │   function _save_result: Saves the check result to local storage.
 │   │   function _generate_feedback: Generates a response with feedback and adaptive recommendations.
-│   ├── base_service.py (952.0 B)
+│   ├── base_service.py (975.0 B)
 │   │   class ICacheProvider: Interface for cache operations.
 │   │   class IExternalChecker: Interface for external answer checking services.
 │   │   class BaseService: Base service class providing common initialization and logging.
 │   │   method BaseService.initialize: Initialize service-specific resources.
 │   │   function initialize: Initialize service-specific resources.
-│   ├── interfaces.py (1.2 KB)
-│   │   class ICacheProvider: Interface for cache operations.
-│   │   class IExternalChecker: Interface for external answer checking services.
-│   │   class IStorageProvider: Interface for local storage operations.
-│   │   class BaseService: Base service class providing common initialization and logging.
-│   │   method BaseService.initialize: Initialize service-specific resources.
-│   │   function initialize: Initialize service-specific resources.
-│   ├── quiz_service.py (6.0 KB)
-│   │   class QuizService: Service class for handling quiz-related business logic.
-│   │   method QuizService.__init__: Initializes the QuizService with a database manager and adaptive components.  Args:     db: The d...
-│   │   method QuizService.initialize: Initialize service-specific resources.
-│   │   method QuizService.start_quiz: Initiates a new quiz based on the provided request and user's progress.  Args:     request: The r...
-│   │   method QuizService._select_problems_by_strategy: Selects problems based on the specified strategy and user's skill graph.
-│   │   method QuizService._get_calibration_problems: Retrieves a set of problems for initial skill calibration.
-│   │   method QuizService._get_adaptive_problems: Retrieves problems based on the user's skill graph and adaptive logic.
-│   │   method QuizService._get_final_problems: Retrieves problems for a final exam simulation based on specifications.
-│   │   function __init__: Initializes the QuizService with a database manager and adaptive components.  Args:     db: The d...
-│   │   function initialize: Initialize service-specific resources.
-│   │   function start_quiz: Initiates a new quiz based on the provided request and user's progress.  Args:     request: The r...
-│   │   function _select_problems_by_strategy: Selects problems based on the specified strategy and user's skill graph.
-│   │   function _get_calibration_problems: Retrieves a set of problems for initial skill calibration.
-│   │   function _get_adaptive_problems: Retrieves problems based on the user's skill graph and adaptive logic.
-│   │   function _get_final_problems: Retrieves problems for a final exam simulation based on specifications.
-│   └── specification.py (3.3 KB)
-│       module __main__: Service for loading and querying official FIPI specifications (KES/KOS). Provides human-readable ...
-│       method SpecificationService.__init__: Initialize with paths to official FIPI JSON specifications.  Args:     spec_path: Path to e.g. eg...
-│       method SpecificationService._load_json: Helper to load JSON safely.
-│       method SpecificationService.get_task_spec: Get official task specification by number (1–19).
-│       method SpecificationService.explain_kos: Return human-readable KOS description.
-│       method SpecificationService.explain_kes: Return human-readable KES description.
-│       method SpecificationService.get_feedback_for_task: Generate pedagogical feedback for a given task number. Returns structured feedback including KOS ...
-│       function __init__: Initialize with paths to official FIPI JSON specifications.  Args:     spec_path: Path to e.g. eg...
-│       function _load_json: Helper to load JSON safely.
-│       function get_task_spec: Get official task specification by number (1–19).
-│       function explain_kos: Return human-readable KOS description.
-│       function explain_kes: Return human-readable KES description.
-│       function get_feedback_for_task: Generate pedagogical feedback for a given task number. Returns structured feedback including KOS ...
+│   └── quiz_service.py (6.0 KB)
+│       class QuizService: Service class for handling quiz-related business logic.
+│       method QuizService.__init__: Initializes the QuizService with a database manager and adaptive components.  Args:     db: The d...
+│       method QuizService.initialize: Initialize service-specific resources.
+│       method QuizService.start_quiz: Initiates a new quiz based on the provided request and user's progress.  Args:     request: The r...
+│       method QuizService._select_problems_by_strategy: Selects problems based on the specified strategy and user's skill graph.
+│       method QuizService._get_calibration_problems: Retrieves a set of problems for initial skill calibration.
+│       method QuizService._get_adaptive_problems: Retrieves problems based on the user's skill graph and adaptive logic.
+│       method QuizService._get_final_problems: Retrieves problems for a final exam simulation based on specifications.
+│       function __init__: Initializes the QuizService with a database manager and adaptive components.  Args:     db: The d...
+│       function initialize: Initialize service-specific resources.
+│       function start_quiz: Initiates a new quiz based on the provided request and user's progress.  Args:     request: The r...
+│       function _select_problems_by_strategy: Selects problems based on the specified strategy and user's skill graph.
+│       function _get_calibration_problems: Retrieves a set of problems for initial skill calibration.
+│       function _get_adaptive_problems: Retrieves problems based on the user's skill graph and adaptive logic.
+│       function _get_final_problems: Retrieves problems for a final exam simulation based on specifications.
 ├── templates/
 │   └── ui_components/
 │       └── common_scripts.js (6.8 KB)
 ├── tests/
-│   ├── api/
-│   │   ├── services/
-│   │   │   └── test_answer_service.py (11.2 KB)
-│   │   ├── test_answer.py (9.9 KB)
-│   │   │   function test_check_answer_success_correct: 4. Проверка ответа (/api/answer) - корректный ответ (с кэшированием) Описание: Проверить, что кор...
-│   │   │   function test_check_answer_success_incorrect: 5. Проверка ответа - некорректный ответ Описание: Проверить, что некорректный ответ возвращается ...
-│   │   │   function test_check_answer_external_error: 6. Проверка ответа - ошибка при проверке с внешним API Описание: Проверить обработку ошибок при в...
-│   │   │   function test_check_answer_missing_fields: 7. Проверка ответа - отсутствие обязательных полей Описание: Проверить валидацию обязательных пол...
-│   │   │   function test_check_answer_internal_error: 9. Обработка внутренней ошибки сервера Описание: Проверить, что непредвиденные ошибки в сервисах ...
-│   │   ├── test_cors.py (2.1 KB)
-│   │   │   function test_cors_headers_options: 10. Проверка CORS заголовков Описание: Убедиться, что сервер корректно устанавливает заголовки CO...
-│   │   ├── test_plan.py (3.3 KB)
-│   │   │   function test_generate_plan_success: 8. Генерация учебного плана (/api/plan/generate) Описание: Проверить создание учебного плана. Шаг...
-│   │   │   function test_generate_plan_internal_error: 9. Обработка внутренней ошибки сервера Описание: Проверить, что непредвиденные ошибки в сервисах ...
-│   │   ├── test_quiz.py (5.5 KB)
-│   │   │   function test_start_quiz_success: 2. Начало ежедневного квиза (/api/quiz/daily/start) - успешный сценарий Описание: Проверить созда...
-│   │   │   function test_start_quiz_invalid_request: 3. Начало ежедневного квиза - неверный формат запроса Описание: Проверить валидацию входных данны...
-│   │   │   function test_start_quiz_internal_error: 9. Обработка внутренней ошибки сервера Описание: Проверить, что непредвиденные ошибки в сервисах ...
-│   │   └── test_subjects.py (4.7 KB)
-│   │       function test_get_available_subjects_success: 1. Получение списка доступных предметов (/api/subjects/available) Описание: Проверить, что эндпои...
-│   │       function test_get_available_subjects_error: 9. Обработка внутренней ошибки сервера Описание: Проверить, что непредвиденные ошибки в сервисах ...
-│   ├── architecture/
-│   │   └── test_dependencies.py (2.9 KB)
-│   │       function get_imports: Extract all imports from a Python file.
-│   │       function test_layer_dependencies: Test that layers follow dependency rules: domain -> application -> infrastructure -> api.
-│   ├── domain/
-│   │   ├── test_answer_type_detector.py (2.0 KB)
-│   │   │   class TestAnswerTypeService: Unit tests for AnswerTypeService.
-│   │   │   method TestAnswerTypeService.answer_type_service: Create an AnswerTypeService instance.
-│   │   │   method TestAnswerTypeService.test_detect_answer_type_short_text: Test detection of short text answers.
-│   │   │   method TestAnswerTypeService.test_detect_answer_type_extended_text: Test detection of extended text answers.
-│   │   │   method TestAnswerTypeService.test_detect_answer_type_multiple_choice: Test detection of multiple choice answers.
-│   │   │   method TestAnswerTypeService.test_detect_answer_type_unknown: Test detection when no answer input is found.
-│   │   │   method TestAnswerTypeService.test_detect_answer_type_default_short: Test default detection for text input without maxlength.
-│   │   │   function answer_type_service: Create an AnswerTypeService instance.
-│   │   │   function test_detect_answer_type_short_text: Test detection of short text answers.
-│   │   │   function test_detect_answer_type_extended_text: Test detection of extended text answers.
-│   │   │   function test_detect_answer_type_multiple_choice: Test detection of multiple choice answers.
-│   │   │   function test_detect_answer_type_unknown: Test detection when no answer input is found.
-│   │   │   function test_detect_answer_type_default_short: Test default detection for text input without maxlength.
-│   │   └── test_metadata_enhancer.py (2.9 KB)
-│   │       class TestMetadataExtractionService: Unit tests for MetadataExtractionService.
-│   │       method TestMetadataExtractionService.mock_spec_service: Create a mock SpecificationService.
-│   │       method TestMetadataExtractionService.metadata_enhancer: Create a MetadataExtractionService instance with mocked dependencies.
-│   │       method TestMetadataExtractionService.test_enhance_metadata_with_kes_codes: Test enhancement of metadata with KES codes.
-│   │       method TestMetadataExtractionService.test_enhance_metadata_with_kos_codes: Test enhancement of metadata with KOS codes.
-│   │       method TestMetadataExtractionService.test_enhance_metadata_with_unknown_codes: Test enhancement when specification service raises an exception.
-│   │       method TestMetadataExtractionService.test_enhance_metadata_preserves_original_data: Test that original metadata is preserved during enhancement.
-│   │       function mock_spec_service: Create a mock SpecificationService.
-│   │       function metadata_enhancer: Create a MetadataExtractionService instance with mocked dependencies.
-│   │       function test_enhance_metadata_with_kes_codes: Test enhancement of metadata with KES codes.
-│   │       function test_enhance_metadata_with_kos_codes: Test enhancement of metadata with KOS codes.
-│   │       function test_enhance_metadata_with_unknown_codes: Test enhancement when specification service raises an exception.
-│   │       function test_enhance_metadata_preserves_original_data: Test that original metadata is preserved during enhancement.
-│   ├── observability/
-│   │   ├── test_alert_service.py (2.4 KB)
-│   │   │   class TestAlertService: Test cases for AlertService.
-│   │   │   method TestAlertService.alert_service: Create an AlertService instance.
-│   │   │   method TestAlertService.test_send_alert_basic: Test sending a basic alert.
-│   │   │   method TestAlertService.test_alert_on_exception: Test sending an alert for an exception.
-│   │   │   method TestAlertService.test_alert_resource_unavailable: Test sending an alert for unavailable resource.
-│   │   │   method TestAlertService.test_alert_external_service_failure: Test sending an alert for external service failure.
-│   │   │   function alert_service: Create an AlertService instance.
-│   │   │   function test_send_alert_basic: Test sending a basic alert.
-│   │   │   function test_alert_on_exception: Test sending an alert for an exception.
-│   │   │   function test_alert_resource_unavailable: Test sending an alert for unavailable resource.
-│   │   │   function test_alert_external_service_failure: Test sending an alert for external service failure.
-│   │   ├── test_error_handling_integration.py (4.0 KB)
-│   │   │   function client: Create a test client for the API.
-│   │   │   class TestErrorHandlingIntegration: Integration tests for error handling with FastAPI.
-│   │   │   method TestErrorHandlingIntegration.test_domain_exception_handler: Test that domain exceptions are properly handled by FastAPI.
-│   │   │   method TestErrorHandlingIntegration.test_external_service_exception_handler: Test that external service exceptions are properly handled.
-│   │   │   method TestErrorHandlingIntegration.test_resource_not_found_exception_handler: Test that resource not found exceptions are properly handled.
-│   │   │   function test_domain_exception_handler: Test that domain exceptions are properly handled by FastAPI.
-│   │   │   function test_external_service_exception_handler: Test that external service exceptions are properly handled.
-│   │   │   function test_resource_not_found_exception_handler: Test that resource not found exceptions are properly handled.
-│   │   ├── test_exceptions.py (2.4 KB)
-│   │   │   class TestDomainExceptions: Test cases for domain exception hierarchy.
-│   │   │   method TestDomainExceptions.test_base_domain_exception_creation: Test creation of base domain exception.
-│   │   │   method TestDomainExceptions.test_base_domain_exception_default_error_code: Test default error code when not specified.
-│   │   │   method TestDomainExceptions.test_base_domain_exception_to_dict: Test conversion to dictionary for logging.
-│   │   │   method TestDomainExceptions.test_validation_exception: Test ValidationException.
-│   │   │   method TestDomainExceptions.test_resource_not_found_exception: Test ResourceNotFoundException.
-│   │   │   method TestDomainExceptions.test_external_service_exception: Test ExternalServiceException.
-│   │   │   function test_base_domain_exception_creation: Test creation of base domain exception.
-│   │   │   function test_base_domain_exception_default_error_code: Test default error code when not specified.
-│   │   │   function test_base_domain_exception_to_dict: Test conversion to dictionary for logging.
-│   │   │   function test_validation_exception: Test ValidationException.
-│   │   │   function test_resource_not_found_exception: Test ResourceNotFoundException.
-│   │   │   function test_external_service_exception: Test ExternalServiceException.
-│   │   └── test_observability_service.py (4.0 KB)
-│   │       class TestObservabilityService: Test cases for ObservabilityService.
-│   │       method TestObservabilityService.configure_structlog_for_test: Configure structlog specifically for this test class to avoid format_exc_info issues.
-│   │       method TestObservabilityService.alert_service: Create a mock alert service.
-│   │       method TestObservabilityService.observability_service: Create an ObservabilityService instance with mocked dependencies.
-│   │       method TestObservabilityService.test_log_info: Test logging info messages.
-│   │       method TestObservabilityService.test_log_error_with_alert: Test logging error messages with alert.
-│   │       method TestObservabilityService.test_log_error_without_alert: Test logging error messages without alert.
-│   │       method TestObservabilityService.test_log_warning: Test logging warning messages.
-│   │       method TestObservabilityService.test_log_metric: Test logging metrics.
-│   │       method TestObservabilityService.test_generate_trace_id: Test generation of trace IDs.
-│   │       function configure_structlog_for_test: Configure structlog specifically for this test class to avoid format_exc_info issues.
-│   │       function alert_service: Create a mock alert service.
-│   │       function observability_service: Create an ObservabilityService instance with mocked dependencies.
-│   │       function test_log_info: Test logging info messages.
-│   │       function test_log_error_with_alert: Test logging error messages with alert.
-│   │       function test_log_error_without_alert: Test logging error messages without alert.
-│   │       function test_log_warning: Test logging warning messages.
-│   │       function test_log_metric: Test logging metrics.
-│   │       function test_generate_trace_id: Test generation of trace IDs.
-│   ├── performance/
-│   ├── resource_management/
-│   │   ├── test_browser_manager.py (1.1 KB)
-│   │   │   function test_browser_manager_lifecycle: Test BrowserManager lifecycle methods.
-│   │   │   function test_browser_manager_interface: Test BrowserManager implements IBrowserResource interface.
-│   │   ├── test_circuit_breaker.py (2.6 KB)
-│   │   │   function test_circuit_breaker_normal_operation: Test circuit breaker in normal operation.
-│   │   │   function test_circuit_breaker_failure_threshold: Test circuit breaker opens after failure threshold.
-│   │   │   function test_circuit_breaker_reset: Test circuit breaker reset after timeout.
-│   │   └── test_resource_pool.py (2.8 KB)
-│   │       function test_resource_pool_basic_operations: Test basic resource pool operations.
-│   │       function test_resource_pool_context_manager: Test resource pool context manager.
-│   │       function test_resource_pool_max_size: Test resource pool respects max size.
-│   ├── unit/
-│   │   ├── templates/
-│   │   │   └── test_math_symbol_buttons.py (2.0 KB)
-│   │   └── utils/
-│   ├── utils/
-│   │   ├── test_database_manager.py (16.9 KB)
-│   │   │   function temp_db_path: Creates a temporary database file path.
-│   │   │   function database_manager: Creates a DatabaseManager instance with a temporary database.
-│   │   │   function sample_problem_data: Provides sample data for creating a Problem object that passes validation.
-│   │   │   function sample_problem: Provides a valid Problem instance.
-│   │   │   class TestDatabaseManagerInitialization: Tests for database initialization.
-│   │   │   method TestDatabaseManagerInitialization.test_database_initialization: Test that initialize_db creates the necessary tables.
-│   │   │   class TestDatabaseManagerSaveProblems: Tests for the save_problems method.
-│   │   │   method TestDatabaseManagerSaveProblems.test_save_problems_empty_list: Test saving an empty list of problems.
-│   │   │   method TestDatabaseManagerSaveProblems.test_save_problems_single_problem: Test saving a single problem.
-│   │   │   method TestDatabaseManagerSaveProblems.test_save_problems_multiple_problems: Test saving multiple problems at once.
-│   │   │   method TestDatabaseManagerSaveProblems.test_save_problems_updates_existing: Test that saving a problem with an existing ID updates the record.
-│   │   │   class TestDatabaseManagerSaveAndGetAnswer: Tests for save_answer and get_answer_and_status methods.
-│   │   │   method TestDatabaseManagerSaveAndGetAnswer.test_save_answer_and_get_with_user_id: Test saving an answer for a specific user and retrieving it.
-│   │   │   method TestDatabaseManagerSaveAndGetAnswer.test_get_answer_and_status_defaults_for_nonexistent_user_task: Test that get_answer_and_status returns defaults if no record exists for user/task.
-│   │   │   method TestDatabaseManagerSaveAndGetAnswer.test_save_answer_makes_user_id_mandatory: Test that save_answer requires user_id.
-│   │   │   method TestDatabaseManagerSaveAndGetAnswer.test_get_answer_and_status_makes_user_id_mandatory: Test that get_answer_and_status requires user_id.
-│   │   │   method TestDatabaseManagerSaveAndGetAnswer.test_save_answer_and_get_isolated_by_user: Test that answers for the same task but different users are isolated.
-│   │   │   class TestDatabaseManagerGetAllProblemsAndSubjects: Tests for get_all_problems and get_all_subjects methods.
-│   │   │   method TestDatabaseManagerGetAllProblemsAndSubjects.test_get_all_problems_empty: Test get_all_problems returns empty list when no problems exist.
-│   │   │   method TestDatabaseManagerGetAllProblemsAndSubjects.test_get_all_problems_populated: Test get_all_problems returns all saved problems.
-│   │   │   method TestDatabaseManagerGetAllProblemsAndSubjects.test_get_all_subjects_empty: Test get_all_subjects returns empty list when no problems exist.
-│   │   │   method TestDatabaseManagerGetAllProblemsAndSubjects.test_get_all_subjects_populated: Test get_all_subjects returns distinct subjects.
-│   │   │   method TestDatabaseManagerGetAllProblemsAndSubjects.test_get_all_subjects_ignores_null: Test that get_all_subjects correctly handles NULL subject values if they exist.
-│   │   │   class TestDatabaseManagerGetRandomProblemIds: Tests for get_random_problem_ids method.
-│   │   │   method TestDatabaseManagerGetRandomProblemIds.test_get_random_problem_ids_empty_subject: Test get_random_problem_ids returns empty list for a subject with no problems.
-│   │   │   method TestDatabaseManagerGetRandomProblemIds.test_get_random_problem_ids_specific_subject: Test get_random_problem_ids returns correct IDs for a specific subject.
-│   │   │   method TestDatabaseManagerGetRandomProblemIds.test_get_random_problem_ids_count_limit: Test that the count parameter limits the number of returned IDs.
-│   │   │   function test_database_initialization: Test that initialize_db creates the necessary tables.
-│   │   │   function test_save_problems_empty_list: Test saving an empty list of problems.
-│   │   │   function test_save_problems_single_problem: Test saving a single problem.
-│   │   │   function test_save_problems_multiple_problems: Test saving multiple problems at once.
-│   │   │   function test_save_problems_updates_existing: Test that saving a problem with an existing ID updates the record.
-│   │   │   function test_save_answer_and_get_with_user_id: Test saving an answer for a specific user and retrieving it.
-│   │   │   function test_get_answer_and_status_defaults_for_nonexistent_user_task: Test that get_answer_and_status returns defaults if no record exists for user/task.
-│   │   │   function test_save_answer_makes_user_id_mandatory: Test that save_answer requires user_id.
-│   │   │   function test_get_answer_and_status_makes_user_id_mandatory: Test that get_answer_and_status requires user_id.
-│   │   │   function test_save_answer_and_get_isolated_by_user: Test that answers for the same task but different users are isolated.
-│   │   │   function test_get_all_problems_empty: Test get_all_problems returns empty list when no problems exist.
-│   │   │   function test_get_all_problems_populated: Test get_all_problems returns all saved problems.
-│   │   │   function test_get_all_subjects_empty: Test get_all_subjects returns empty list when no problems exist.
-│   │   │   function test_get_all_subjects_populated: Test get_all_subjects returns distinct subjects.
-│   │   │   function test_get_all_subjects_ignores_null: Test that get_all_subjects correctly handles NULL subject values if they exist.
-│   │   │   function test_get_random_problem_ids_empty_subject: Test get_random_problem_ids returns empty list for a subject with no problems.
-│   │   │   function test_get_random_problem_ids_specific_subject: Test get_random_problem_ids returns correct IDs for a specific subject.
-│   │   │   function test_get_random_problem_ids_count_limit: Test that the count parameter limits the number of returned IDs.
-│   │   └── test_skill_graph.py (814.0 B)
-│   ├──  __init__.py (0 B)
-│   ├── conftest.py (1.1 KB)
-│   │   module __main__: Pytest configuration file.  This file is automatically loaded by pytest and can be used to config...
-│   │   function pytest_configure: Configure logging for pytest
-│   ├── test_browser_manager_integration.py (7.9 KB)
-│   │   module __main__: Integration tests for BrowserManager, FIPIScraper, FIPIAnswerChecker, and AnswerService.
-│   │   function test_db: Создает временную тестовую БД.
-│   │   function test_spec_service: Создает тестовый экземпляр SpecificationService.
-│   │   function test_full_integration_pipeline: Performs an integration test for the scraping -> storage -> answer checking pipeline.  This test:...
-│   ├── test_browser_pool_manager.py (3.2 KB)
-│   │   module __main__: Tests for BrowserPoolManager.
-│   │   function test_browser_pool_manager_initialization: Test that BrowserPoolManager initializes the correct number of browsers.
-│   │   function test_get_and_return_browser: Test getting and returning a browser from the pool.
-│   │   function test_concurrent_access: Test that multiple coroutines can access the pool concurrently.
-│   │   function test_close_all: Test that close_all properly closes all browsers.
-│   │   function test_get_available_blocks_when_empty: Test that get_available_browser blocks when no browsers are available.
-│   ├── test_config.py (5.7 KB)
-│   │   class TestConfigDefaults: Tests that configuration variables load default values when environment variables are not set.
-│   │   method TestConfigDefaults.test_default_values: Test default values for all config variables.
-│   │   class TestConfigFromEnv: Tests that configuration variables correctly load from environment variables.
-│   │   method TestConfigFromEnv.test_values_from_env: Test loading values from environment variables.
-│   │   method TestConfigFromEnv.test_total_pages_type_conversion: Test that TOTAL_PAGES is correctly converted from string to int.
-│   │   method TestConfigFromEnv.test_browser_headless_boolean_conversion: Test that BROWSER_HEADLESS correctly converts string to boolean.
-│   │   function test_default_values: Test default values for all config variables.
-│   │   function test_values_from_env: Test loading values from environment variables.
-│   │   function test_total_pages_type_conversion: Test that TOTAL_PAGES is correctly converted from string to int.
-│   │   function test_browser_headless_boolean_conversion: Test that BROWSER_HEADLESS correctly converts string to boolean.
-│   ├── test_json_saver.py (5.9 KB)
-│   │   class TestJSONSaver: Unit tests for the JSONSaver class.
-│   │   method TestJSONSaver.setUp: Set up a temporary directory for test files. This directory will be automatically cleaned up afte...
-│   │   method TestJSONSaver.tearDown: Clean up the temporary directory after each test.
-│   │   method TestJSONSaver.test_save_dict_data: Test saving a dictionary to a JSON file.
-│   │   method TestJSONSaver.test_save_list_data: Test saving a list to a JSON file.
-│   │   method TestJSONSaver.test_save_with_cyrillic_characters: Test saving data containing Cyrillic characters.
-│   │   method TestJSONSaver.test_save_creates_directories: Test that save creates parent directories if they don't exist.
-│   │   method TestJSONSaver.test_save_overwrites_existing_file: Test that save overwrites an existing file.
-│   │   method TestJSONSaver.test_save_with_pathlib_path: Test saving data when the path is provided as a pathlib.Path object.
-│   │   method TestJSONSaver.test_save_with_string_path: Test saving data when the path is provided as a string.
-│   │   method TestJSONSaver.test_save_invalid_data_type: Test that saving non-serializable data raises TypeError.
-│   │   method TestJSONSaver.test_save_invalid_path: Test that saving to an invalid path raises OSError (or similar). This can happen if the path poin...
-│   │   function setUp: Set up a temporary directory for test files. This directory will be automatically cleaned up afte...
-│   │   function tearDown: Clean up the temporary directory after each test.
-│   │   function test_save_dict_data: Test saving a dictionary to a JSON file.
-│   │   function test_save_list_data: Test saving a list to a JSON file.
-│   │   function test_save_with_cyrillic_characters: Test saving data containing Cyrillic characters.
-│   │   function test_save_creates_directories: Test that save creates parent directories if they don't exist.
-│   │   function test_save_overwrites_existing_file: Test that save overwrites an existing file.
-│   │   function test_save_with_pathlib_path: Test saving data when the path is provided as a pathlib.Path object.
-│   │   function test_save_with_string_path: Test saving data when the path is provided as a string.
-│   │   function test_save_invalid_data_type: Test that saving non-serializable data raises TypeError.
-│   │   function test_save_invalid_path: Test that saving to an invalid path raises OSError (or similar). This can happen if the path poin...
-│   ├── test_models_database_models.py (3.0 KB)
-│   │   module __main__: Тесты для SQLAlchemy ORM-моделей задач и ответов. Проверяют корректность создания и сохранения об...
-│   │   class TestDatabaseModels: Тестовый класс для проверки ORM-моделей.
-│   │   method TestDatabaseModels.setUp: Создаёт in-memory SQLite базу и таблицы перед каждым тестом.
-│   │   method TestDatabaseModels.tearDown: Закрывает сессию и освобождает ресурсы после каждого теста.
-│   │   method TestDatabaseModels.test_create_problem_and_answer: Проверяет создание и сохранение задачи и связанного с ней ответа.
-│   │   function setUp: Создаёт in-memory SQLite базу и таблицы перед каждым тестом.
-│   │   function tearDown: Закрывает сессию и освобождает ресурсы после каждого теста.
-│   │   function test_create_problem_and_answer: Проверяет создание и сохранение задачи и связанного с ней ответа.
-│   ├── test_models_problem_builder.py (8.8 KB)
-│   │   module __main__: Unit tests for the ProblemBuilder class.
-│   │   class TestProblemBuilder: Test cases for the ProblemBuilder class.
-│   │   method TestProblemBuilder.setUp: Set up the ProblemBuilder instance for tests.
-│   │   method TestProblemBuilder.test_build_creates_correct_problem: Test that the build method creates a Problem instance with correct attributes.
-│   │   method TestProblemBuilder.test_build_with_none_raw_html_path: Test building a Problem with raw_html_path set to None.
-│   │   method TestProblemBuilder.test_build_with_empty_metadata: Test building a Problem with an empty metadata dictionary.
-│   │   function setUp: Set up the ProblemBuilder instance for tests.
-│   │   function test_build_creates_correct_problem: Test that the build method creates a Problem instance with correct attributes.
-│   │   function test_build_with_none_raw_html_path: Test building a Problem with raw_html_path set to None.
-│   │   function test_build_with_empty_metadata: Test building a Problem with an empty metadata dictionary.
-│   ├── test_models_problem_schema.py (1.6 KB)
-│   ├── test_processors_html_data.py (23.0 KB)
-│   │   class TestImageScriptProcessor: Test cases for ImageScriptProcessor class.
-│   │   method TestImageScriptProcessor.setUp: Set up test fixtures.
-│   │   method TestImageScriptProcessor.test_process_success: Test successful processing and replacement of script tag.
-│   │   method TestImageScriptProcessor.test_process_no_match: Test processing when no matching scripts are found.
-│   │   method TestImageScriptProcessor.test_process_download_failure: Test processing when image download fails.
-│   │   method TestImageScriptProcessor.test_process_missing_downloader: Test processing when AssetDownloader is not provided.
-│   │   method TestImageScriptProcessor.test_process_img_tags_success: Test processing direct img tags.
-│   │   method TestImageScriptProcessor.test_process_img_tags_skip_processed: Test skipping img tags already pointing to assets/.
-│   │   class TestFileLinkProcessor: Test cases for FileLinkProcessor class.
-│   │   method TestFileLinkProcessor.setUp: Set up test fixtures.
-│   │   method TestFileLinkProcessor.test_process_javascript_link: Test processing JavaScript window.open links.
-│   │   method TestFileLinkProcessor.test_process_direct_link: Test processing direct file links.
-│   │   method TestFileLinkProcessor.test_process_no_file_links: Test processing when no file links are found.
-│   │   method TestFileLinkProcessor.test_process_download_failure: Test processing when file download fails.
-│   │   method TestFileLinkProcessor.test_process_missing_downloader: Test processing when AssetDownloader is not provided.
-│   │   class TestTaskInfoProcessor: Test cases for TaskInfoProcessor class.
-│   │   method TestTaskInfoProcessor.setUp: Set up test fixtures.
-│   │   method TestTaskInfoProcessor.test_process_info_buttons: Test processing info buttons.
-│   │   method TestTaskInfoProcessor.test_process_no_info_buttons: Test processing when no info buttons are found.
-│   │   class TestInputFieldRemover: Test cases for InputFieldRemover class.
-│   │   method TestInputFieldRemover.setUp: Set up test fixtures.
-│   │   method TestInputFieldRemover.test_remove_answer_inputs: Test removing answer input fields.
-│   │   method TestInputFieldRemover.test_no_answer_inputs: Test processing when no answer inputs are found.
-│   │   class TestMathMLRemover: Test cases for MathMLRemover class.
-│   │   method TestMathMLRemover.setUp: Set up test fixtures.
-│   │   method TestMathMLRemover.test_remove_math_tags: Test removing math and mml:math tags.
-│   │   method TestMathMLRemover.test_no_math_tags: Test processing when no math tags are found.
-│   │   function setUp: Set up test fixtures.
-│   │   function test_process_success: Test successful processing and replacement of script tag.
-│   │   function test_process_no_match: Test processing when no matching scripts are found.
-│   │   function test_process_download_failure: Test processing when image download fails.
-│   │   function test_process_missing_downloader: Test processing when AssetDownloader is not provided.
-│   │   function test_process_img_tags_success: Test processing direct img tags.
-│   │   function test_process_img_tags_skip_processed: Test skipping img tags already pointing to assets/.
-│   │   function setUp: Set up test fixtures.
-│   │   function test_process_javascript_link: Test processing JavaScript window.open links.
-│   │   function test_process_direct_link: Test processing direct file links.
-│   │   function test_process_no_file_links: Test processing when no file links are found.
-│   │   function test_process_download_failure: Test processing when file download fails.
-│   │   function test_process_missing_downloader: Test processing when AssetDownloader is not provided.
-│   │   function setUp: Set up test fixtures.
-│   │   function test_process_info_buttons: Test processing info buttons.
-│   │   function test_process_no_info_buttons: Test processing when no info buttons are found.
-│   │   function setUp: Set up test fixtures.
-│   │   function test_remove_answer_inputs: Test removing answer input fields.
-│   │   function test_no_answer_inputs: Test processing when no answer inputs are found.
-│   │   function setUp: Set up test fixtures.
-│   │   function test_remove_math_tags: Test removing math and mml:math tags.
-│   │   function test_no_math_tags: Test processing when no math tags are found.
-│   ├── test_processors_page_processor.py (8.2 KB)
-│   │   module __main__: Unit tests for the PageProcessingOrchestrator class using mocks.
-│   │   class TestPageProcessingOrchestrator: Test cases for the PageProcessingOrchestrator class.
-│   │   method TestPageProcessingOrchestrator.setUp: Set up mocks and orchestrator instance for tests.
-│   │   method TestPageProcessingOrchestrator.test_process_calls_dependencies_correctly: Test that the process method calls dependencies with correct arguments.
-│   │   function setUp: Set up mocks and orchestrator instance for tests.
-│   │   function test_process_calls_dependencies_correctly: Test that the process method calls dependencies with correct arguments.
-│   ├── test_retriever.py (7.4 KB)
-│   │   function create_sample_problem: Helper to create a sample Problem instance for testing.
-│   │   class TestQdrantProblemRetrieverRetrieve: Tests for the retrieve method in QdrantProblemRetriever. Focuses on verifying the interaction wit...
-│   │   method TestQdrantProblemRetrieverRetrieve.setup_method: Set up a mock Qdrant client and database manager for each test.
-│   │   method TestQdrantProblemRetrieverRetrieve.test_retrieve_calls_get_problems_by_ids: Test that retrieve method calls the new get_problems_by_ids method on the database manager with t...
-│   │   method TestQdrantProblemRetrieverRetrieve.test_retrieve_with_empty_qdrant_result: Test retrieve method when Qdrant returns no results. Should call get_problems_by_ids with an empt...
-│   │   method TestQdrantProblemRetrieverRetrieve.test_retrieve_with_malformed_qdrant_payload: Test retrieve method when Qdrant returns points with missing or malformed problem_id in payload. ...
-│   │   method TestQdrantProblemRetrieverRetrieve.test_retrieve_logs_warning_for_missing_problems: Test that retrieve logs a warning when problems found by Qdrant are missing from the database.
-│   │   function setup_method: Set up a mock Qdrant client and database manager for each test.
-│   │   function test_retrieve_calls_get_problems_by_ids: Test that retrieve method calls the new get_problems_by_ids method on the database manager with t...
-│   │   function test_retrieve_with_empty_qdrant_result: Test retrieve method when Qdrant returns no results. Should call get_problems_by_ids with an empt...
-│   │   function test_retrieve_with_malformed_qdrant_payload: Test retrieve method when Qdrant returns points with missing or malformed problem_id in payload. ...
-│   │   function test_retrieve_logs_warning_for_missing_problems: Test that retrieve logs a warning when problems found by Qdrant are missing from the database.
-│   ├── test_scrape_tasks.py (2.8 KB)
-│   │   module __main__: Tests for the scrape_tasks script.
-│   │   class TestCLIScraperScrapeSubjectLogic: Test suite for the scrape_subject_logic function in CLIScraper.
-│   │   method TestCLIScraperScrapeSubjectLogic.test_scrape_subject_logic_handles_scrape_page_exception: Test that scrape_subject_logic continues after a scrape_page exception and increments empty_count.
-│   │   function test_scrape_subject_logic_handles_scrape_page_exception: Test that scrape_subject_logic continues after a scrape_page exception and increments empty_count.
-│   ├── test_scraper_fipi_scraper.py (2.0 KB)
-│   │   module __main__: Integration tests for the FIPIScraper class focusing on delegation to PageProcessingOrchestrator.
-│   │   class TestFIPIScraperScrapePageIntegration: Integration test cases for the FIPIScraper class's scrape_page method, specifically focusing on t...
-│   │   method TestFIPIScraperScrapePageIntegration.test_scrape_page_delegates_to_orchestrator_stub: Stub for an integration test. This test aimed to verify that FIPIScraper.scrape_page delegates pr...
-│   │   function test_scrape_page_delegates_to_orchestrator_stub: Stub for an integration test. This test aimed to verify that FIPIScraper.scrape_page delegates pr...
-│   ├── test_utils_answer_checker.py (2.4 KB)
-│   │   module __main__: Тесты для модуля answer_checker.
-│   │   class TestFIPIAnswerChecker: Тесты для класса FIPIAnswerChecker.
-│   │   method TestFIPIAnswerChecker.test_check_answer_correct: Тест успешной проверки правильного ответа.
-│   │   method TestFIPIAnswerChecker.test_check_answer_error: Тест обработки HTTP 500 ошибки.
-│   │   function test_check_answer_correct: Тест успешной проверки правильного ответа.
-│   │   function test_check_answer_error: Тест обработки HTTP 500 ошибки.
-│   ├── test_utils_database_manager.py (4.1 KB)
-│   │   module __main__: Тесты для класса DatabaseManager. Проверяют корректность сохранения и извлечения задач и ответов.
-│   │   class TestDatabaseManager: Тестовый класс для DatabaseManager.
-│   │   method TestDatabaseManager.setUp: Создаёт временный файл БД и инициализирует DatabaseManager.
-│   │   method TestDatabaseManager.tearDown: Удаляет временный файл базы данных.
-│   │   method TestDatabaseManager.test_save_and_get_problem: Проверяет сохранение и извлечение одной задачи.
-│   │   method TestDatabaseManager.test_save_and_get_answer: Проверяет сохранение и извлечение ответа.
-│   │   method TestDatabaseManager.test_get_answer_not_found: Проверяет поведение при запросе несуществующего ответа.
-│   │   method TestDatabaseManager.test_get_all_problems: Проверяет получение всех задач из БД.
-│   │   function setUp: Создаёт временный файл БД и инициализирует DatabaseManager.
-│   │   function tearDown: Удаляет временный файл базы данных.
-│   │   function test_save_and_get_problem: Проверяет сохранение и извлечение одной задачи.
-│   │   function test_save_and_get_answer: Проверяет сохранение и извлечение ответа.
-│   │   function test_get_answer_not_found: Проверяет поведение при запросе несуществующего ответа.
-│   │   function test_get_all_problems: Проверяет получение всех задач из БД.
-│   ├── test_utils_downloader.py (3.2 KB)
-│   │   method TestAssetDownloader.test_download_bytes_success: Test the download_bytes method.
-│   │   method TestAssetDownloader.test_download_bytes_failure_status: Test download_bytes with a failing status code.
-│   │   method TestAssetDownloader.test_download_bytes_exception: Test download_bytes when an exception occurs.
-│   │   function test_download_bytes_success: Test the download_bytes method.
-│   │   function test_download_bytes_failure_status: Test download_bytes with a failing status code.
-│   │   function test_download_bytes_exception: Test download_bytes when an exception occurs.
-│   ├── test_utils_local_storage.py (8.0 KB)
-│   │   module __main__: Tests for the LocalStorage class.
-│   │   class TestLocalStorage: Test case for LocalStorage class.
-│   │   method TestLocalStorage.test_save_and_get: Test saving and retrieving an answer and status.
-│   │   method TestLocalStorage.test_get_nonexistent: Test retrieving a non-existent task ID.
-│   │   method TestLocalStorage.test_update_status: Test updating the status of an existing task.
-│   │   method TestLocalStorage.test_persistence: Test that data persists between different instances of LocalStorage.
-│   │   function test_save_and_get: Test saving and retrieving an answer and status.
-│   │   function test_get_nonexistent: Test retrieving a non-existent task ID.
-│   │   function test_update_status: Test updating the status of an existing task.
-│   │   function test_persistence: Test that data persists between different instances of LocalStorage.
-│   ├── test_utils_logging_config.py (2.0 KB)
-│   │   module __main__: Tests for the logging configuration utility.
-│   │   class TestLoggingConfig: Test suite for the setup_logging function.
-│   │   method TestLoggingConfig.setUp: Reset the root logger's handlers and level before each test.
-│   │   method TestLoggingConfig.test_setup_logging_info_level: Test that setup_logging correctly sets the root logger level to INFO.
-│   │   method TestLoggingConfig.test_setup_logging_debug_level: Test that setup_logging correctly sets the root logger level to DEBUG.
-│   │   method TestLoggingConfig.test_setup_logging_default_level: Test that setup_logging sets the default level to INFO when no argument is passed.
-│   │   method TestLoggingConfig.test_setup_logging_invalid_level_defaults_to_info: Test that setup_logging defaults to INFO level if an invalid level string is passed.
-│   │   function setUp: Reset the root logger's handlers and level before each test.
-│   │   function test_setup_logging_info_level: Test that setup_logging correctly sets the root logger level to INFO.
-│   │   function test_setup_logging_debug_level: Test that setup_logging correctly sets the root logger level to DEBUG.
-│   │   function test_setup_logging_default_level: Test that setup_logging sets the default level to INFO when no argument is passed.
-│   │   function test_setup_logging_invalid_level_defaults_to_info: Test that setup_logging defaults to INFO level if an invalid level string is passed.
-│   ├── test_utils_metadata_extractor.py (4.8 KB)
-│   │   module __main__: Unit tests for the MetadataExtractor class.
-│   │   class TestMetadataExtractor: Test cases for the MetadataExtractor class.
-│   │   method TestMetadataExtractor.setUp: Set up the MetadataExtractor instance for tests.
-│   │   method TestMetadataExtractor.test_extract_task_id_found: Test extracting task_id when canselect span is present with text.
-│   │   method TestMetadataExtractor.test_extract_task_id_not_found: Test extracting task_id when canselect span is not present.
-│   │   method TestMetadataExtractor.test_extract_task_id_empty_text: Test extracting task_id when canselect span is present but has no text.
-│   │   method TestMetadataExtractor.test_extract_form_id_found: Test extracting form_id when answer-button span is present with correct onclick.
-│   │   method TestMetadataExtractor.test_extract_form_id_not_found_no_onclick: Test extracting form_id when answer-button span is present but has no onclick.
-│   │   method TestMetadataExtractor.test_extract_form_id_not_found_no_answer_button: Test extracting form_id when answer-button span is not present.
-│   │   method TestMetadataExtractor.test_extract_form_id_not_found_invalid_onclick: Test extracting form_id when answer-button span has an invalid onclick format.
-│   │   method TestMetadataExtractor.test_extract_both_task_id_and_form_id: Test extracting both task_id and form_id when both are present.
-│   │   method TestMetadataExtractor.test_extract_empty_when_no_relevant_elements: Test extracting metadata when header container has no relevant elements.
-│   │   function setUp: Set up the MetadataExtractor instance for tests.
-│   │   function test_extract_task_id_found: Test extracting task_id when canselect span is present with text.
-│   │   function test_extract_task_id_not_found: Test extracting task_id when canselect span is not present.
-│   │   function test_extract_task_id_empty_text: Test extracting task_id when canselect span is present but has no text.
-│   │   function test_extract_form_id_found: Test extracting form_id when answer-button span is present with correct onclick.
-│   │   function test_extract_form_id_not_found_no_onclick: Test extracting form_id when answer-button span is present but has no onclick.
-│   │   function test_extract_form_id_not_found_no_answer_button: Test extracting form_id when answer-button span is not present.
-│   │   function test_extract_form_id_not_found_invalid_onclick: Test extracting form_id when answer-button span has an invalid onclick format.
-│   │   function test_extract_both_task_id_and_form_id: Test extracting both task_id and form_id when both are present.
-│   │   function test_extract_empty_when_no_relevant_elements: Test extracting metadata when header container has no relevant elements.
-│   ├── test_utils_problem_storage.py (4.3 KB)
-│   │   method TestProblemStorage.test_save_and_load_single_problem: Тест сохранения и загрузки одной задачи.
-│   │   method TestProblemStorage.test_save_and_load_multiple_problems: Тест сохранения и загрузки нескольких задач.
-│   │   method TestProblemStorage.test_get_problem_by_id_found: Тест получения задачи по ID, когда она существует.
-│   │   method TestProblemStorage.test_get_problem_by_id_not_found: Тест получения задачи по ID, когда она не существует.
-│   │   method TestProblemStorage.test_load_empty_file: Тест загрузки из пустого файла.
-│   │   function test_save_and_load_single_problem: Тест сохранения и загрузки одной задачи.
-│   │   function test_save_and_load_multiple_problems: Тест сохранения и загрузки нескольких задач.
-│   │   function test_get_problem_by_id_found: Тест получения задачи по ID, когда она существует.
-│   │   function test_get_problem_by_id_not_found: Тест получения задачи по ID, когда она не существует.
-│   │   function test_load_empty_file: Тест загрузки из пустого файла.
-│   ├── test_utils_retriever.py (5.6 KB)
-│   │   module __main__: Unit tests for the QdrantProblemRetriever class.
-│   │   class TestQdrantProblemRetriever: Test cases for the QdrantProblemRetriever class.
-│   │   method TestQdrantProblemRetriever.setUp: Set up mock instances for QdrantClient, DatabaseManager, and a fake embedding model.
-│   │   method TestQdrantProblemRetriever.test_retrieve_success: Test the retrieve method successfully performs a search and fetches problems.
-│   │   function setUp: Set up mock instances for QdrantClient, DatabaseManager, and a fake embedding model.
-│   │   function test_retrieve_success: Test the retrieve method successfully performs a search and fetches problems.
-│   ├── test_utils_vector_indexer.py (5.6 KB)
-│   │   module __main__: Unit tests for the QdrantProblemIndexer class.
-│   │   class TestQdrantProblemIndexer: Test cases for the QdrantProblemIndexer class.
-│   │   method TestQdrantProblemIndexer.setUp: Set up mock instances for DatabaseManager, QdrantClient, and a fake embedding model.
-│   │   method TestQdrantProblemIndexer.test_index_problems_success: Test the index_problems method successfully fetches problems, generates embeddings, and calls Qdr...
-│   │   function setUp: Set up mock instances for DatabaseManager, QdrantClient, and a fake embedding model.
-│   │   function test_index_problems_success: Test the index_problems method successfully fetches problems, generates embeddings, and calls Qdr...
-│   └── tests_api_answer_api.py (6.4 KB)
-│       module __main__: Tests for the answer API endpoints.
-│       class TestAnswerAPI: Test suite for the answer API endpoints.
-│       method TestAnswerAPI.setUp: Set up test fixtures before each test method.
-│       method TestAnswerAPI.test_get_initial_state: Test the GET /initial_state/{page_name} endpoint.
-│       method TestAnswerAPI.test_submit_answer_new: Test the POST /submit_answer endpoint when the answer is new.
-│       method TestAnswerAPI.test_submit_answer_cached: Test the POST /submit_answer endpoint when the answer is already cached.
-│       method TestAnswerAPI.test_save_answer_only: Test the POST /save_answer_only endpoint.
-│       function setUp: Set up test fixtures before each test method.
-│       function test_get_initial_state: Test the GET /initial_state/{page_name} endpoint.
-│       function test_submit_answer_new: Test the POST /submit_answer endpoint when the answer is new.
-│       function test_submit_answer_cached: Test the POST /submit_answer endpoint when the answer is already cached.
-│       function test_save_answer_only: Test the POST /save_answer_only endpoint.
 ├── utils/
-│   ├── answer_checker.py (4.6 KB)
-│   │   module __main__: Module for checking answers against the official FIPI answer service. This module provides the FI...
-│   │   class FIPIAnswerChecker: A class to check answers against the official FIPI service.  This class handles the browser autom...
-│   │   method FIPIAnswerChecker.__init__: Initializes the answer checker with a browser manager.  Args:     browser_manager (BrowserManager...
-│   │   method FIPIAnswerChecker.check_answer: Checks a user's answer against the official FIPI service.  Args:     task_id (str): The task iden...
-│   │   function __init__: Initializes the answer checker with a browser manager.  Args:     browser_manager (BrowserManager...
-│   │   function check_answer: Checks a user's answer against the official FIPI service.  Args:     task_id (str): The task iden...
-│   ├── database_manager.py (8.6 KB)
-│   │   module __main__: Module for managing SQLite connections and performing CRUD operations on tasks and answers using ...
-│   │   class DatabaseManager: Class for managing SQLite database using SQLAlchemy ORM.  Encapsulates database connection, table...
-│   │   method DatabaseManager.__init__: Initializes the manager with the specified path to the SQLite file.  Args:     db_path (str): Pat...
-│   │   method DatabaseManager.initialize_db: Creates database tables if they do not exist yet.
-│   │   method DatabaseManager.save_problems: Saves a list of tasks to the database.  If a task with the same `problem_id` already exists, it w...
-│   │   method DatabaseManager.save_answer: Saves or updates a user's answer to a task.
-│   │   method DatabaseManager.get_answer_and_status: Gets the answer and status by task identifier.
-│   │   method DatabaseManager.get_problem_by_id: Gets a task by its identifier.
-│   │   method DatabaseManager.get_problems_by_ids: Gets multiple tasks by their identifiers in a single query.  Args:     problem_ids (List[str]): A...
-│   │   method DatabaseManager.get_all_problems: Gets all tasks from the database.
-│   │   method DatabaseManager.get_all_subjects: Returns a list of all unique subjects in the database.
-│   │   method DatabaseManager.get_random_problem_ids: Returns `count` random problem_ids for the given subject.
-│   │   function __init__: Initializes the manager with the specified path to the SQLite file.  Args:     db_path (str): Pat...
-│   │   function initialize_db: Creates database tables if they do not exist yet.
-│   │   function save_problems: Saves a list of tasks to the database.  If a task with the same `problem_id` already exists, it w...
-│   │   function save_answer: Saves or updates a user's answer to a task.
-│   │   function get_answer_and_status: Gets the answer and status by task identifier.
-│   │   function get_problem_by_id: Gets a task by its identifier.
-│   │   function get_problems_by_ids: Gets multiple tasks by their identifiers in a single query.  Args:     problem_ids (List[str]): A...
-│   │   function get_all_problems: Gets all tasks from the database.
-│   │   function get_all_subjects: Returns a list of all unique subjects in the database.
-│   │   function get_random_problem_ids: Returns `count` random problem_ids for the given subject.
-│   ├── downloader.py (3.5 KB)
+│   ├── downloader.py (6.0 KB)
 │   │   class AssetDownloader: A class to handle downloading assets from web pages. Attributes:     page: A Playwright page obje...
 │   │   method AssetDownloader.__init__: Initializes the AssetDownloader with necessary configuration. Args:     page: Playwright page ins...
 │   │   method AssetDownloader.download: Downloads an asset from the web and saves it locally. Args:     asset_url: Full URL of the asset ...
+│   │   method AssetDownloader._download_with_alternative_method: Альтернативный метод скачивания при проблемах с SSL
 │   │   method AssetDownloader.download_bytes: Downloads an asset from the web and returns its content as bytes. Args:     asset_url: Full URL o...
 │   │   function __init__: Initializes the AssetDownloader with necessary configuration. Args:     page: Playwright page ins...
 │   │   function download: Downloads an asset from the web and saves it locally. Args:     asset_url: Full URL of the asset ...
+│   │   function _download_with_alternative_method: Альтернативный метод скачивания при проблемах с SSL
 │   │   function download_bytes: Downloads an asset from the web and returns its content as bytes. Args:     asset_url: Full URL o...
 │   ├── element_pairer.py (12.3 KB)
 │   │   class ElementPairer: A class to pair 'header container' divs with their corresponding 'qblock' divs.  This class provi...
@@ -974,21 +599,6 @@
 │   │   function pair: Finds and pairs 'qblock' divs with their corresponding 'header container' divs based on matching ...
 │   ├── fipi_urls.py (471.0 B)
 │   │   module __main__: Module containing FIPI website URLs.
-│   ├── local_storage.py (3.5 KB)
-│   │   module __main__: Local storage module for managing task answers and statuses.
-│   │   class LocalStorage: Manages local storage for task answers and their statuses with in-memory caching.
-│   │   method LocalStorage.__init__: Initializes the LocalStorage with a path to the storage file.  Args:     storage_path: Path to th...
-│   │   method LocalStorage._load_data_from_disk: Loads data from the storage file on disk.  Returns:     A dictionary containing the stored data. ...
-│   │   method LocalStorage.flush_to_disk: Writes the in-memory data to the storage file.
-│   │   method LocalStorage.get_answer_and_status: Retrieves the answer and status for a given task ID.  Args:     task_id: The unique identifier fo...
-│   │   method LocalStorage.save_answer_and_status: Saves the answer and status for a given task ID.  Args:     task_id: The unique identifier for th...
-│   │   method LocalStorage.update_status: Updates the status for a given task ID.  Args:     task_id: The unique identifier for the task.  ...
-│   │   function __init__: Initializes the LocalStorage with a path to the storage file.  Args:     storage_path: Path to th...
-│   │   function _load_data_from_disk: Loads data from the storage file on disk.  Returns:     A dictionary containing the stored data. ...
-│   │   function flush_to_disk: Writes the in-memory data to the storage file.
-│   │   function get_answer_and_status: Retrieves the answer and status for a given task ID.  Args:     task_id: The unique identifier fo...
-│   │   function save_answer_and_status: Saves the answer and status for a given task ID.  Args:     task_id: The unique identifier for th...
-│   │   function update_status: Updates the status for a given task ID.  Args:     task_id: The unique identifier for the task.  ...
 │   ├── logging_config.py (3.2 KB)
 │   │   module __main__: Configuration for structured logging using structlog.
 │   │   function configure_logging: Configure structlog with a predefined format and processors for production.  Args:     level: Log...
@@ -996,17 +606,19 @@
 │   │   function get_logger: Get a configured structlog logger instance.  Args:     name: Name of the logger (typically __name...
 │   │   function add_trace_id: Add trace ID to the current logging context.  Args:     trace_id: Unique trace identifier
 │   │   function clear_trace_id: Clear the current logging context.
-│   ├── metadata_extractor.py (4.2 KB)
+│   ├── metadata_extractor.py (4.8 KB)
 │   │   module __main__: Module for extracting task-specific metadata from HTML header containers.  This module provides t...
 │   │   class MetadataExtractor: A class to extract task-specific metadata (task_id, form_id) from header containers.  This class ...
 │   │   method MetadataExtractor.extract: Extracts task-specific metadata from a header container.  Args:     header_container (Tag): The B...
+│   │   method MetadataExtractor.extract_metadata_from_header: Extracts metadata from a header container specifically for the BlockProcessorAdapter. This method...
 │   │   function extract: Extracts task-specific metadata from a header container.  Args:     header_container (Tag): The B...
+│   │   function extract_metadata_from_header: Extracts metadata from a header container specifically for the BlockProcessorAdapter. This method...
 │   ├── model_adapter.py (3.8 KB)
 │   │   module __main__: Module for safely converting between SQLAlchemy models and Pydantic models. Provides adapter func...
 │   │   function safe_getattr: Safely get an attribute from an object, trying multiple attribute names. Returns the first found ...
 │   │   function convert_to_dict: Attempt to convert an object to a dictionary. Returns None if conversion is not possible.
 │   │   function db_problem_to_problem: Convert a DBProblem SQLAlchemy model to a Pydantic Problem model. Handles attribute mismatches sa...
-│   ├── problem_storage.py (3.1 KB)
+│   ├── problem_storage.py (3.2 KB)
 │   │   module __main__: Модуль для сохранения и загрузки задач Problem в формате JSONL.
 │   │   class ProblemStorage: Класс для хранения задач Problem в файле формата JSONL.  Attributes:     storage_path (Path): Пут...
 │   │   method ProblemStorage.__init__: Инициализирует ProblemStorage с указанным путем к файлу.  Args:     storage_path (Path): Путь к ф...
@@ -1019,14 +631,7 @@
 │   │   function save_problems: Сохраняет список задач в конец файла JSONL.  Args:     problems (List[Problem]): Список объектов ...
 │   │   function load_all_problems: Загружает все задачи из файла JSONL.  Returns:     List[Problem]: Список задач, загруженных из фа...
 │   │   function get_problem_by_id: Находит задачу по её идентификатору.  Args:     problem_id (str): Уникальный идентификатор задачи...
-│   ├── retriever.py (4.5 KB)
-│   │   module __main__: Module for retrieving Problem instances from the database based on semantic similarity.  This mod...
-│   │   class QdrantProblemRetriever: A class to retrieve Problems from the database based on semantic similarity using a Qdrant vector...
-│   │   method QdrantProblemRetriever.__init__: Initializes the retriever with Qdrant client, collection name, and database manager.  Args:     q...
-│   │   method QdrantProblemRetriever.retrieve: Retrieves a list of Problem objects similar to the query text.  Performs a vector search in Qdran...
-│   │   function __init__: Initializes the retriever with Qdrant client, collection name, and database manager.  Args:     q...
-│   │   function retrieve: Retrieves a list of Problem objects similar to the query text.  Performs a vector search in Qdran...
-│   ├── skill_graph.py (3.1 KB)
+│   ├── skill_graph.py (3.2 KB)
 │   │   class InMemorySkillGraph: In-memory representation of the skill graph for adaptive learning. Maps tasks to skills, skills t...
 │   │   method InMemorySkillGraph.build_from_db_and_specs: Builds the skill graph from database problems and specification files.
 │   │   function get_skill_graph_cached: Returns a cached instance of InMemorySkillGraph. Builds it on the first call using the provided d...
@@ -1045,7 +650,7 @@
 │   │   function instrument_app: Instrument the FastAPI app with OpenTelemetry.  Args:     app: FastAPI application instance
 │   └── vector_indexer.py (4.8 KB)
 │       module __main__: Module for indexing Problem instances from the database into a Qdrant vector store.  This module ...
-│       class QdrantProblemIndexer: A class to index Problems from a DatabaseManager into a Qdrant collection.  This indexer fetches ...
+│       class QdrantProblemIndexer: A class to index Problems from a DatabaseAdapter into a Qdrant collection.  This indexer fetches ...
 │       method QdrantProblemIndexer.__init__: Initializes the indexer with database manager, Qdrant client, and collection name.  Args:     db_...
 │       method QdrantProblemIndexer.index_problems: Indexes all problems from the database into the Qdrant collection.  Fetches problems, generates e...
 │       function __init__: Initializes the indexer with database manager, Qdrant client, and collection name.  Args:     db_...
@@ -1053,8 +658,16 @@
 ├── __init__.py (0 B)
 ├── check_cycles.py (3.3 KB)
 ├── check_fipi_images.py (1.3 KB)
-├── config.py (1.1 KB)
+├── config.py (1.0 KB)
 │   module __main__: Application configuration settings.
+├── debug_encoding.py (2.3 KB)
+│   function analyze_encoding: Analyze if text has double encoding issues
+├── debug_header_analysis.py (2.4 KB)
+│   function analyze_header_structure: Анализирует структуру header-элементов в реальных данных
+├── debug_header_real_examples.py (3.1 KB)
+├── debug_header_type.py (952.0 B)
+├── debug_real_header_objects.py (1.9 KB)
+│   function debug_real_headers: Анализирует реальные header-объекты как они используются в скрапере
 ├── extract_blocks.py (1.1 KB)
 ├── generate_tree.py (21.6 KB)
 │   module __main__: Generates a text representation of the directory structure, focusing on specific file types.  Thi...

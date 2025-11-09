@@ -12,17 +12,33 @@ or a specified number of consecutive empty pages is encountered.
 """
 
 import asyncio
-import config
-from scraper.fipi_scraper import FIPIScraper
-from infrastructure.adapters.database_adapter import DatabaseAdapter
-from utils.logging_config import setup_logging
-from resource_management.browser_pool_manager import BrowserPoolManager
-from utils.subject_mapping import SUBJECT_ALIAS_MAP, SUBJECT_KEY_MAP, SUBJECT_TO_PROJ_ID_MAP, SUBJECT_TO_OFFICIAL_NAME_MAP, get_alias_from_official_name, get_subject_key_from_alias, get_proj_id_for_subject, get_official_name_from_alias
 import logging
-from pathlib import Path
 import shutil
-from typing import Optional, Dict, Any
+import sys
+from pathlib import Path
+from typing import Dict, Any
 
+# Add project root to sys.path for imports
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+import config
+from utils.logging_config import configure_logging
+from scraper.fipi_scraper_refactored import FIPIScraper
+from infrastructure.adapters.database_adapter import DatabaseAdapter
+from resource_management.browser_pool_manager import BrowserPoolManager
+from infrastructure.adapters.specification_adapter import SpecificationAdapter
+from infrastructure.adapters.task_number_inferer_adapter import TaskNumberInfererAdapter
+from utils.subject_mapping import (
+    SUBJECT_ALIAS_MAP,
+    SUBJECT_KEY_MAP,
+    SUBJECT_TO_PROJ_ID_MAP,
+    SUBJECT_TO_OFFICIAL_NAME_MAP,
+    get_alias_from_official_name,
+    get_subject_key_from_alias,
+    get_proj_id_for_subject,
+    get_official_name_from_alias
+)
 
 # === ГОД ЭКЗАМЕНА (можно вынести в config позже) ===
 EXAM_YEAR = "2026"
@@ -53,7 +69,7 @@ class CLIScraper:
 
     def setup_logging(self):
         """Initialize logging."""
-        setup_logging(level="DEBUG") # Use DEBUG for detailed output during scraping
+        configure_logging(level="DEBUG")  # Use DEBUG for detailed output during scraping
         self.logger.info("CLI Scraper initialized.")
 
     def get_available_subjects(self) -> Dict[str, str]:
@@ -67,11 +83,12 @@ class CLIScraper:
             # Check if this subject_key has a corresponding proj_id
             if subject_key in SUBJECT_TO_PROJ_ID_MAP:
                 # Get the official name using the alias
-                official_name = SUBJECT_TO_OFFICIAL_NAME_MAP.get(alias, alias) # Fallback to alias if official name not found
+                official_name = SUBJECT_TO_OFFICIAL_NAME_MAP.get(alias, alias)  # Fallback to alias if official name not found
                 available[subject_key] = official_name
         return available
 
-    async def scrape_subject_logic(self, proj_id: str, subject_name: str, scraping_subject_key: str, subject_dir: Path, db_manager: DatabaseAdapter, browser_pool: BrowserPoolManager):
+    async def scrape_subject_logic(self, proj_id: str, subject_name: str, scraping_subject_key: str, subject_dir: Path, 
+                                  db_manager: DatabaseAdapter, browser_pool: BrowserPoolManager):
         """
         Performs the iterative scraping for a given subject.
         """
@@ -79,10 +96,43 @@ class CLIScraper:
         # Получаем browser_manager из пула
         browser_manager = await browser_pool.get_available_browser()
         try:
+            # Определить пути к спецификациям на основе scraping_subject_key
+            if scraping_subject_key == "promath":
+                spec_path = Path("data/specs/ege_2026_math_spec.json")
+                kes_kos_path = Path("data/specs/ege_2026_math_kes_kos.json")
+            elif scraping_subject_key == "informatics":
+                spec_path = Path("data/specs/ege_2026_inf_spec.json")
+                kes_kos_path = Path("data/specs/ege_2026_inf_kes_kos.json")
+            else:
+                # Значения по умолчанию для других предметов
+                spec_path = Path("data/specs/ege_2026_math_spec.json")
+                kes_kos_path = Path("data/specs/ege_2026_math_kes_kos.json")
+            
+            # Проверить существование файлов спецификаций
+            if not spec_path.exists():
+                self.logger.warning(f"Specification file not found at {spec_path}. Creating empty file.")
+                spec_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(spec_path, "w", encoding="utf-8") as f:
+                    f.write('{"tasks": []}')
+            
+            if not kes_kos_path.exists():
+                self.logger.warning(f"KES/KOS mapping file not found at {kes_kos_path}. Creating empty file.")
+                kes_kos_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(kes_kos_path, "w", encoding="utf-8") as f:
+                    f.write('{"mapping": []}')
+            
+            # Создать экземпляр SpecificationAdapter
+            spec_service = SpecificationAdapter(spec_path, kes_kos_path)
+            
+            # Создать TaskNumberInfererAdapter
+            task_inferer = TaskNumberInfererAdapter(spec_service)
+            
             scraper = FIPIScraper(
                 base_url=config.FIPI_QUESTIONS_URL,
                 browser_manager=browser_manager,  # Pass the individual manager, not the pool
-                subjects_url=config.FIPI_SUBJECTS_URL
+                subjects_url=config.FIPI_SUBJECTS_URL,
+                spec_service=spec_service,
+                task_inferer=task_inferer
             )
             # === ИТЕРАТИВНЫЙ СКРАПИНГ ===
             print(f"📄 Starting scraping for subject: {subject_name} (proj_id: {proj_id})")
@@ -96,15 +146,18 @@ class CLIScraper:
                     proj_id=proj_id,
                     page_num="init",
                     run_folder=subject_dir,
-                    subject=scraping_subject_key # PASS SUBJECT KEY
+                    subject=scraping_subject_key  # PASS SUBJECT KEY
                 )
                 self.logger.debug(f"Scraping page 'init' returned {len(problems)} problems.")
                 if problems:
                     for problem in problems:
                         if not getattr(problem, 'subject', None):
                             problem.subject = scraping_subject_key
-                    db_manager.save_problems(problems)
-                    total_saved += len(problems)
+                    # Use save_problem for each problem instead of save_problems
+                    for problem in problems:
+                        db_manager.save_problem(problem)
+                        total_saved += 1
+                        self.logger.info(f"Saved problem {problem.problem_id} to database")
                     print(f" ✅ Saved {len(problems)} problems from page init")
                 else:
                     print(" ⚠️  Page init is empty")
@@ -148,7 +201,7 @@ class CLIScraper:
             # Скрапим страницы 1, 2, 3, ... до last_page_num или пока не будет max_empty пустых подряд
             page_num = 1
             empty_count = 0
-            max_empty = 2 # Keep this as a fallback if last_page_num is not determined
+            max_empty = 2  # Keep this as a fallback if last_page_num is not determined
 
             while True:
                 # Check if we've reached the determined last page
@@ -168,19 +221,22 @@ class CLIScraper:
                         proj_id=proj_id,
                         page_num=str(page_num),
                         run_folder=subject_dir,
-                        subject=scraping_subject_key # PASS SUBJECT KEY
+                        subject=scraping_subject_key  # PASS SUBJECT KEY
                     )
                     self.logger.debug(f"Scraping page '{page_num}' returned {len(problems)} problems.")
                     if len(problems) == 0:
                         empty_count += 1
                         print(f"   ⚠️  Page {page_num} is empty ({empty_count}/{max_empty})")
                     else:
-                        empty_count = 0 # Reset counter on non-empty page
+                        empty_count = 0  # Reset counter on non-empty page
                         for problem in problems:
                             if not getattr(problem, 'subject', None):
                                 problem.subject = scraping_subject_key
-                        db_manager.save_problems(problems)
-                        total_saved += len(problems)
+                        # Use save_problem for each problem instead of save_problems
+                        for problem in problems:
+                            db_manager.save_problem(problem)
+                            total_saved += 1
+                            self.logger.info(f"Saved problem {problem.problem_id} to database")
                         print(f"   ✅ Saved {len(problems)} problems from page {page_num}")
                 except Exception as e:
                     print(f"   ❌ Error on page {page_num}: {e}")
@@ -240,7 +296,7 @@ class CLIScraper:
                     self.scrape_subject_logic(proj_id, subject_name, scraping_subject_key, subject_dir, db_manager, browser_pool)
                 )
                 tasks.append(task)
-                print(f"�� Started scraping task for {subject_name}")
+                print(f"🚀 Started scraping task for {subject_name}")
                 self.logger.info(f"Started scraping task for {subject_name}")
 
         # Wait for all tasks to complete
@@ -260,7 +316,7 @@ class CLIScraper:
         print("🚀 Welcome to the FIPI Parser!")
         print("📋 1. Scrape a new subject or update existing data")
         print("🔄 2. Parallel scrape subjects")
-        print("�� 3. Exit")
+        print("🚪 3. Exit")
         print("-" * 40)
 
         # Define available subjects directly based on subject_mapping

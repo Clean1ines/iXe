@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from scraper.fipi_scraper import FIPIScraper
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 
 
 class TestFIPIScraperScrapePageIntegration(unittest.TestCase):

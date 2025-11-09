@@ -3,7 +3,7 @@ Tests for the logging configuration utility.
 """
 import unittest
 import logging
-from utils.logging_config import setup_logging
+from utils.logging_config import configure_logging
 
 
 class TestLoggingConfig(unittest.TestCase):

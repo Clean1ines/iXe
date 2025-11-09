@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
 
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 from infrastructure.adapters.database_adapter import DatabaseAdapter
 from infrastructure.adapters.qdrant_retriever_adapter import QdrantRetrieverAdapter
 

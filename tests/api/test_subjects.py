@@ -23,7 +23,7 @@ def test_get_available_subjects_success():
 
     mock_db = Mock(spec=DatabaseAdapter)
     # Используем реальные объекты Problem с атрибутом subject
-    from models.problem_schema import Problem
+    from domain.models.problem_schema import Problem
     from datetime import datetime
     mock_db.get_all_problems.return_value = [
         Problem(

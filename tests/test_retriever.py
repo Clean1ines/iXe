@@ -2,7 +2,7 @@ import pytest
 import logging
 from io import StringIO
 from unittest.mock import Mock, MagicMock, patch
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 from infrastructure.adapters.qdrant_retriever_adapter import QdrantRetrieverAdapter
 from infrastructure.adapters.database_adapter import DatabaseAdapter
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from infrastructure.adapters.database_adapter import DatabaseAdapter
+from domain.interfaces.infrastructure_adapters import.database_adapter import DatabaseAdapter
 from api.dependencies import get_db_manager
 from api.schemas import GetBlockResponse, ProblemResponse
 

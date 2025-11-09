@@ -1,9 +1,9 @@
 from typing import Optional
-from infrastructure.adapters.database_adapter import DatabaseAdapter
-from infrastructure.adapters.local_storage_adapter import LocalStorageAdapterAdapter
-from infrastructure.adapters.answer_checker_adapter import FIPIAnswerCheckerAdapterAdapter
+from domain.interfaces.infrastructure_adapters import IDatabaseProvider
+from domain.interfaces.infrastructure_adapters import IStorageProvider
+from domain.interfaces.infrastructure_adapters import IExternalChecker
 from api.schemas import CheckAnswerRequest, CheckAnswerResponse
-from infrastructure.adapters.specification_adapter import SpecificationAdapter
+from domain.interfaces.specification_provider import ISpecificationProvider
 from utils.skill_graph import InMemorySkillGraph
 from utils.task_id_utils import extract_task_id_and_form_id
 from domain.interfaces.infrastructure_adapters import IExternalChecker, IStorageProvider
@@ -18,11 +18,11 @@ class AnswerService(BaseService):
 
     def __init__(
         self,
-        db: DatabaseAdapter,
+        db: IDatabaseProvider,
         checker: IExternalChecker,
         storage: Optional[IStorageProvider],
         skill_graph: InMemorySkillGraph,
-        spec_service: SpecificationAdapter
+        spec_service: ISpecificationProvider
     ):
         super().__init__(db)
         self.checker = checker

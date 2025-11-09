@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 import logging
 from typing import List
-from infrastructure.adapters.database_adapter import DatabaseAdapter
+from domain.interfaces.infrastructure_adapters import.database_adapter import DatabaseAdapter
 from api.dependencies import get_db_manager
 
 logger = logging.getLogger(__name__)

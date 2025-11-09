@@ -5,7 +5,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-from models.problem_schema import Problem
+from domain.models.problem_schema import Problem
 from utils.problem_storage import ProblemStorage
 
 
