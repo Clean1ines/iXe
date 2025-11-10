@@ -10,7 +10,11 @@ from domain.interfaces.repositories import IProblemRepository
 from domain.models.problem import Problem
 from domain.value_objects.problem_id import ProblemId
 from infrastructure.adapters.database_adapter import DatabaseAdapter
-from utils.model_adapter import ModelAdapter
+from utils.model_adapter import (
+    domain_to_db_problem, db_to_domain_problem,
+    domain_to_db_user_progress, db_to_domain_user_progress,
+    domain_to_db_skill, db_to_domain_skill
+)
 
 
 class ProblemRepositoryImpl(IProblemRepository):
@@ -41,8 +45,8 @@ class ProblemRepositoryImpl(IProblemRepository):
         Args:
             problem: The problem domain entity to save
         """
-        db_problem = ModelAdapter.domain_to_db_problem(problem)
-        await self._db_adapter.save_problem(db_problem)
+        db_problem = domain_to_db_problem(problem)
+        await self._db_adapter.save(db_problem)
 
     async def get_by_id(self, problem_id: ProblemId) -> Optional[Problem]:
         """
@@ -54,9 +58,9 @@ class ProblemRepositoryImpl(IProblemRepository):
         Returns:
             The problem domain entity if found, None otherwise
         """
-        db_problem = await self._db_adapter.get_problem_by_id(str(problem_id))
+        db_problem = await self._db_adapter.get_by_id(problem_id)
         if db_problem:
-            return ModelAdapter.db_to_domain_problem(db_problem)
+            return db_to_domain_problem(db_problem)
         return None
 
     async def get_by_subject(self, subject: str) -> List[Problem]:
@@ -69,8 +73,8 @@ class ProblemRepositoryImpl(IProblemRepository):
         Returns:
             List of problem domain entities matching the subject
         """
-        db_problems = await self._db_adapter.get_problems_by_subject(subject)
-        return [ModelAdapter.db_to_domain_problem(db_prob) for db_prob in db_problems]
+        db_problems = await self._db_adapter.get_by_subject(subject)
+        return [db_to_domain_problem(db_prob) for db_prob in db_problems]
 
     async def get_by_exam_part(self, exam_part: str) -> List[Problem]:
         """
@@ -82,8 +86,8 @@ class ProblemRepositoryImpl(IProblemRepository):
         Returns:
             List of problem domain entities matching the exam part
         """
-        db_problems = await self._db_adapter.get_problems_by_exam_part(exam_part)
-        return [ModelAdapter.db_to_domain_problem(db_prob) for db_prob in db_problems]
+        db_problems = await self._db_adapter.get_by_exam_part(exam_part)
+        return [db_to_domain_problem(db_prob) for db_prob in db_problems]
 
     async def get_by_difficulty(self, difficulty: str) -> List[Problem]:
         """
@@ -95,5 +99,5 @@ class ProblemRepositoryImpl(IProblemRepository):
         Returns:
             List of problem domain entities matching the difficulty level
         """
-        db_problems = await self._db_adapter.get_problems_by_difficulty(difficulty)
-        return [ModelAdapter.db_to_domain_problem(db_prob) for db_prob in db_problems]
+        db_problems = await self._db_adapter.get_by_difficulty(difficulty)
+        return [db_to_domain_problem(db_prob) for db_prob in db_problems]

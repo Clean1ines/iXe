@@ -10,7 +10,11 @@ from domain.interfaces.repositories import ISkillRepository
 from domain.models.skill import Skill
 from domain.value_objects.problem_id import ProblemId
 from infrastructure.adapters.database_adapter import DatabaseAdapter
-from utils.model_adapter import ModelAdapter
+from utils.model_adapter import (
+    domain_to_db_problem, db_to_domain_problem,
+    domain_to_db_user_progress, db_to_domain_user_progress,
+    domain_to_db_skill, db_to_domain_skill
+)
 
 
 class SkillRepositoryImpl(ISkillRepository):
@@ -41,10 +45,7 @@ class SkillRepositoryImpl(ISkillRepository):
         Returns:
             The skill domain entity if found, None otherwise
         """
-        db_skill = await self._db_adapter.get_skill_by_id(skill_id)
-        if db_skill:
-            return ModelAdapter.db_to_domain_skill(db_skill)
-        return None
+        return await self._db_adapter.get_skill_by_id(skill_id)
 
     async def get_all(self) -> List[Skill]:
         """
@@ -53,8 +54,7 @@ class SkillRepositoryImpl(ISkillRepository):
         Returns:
             List of all skill domain entities
         """
-        db_skills = await self._db_adapter.get_all_skills()
-        return [ModelAdapter.db_to_domain_skill(db_skill) for db_skill in db_skills]
+        return await self._db_adapter.get_all_skills()
 
     async def get_by_problem_id(self, problem_id: ProblemId) -> List[Skill]:
         """
@@ -66,5 +66,4 @@ class SkillRepositoryImpl(ISkillRepository):
         Returns:
             List of skill domain entities associated with the problem
         """
-        db_skills = await self._db_adapter.get_skills_by_problem_id(str(problem_id))
-        return [ModelAdapter.db_to_domain_skill(db_skill) for db_skill in db_skills]
+        return await self._db_adapter.get_skills_by_problem_id(str(problem_id))

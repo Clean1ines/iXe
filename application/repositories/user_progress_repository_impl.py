@@ -10,7 +10,11 @@ from domain.interfaces.repositories import IUserProgressRepository
 from domain.models.user_progress import UserProgress
 from domain.value_objects.problem_id import ProblemId
 from infrastructure.adapters.database_adapter import DatabaseAdapter
-from utils.model_adapter import ModelAdapter
+from utils.model_adapter import (
+    domain_to_db_problem, db_to_domain_problem,
+    domain_to_db_user_progress, db_to_domain_user_progress,
+    domain_to_db_skill, db_to_domain_skill
+)
 
 
 class UserProgressRepositoryImpl(IUserProgressRepository):
@@ -41,8 +45,7 @@ class UserProgressRepositoryImpl(IUserProgressRepository):
         Args:
             progress: The user progress domain entity to save
         """
-        db_progress = ModelAdapter.domain_to_db_user_progress(progress)
-        await self._db_adapter.save_user_progress(db_progress)
+        await self._db_adapter.save_user_progress(progress)
 
     async def get_by_user_and_problem(self, user_id: str, problem_id: ProblemId) -> Optional[UserProgress]:
         """
@@ -55,10 +58,7 @@ class UserProgressRepositoryImpl(IUserProgressRepository):
         Returns:
             The user progress domain entity if found, None otherwise
         """
-        db_progress = await self._db_adapter.get_user_progress_by_user_and_problem(user_id, str(problem_id))
-        if db_progress:
-            return ModelAdapter.db_to_domain_user_progress(db_progress)
-        return None
+        return await self._db_adapter.get_user_progress_by_user_and_problem(user_id, str(problem_id))
 
     async def get_by_user(self, user_id: str) -> List[UserProgress]:
         """
@@ -70,8 +70,7 @@ class UserProgressRepositoryImpl(IUserProgressRepository):
         Returns:
             List of user progress domain entities for the user
         """
-        db_progresses = await self._db_adapter.get_user_progress_by_user(user_id)
-        return [ModelAdapter.db_to_domain_user_progress(db_prog) for db_prog in db_progresses]
+        return await self._db_adapter.get_user_progress_by_user(user_id)
 
     async def get_completed_by_user(self, user_id: str) -> List[UserProgress]:
         """
@@ -83,5 +82,4 @@ class UserProgressRepositoryImpl(IUserProgressRepository):
         Returns:
             List of completed user progress domain entities for the user
         """
-        db_progresses = await self._db_adapter.get_completed_user_progress_by_user(user_id)
-        return [ModelAdapter.db_to_domain_user_progress(db_prog) for db_prog in db_progresses]
+        return await self._db_adapter.get_completed_user_progress_by_user(user_id)
