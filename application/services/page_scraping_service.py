@@ -91,8 +91,15 @@ class PageScrapingService:
             problems = []
             for result in results:
                 problem = self._create_problem_from_result(result, subject)
-                # Use save_problem method from IDatabaseProvider
-                self._problem_repo.save_problem(problem)
+                # Use save_problem method from IDatabaseProvider if it exists
+                if self._problem_repo is not None:
+                    # The database adapter expects the new domain problem format
+                    # But the scraping pipeline still produces Pydantic problems
+                    # So we need to convert to the new domain format before saving
+                    from utils.model_adapter import pydantic_to_domain_problem
+                    domain_problem = pydantic_to_domain_problem(problem)
+                    self._problem_repo.save_problem(domain_problem)
+                    logger.info(f"Saved problem {problem.problem_id} to database")
                 problems.append(problem)
 
             scraped_data = {

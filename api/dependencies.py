@@ -14,6 +14,8 @@ from domain.exceptions.infrastructure import ExternalServiceException
 from domain.exceptions.business import ResourceNotFoundException
 from utils.logging_config import get_logger
 from domain.services.observability_service import ObservabilityService
+from infrastructure.adapters.database_adapter import DatabaseAdapter
+from infrastructure.adapters.answer_checker_adapter import FIPIAnswerCheckerAdapterAdapter
 
 logger = get_logger(__name__)
 
@@ -24,7 +26,7 @@ class Config:
         return os.getenv("STATELESS", "false").lower() == "true"
 
 
-def get_db_manager() -> DatabaseAdapter:
+def get_db_manager() -> IDatabaseProvider:  # Изменено: теперь возвращает интерфейс
     """
     Dependency to provide an instance of DatabaseAdapter.
 
@@ -53,7 +55,7 @@ def get_qdrant_client() -> QdrantClient:
 
 def get_problem_retriever(
     qdrant_client: QdrantClient = Depends(get_qdrant_client),
-    db_manager: DatabaseAdapter = Depends(get_db_manager)
+    db_manager: IDatabaseProvider = Depends(get_db_manager)  # Изменено: теперь принимает интерфейс
 ) -> QdrantRetrieverAdapter:
     """
     Dependency to provide an instance of QdrantRetrieverAdapter.
@@ -108,7 +110,7 @@ def get_spec_service(subject: str, year: str) -> SpecificationAdapter:
 
 
 def get_skill_graph(
-    db: DatabaseAdapter = Depends(get_db_manager),
+    db: IDatabaseProvider = Depends(get_db_manager),  # Изменено: теперь принимает интерфейс
     spec_service: SpecificationAdapter = Depends(get_spec_service)
 ) -> InMemorySkillGraph:
     """
@@ -122,7 +124,7 @@ def get_skill_graph(
         InMemorySkillGraph: An instance of the in-memory skill graph.
     """
     try:
-        return InMemorySkillGraph.build_from_db_and_specs(db, spec_service)
+        return InMemorySkillGraph.build_from_db_and_specs(db, spec_service)  # Сохранено оригинальное поведение
     except Exception as e:
         raise ExternalServiceException(
             service_name="SkillGraphBuilder",
@@ -173,7 +175,7 @@ async def get_answer_checker(browser_manager: object = Depends(get_browser_manag
     # The 'base_url' is now handled internally by BrowserManager or FIPIAnswerCheckerAdapter if needed for other purposes,
     # but the primary page acquisition is through BrowserManager.
     try:
-        return IExternalChecker(browser_manager=browser_manager)
+        return FIPIAnswerCheckerAdapterAdapter(browser_manager=browser_manager)  # Исправлено: вызываем конкретный класс
     except Exception as e:
         raise ExternalServiceException(
             service_name="FIPIAnswerCheckerAdapter",
@@ -183,7 +185,7 @@ async def get_answer_checker(browser_manager: object = Depends(get_browser_manag
 
 
 def get_answer_service(
-    db: DatabaseAdapter = Depends(get_db_manager),
+    db: IDatabaseProvider = Depends(get_db_manager),  # Изменено: теперь принимает интерфейс
     checker: FIPIAnswerCheckerAdapterAdapter = Depends(get_answer_checker),
     storage: LocalStorageAdapterAdapter | None = Depends(get_storage),
     skill_graph: InMemorySkillGraph = Depends(get_skill_graph),
@@ -213,7 +215,7 @@ def get_answer_service(
 
 
 def get_quiz_service(
-    db: DatabaseAdapter = Depends(get_db_manager),
+    db: IDatabaseProvider = Depends(get_db_manager),  # Изменено: теперь принимает интерфейс
     problem_retriever: QdrantRetrieverAdapter = Depends(get_problem_retriever),
     skill_graph: InMemorySkillGraph = Depends(get_skill_graph),
     spec_service: SpecificationAdapter = Depends(get_spec_service)

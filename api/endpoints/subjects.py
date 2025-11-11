@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 import logging
 from typing import List
-from domain.interfaces.infrastructure_adapters import.database_adapter import DatabaseAdapter
+from domain.interfaces.infrastructure_adapters import IDatabaseProvider
 from api.dependencies import get_db_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/subjects/available")
-async def get_available_subjects(db: DatabaseAdapter = Depends(get_db_manager)):
+async def get_available_subjects(db: IDatabaseProvider = Depends(get_db_manager)):
     """
     API endpoint to get a list of available subjects.
     The list reflects subjects present in the database, typically determined by DISTINCT subject names from problem entries.
@@ -25,7 +25,7 @@ async def get_available_subjects(db: DatabaseAdapter = Depends(get_db_manager)):
 async def get_random_problems(
     subject: str,
     count: int = 10,
-    db: DatabaseAdapter = Depends(get_db_manager)
+    db: IDatabaseProvider = Depends(get_db_manager)
 ):
     """
     Returns `count` random problem IDs for the given subject.

@@ -46,6 +46,17 @@ class IDatabaseProvider(ABC):
     @abstractmethod
     async def save_answer_status(self, problem_id: str, user_id: str, answer: str, is_correct: bool, score: float) -> None:
         pass
+    
+    # Методы, необходимые для работы endpoint'ов subjects
+    @abstractmethod
+    def get_all_subjects(self) -> List[str]:
+        """Get all available subjects from the database."""
+        pass
+    
+    @abstractmethod
+    def get_random_problem_ids(self, subject: str, count: int) -> List[str]:
+        """Get random problem IDs for a given subject."""
+        pass
 
 class IProblemRetriever(ABC):
     """Interface for problem retrieval operations"""

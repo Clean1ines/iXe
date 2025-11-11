@@ -6,7 +6,7 @@ from datetime import datetime
 import logging
 from resource_management.browser_pool_manager import BrowserPoolManager
 from qdrant_client import QdrantClient
-from domain.interfaces.infrastructure_adapters import.database_adapter import DatabaseAdapter
+from infrastructure.adapters.database_adapter import DatabaseAdapter
 from config import DB_PATH, QDRANT_HOST, QDRANT_PORT
 
 logger = logging.getLogger(__name__)

@@ -13,11 +13,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          # Установка инструментов для проверки
+          pip install black isort flake8 mypy ruff pytest-cov
+      - name: Check formatting
+        run: |
+          black --check .
+          isort --check-only .
       - name: Run linters
         run: |
-          pip install ruff
+          # Проверка синтаксиса и стиля
           ruff check .
+          # Проверка типизации
+          mypy .
+      - name: Run stable tests
+        run: |
+          bash scripts/run_stable_tests.sh
       - name: Run basic smoke
         run: |
-          python -m pip install jsonschema
           python -c "print('smoke')"

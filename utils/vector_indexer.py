@@ -12,14 +12,14 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
 
 from domain.models.problem_schema import Problem
-from infrastructure.adapters.database_adapter import DatabaseAdapter
+from domain.interfaces.infrastructure_adapters import IDatabaseProvider
 
 logger = logging.getLogger(__name__)
 
 
 class QdrantProblemIndexer:
     """
-    A class to index Problems from a DatabaseAdapter into a Qdrant collection.
+    A class to index Problems from a IDatabaseProvider into a Qdrant collection.
 
     This indexer fetches Problem instances, generates embeddings for their text,
     and uploads them along with metadata to a specified Qdrant collection.
@@ -27,7 +27,7 @@ class QdrantProblemIndexer:
 
     def __init__(
         self,
-        db_manager: DatabaseAdapter,
+        db_manager: IDatabaseProvider,
         qdrant_client: QdrantClient,
         collection_name: str
     ):
@@ -35,7 +35,7 @@ class QdrantProblemIndexer:
         Initializes the indexer with database manager, Qdrant client, and collection name.
 
         Args:
-            db_manager (DatabaseAdapter): Instance to fetch problems from the database.
+            db_manager (IDatabaseProvider): Instance to fetch problems from the database.
             qdrant_client (QdrantClient): Instance of the Qdrant client.
             collection_name (str): The name of the Qdrant collection to index into.
         """
@@ -44,7 +44,10 @@ class QdrantProblemIndexer:
         self.collection_name = collection_name
         logger.debug(
             f"QdrantProblemIndexer initialized for collection '{collection_name}' "
-            f"with database at '{db_manager.db_path}'"
+            # Note: db_manager might not have db_path attribute, so we might need to handle this carefully
+            # For now, we'll keep it if the concrete implementation has this attribute
+            # Otherwise, we might need to remove or adapt this log
+            f"with database adapter"
         )
 
     def index_problems(self, embedding_model: Any) -> None:
@@ -80,10 +83,10 @@ class QdrantProblemIndexer:
                 payload = {
                     "problem_id": problem.problem_id,
                     "subject": problem.subject,
-                    "topics": problem.kes_codes,
+                    "topics": getattr(problem, 'kes_codes', []),  # Using getattr to handle potentially missing attributes
                     "type": problem.type,
-                    "difficulty": problem.difficulty,
-                    "source_url": problem.source_url, # Optional: useful for linking back
+                    "difficulty": getattr(problem, 'difficulty', 'unknown'),
+                    "source_url": getattr(problem, 'source_url', None), # Optional: useful for linking back
                     "text": problem.text, # Optional: store the text itself, might be redundant if searchable via vectors
                     # Add other fields as needed for filtering/searching
                 }

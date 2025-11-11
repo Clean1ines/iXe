@@ -11,6 +11,10 @@ import logging
 import sys
 from pathlib import Path
 
+# Add project root to sys.path to allow imports
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+
 # Assuming config.py is in the root or a standard location
 try:
     import config
@@ -41,9 +45,23 @@ except ImportError:
     print("Error: 'sentence-transformers' library is not installed. Please install it using 'pip install sentence-transformers'.")
     sys.exit(1)
 
+from domain.interfaces.infrastructure_adapters import IDatabaseProvider
+
 
 def main():
-    """Main function to orchestrate the indexing process."""
+    """
+    Main function to orchestrate the indexing process.
+    
+    This function:
+    1. Sets up logging
+    2. Validates database path from config
+    3. Initializes database manager with IDatabaseProvider interface
+    4. Initializes Qdrant client
+    5. Defines collection name
+    6. Initializes indexer
+    7. Loads embedding model
+    8. Runs indexing process
+    """
     setup_logging(level="INFO")
     logger = logging.getLogger(__name__)
 
@@ -63,7 +81,7 @@ def main():
 
     # --- 3. Initialize Database Manager ---
     try:
-        db_manager = DatabaseAdapter(db_path=str(db_path))
+        db_manager: IDatabaseProvider = DatabaseAdapter(db_path=str(db_path))
         logger.info("Database manager initialized.")
     except Exception as e:
         logger.error(f"Failed to initialize DatabaseAdapter: {e}")

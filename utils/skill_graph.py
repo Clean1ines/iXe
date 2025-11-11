@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, List
-from infrastructure.adapters.database_adapter import DatabaseAdapter
+from domain.interfaces.infrastructure_adapters import IDatabaseProvider
 from infrastructure.adapters.specification_adapter import SpecificationAdapter
 from domain.models.problem_schema import Problem
 
@@ -20,7 +20,7 @@ class InMemorySkillGraph:
 
     @classmethod
     def build_from_db_and_specs(
-        cls, db: DatabaseAdapter, spec_service: SpecificationAdapter
+        cls, db: IDatabaseProvider, spec_service: SpecificationAdapter
     ) -> 'InMemorySkillGraph':
         """
         Builds the skill graph from database problems and specification files.
@@ -68,9 +68,27 @@ class InMemorySkillGraph:
         return graph
 
     def get_codes_for_task(self, task_number: int) -> List[str]:
+        """
+        Get the KES/KOS codes for a given task number.
+        
+        Args:
+            task_number: The task number to look up.
+            
+        Returns:
+            A list of KES/KOS codes associated with the task.
+        """
         return self.task_to_skills.get(task_number, [])
 
     def get_tasks_by_kes(self, kes_code: str) -> List[str]:
+        """
+        Get the task IDs associated with a given KES code.
+        
+        Args:
+            kes_code: The KES code to look up.
+            
+        Returns:
+            A list of task IDs associated with the KES code.
+        """
         return self.skill_to_tasks.get(kes_code, [])
 
 
@@ -78,7 +96,7 @@ class InMemorySkillGraph:
 _skill_graph_cache: InMemorySkillGraph | None = None
 
 
-def get_skill_graph_cached(db: DatabaseAdapter, spec_service: SpecificationAdapter) -> InMemorySkillGraph:
+def get_skill_graph_cached(db: IDatabaseProvider, spec_service: SpecificationAdapter) -> InMemorySkillGraph:
     """
     Returns a cached instance of InMemorySkillGraph.
     Builds it on the first call using the provided dependencies.

@@ -25,3 +25,4 @@ DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 BROWSER_HEADLESS = True
 TOTAL_PAGES = 10
 FIPI_DEFAULT_PROJ_ID = 'MATH_PROFILE'
+FRONTEND_URL = 'http://localhost:5173/'

@@ -23,12 +23,13 @@ from utils.model_adapter import (
     domain_to_db_user_progress, db_to_domain_user_progress,
     domain_to_db_skill, db_to_domain_skill
 )
+from domain.interfaces.infrastructure_adapters import IDatabaseProvider
 
 
 logger = logging.getLogger(__name__)
 
 
-class DatabaseAdapter(IProblemRepository, IUserProgressRepository, ISkillRepository):
+class DatabaseAdapter(IDatabaseProvider):
     """
     Infrastructure adapter implementing repository interfaces for database operations.
 
@@ -54,13 +55,13 @@ class DatabaseAdapter(IProblemRepository, IUserProgressRepository, ISkillReposit
         
         with self.SessionLocal() as session:
             # Check if problem already exists
-            existing = session.query(DBProblem).filter(DBProblem.id == problem.problem_id.value).first()
+            existing = session.query(DBProblem).filter(DBProblem.problem_id == problem.problem_id.value).first()
             if existing:
                 # Update existing problem
                 for field in ['subject', 'type', 'text', 'answer', 'options', 'solutions',
-                              'kes_codes', 'skills', 'difficulty_level', 'task_number',
-                              'kos_codes', 'exam_part', 'max_score', 'form_id', 'source_url',
-                              'raw_html_path', 'updated_at', 'metadata']:
+                              'topics', 'difficulty_level', 'task_number',
+                              'kes_codes', 'kos_codes', 'exam_part', 'max_score', 'form_id', 'source_url',
+                              'raw_html_path', 'updated_at', 'metadata_']:
                     setattr(existing, field, getattr(db_problem, field))
             else:
                 # Add new problem
@@ -70,7 +71,7 @@ class DatabaseAdapter(IProblemRepository, IUserProgressRepository, ISkillReposit
     async def get_by_id(self, problem_id: ProblemId) -> Optional[DomainProblem]:
         """Retrieve a problem by its ID."""
         with self.SessionLocal() as session:
-            db_problem = session.query(DBProblem).filter(DBProblem.id == str(problem_id)).first()
+            db_problem = session.query(DBProblem).filter(DBProblem.problem_id == str(problem_id)).first()
             if db_problem:
                 return db_to_domain_problem(db_problem)
         return None
@@ -159,25 +160,44 @@ class DatabaseAdapter(IProblemRepository, IUserProgressRepository, ISkillReposit
         """Retrieve all skills associated with a specific problem."""
         with self.SessionLocal() as session:
             db_skills = session.query(DBSkill).filter(
-                DBSkill.related_problems.any(problem_id)
+                DBSkill.related_problems.contains(problem_id)
             ).all()
             return [db_to_domain_skill(db_skill) for db_skill in db_skills]
 
     # Legacy methods for backward compatibility
     def save_problem(self, problem: DomainProblem) -> None:
         """Legacy method to save a problem - kept for backward compatibility."""
-        import asyncio
-        asyncio.run(self.save(problem))
+        # Create a new synchronous save method for legacy compatibility
+        db_problem = domain_to_db_problem(problem)
+        
+        with self.SessionLocal() as session:
+            # Check if problem already exists
+            existing = session.query(DBProblem).filter(DBProblem.problem_id == problem.problem_id.value).first()
+            if existing:
+                # Update existing problem
+                for field in ['subject', 'type', 'text', 'answer', 'options', 'solutions',
+                              'topics', 'difficulty_level', 'task_number',
+                              'kes_codes', 'kos_codes', 'exam_part', 'max_score', 'form_id', 'source_url',
+                              'raw_html_path', 'updated_at', 'metadata_']:
+                    setattr(existing, field, getattr(db_problem, field))
+            else:
+                # Add new problem
+                session.add(db_problem)
+            session.commit()
 
-    def get_problem(self, problem_id: str) -> Optional[DomainProblem]:
-        """Legacy method to get a problem - kept for backward compatibility."""
-        import asyncio
-        return asyncio.run(self.get_by_id(ProblemId(value=problem_id)))
+    def get_problem_by_id(self, problem_id: str) -> Optional[DomainProblem]:
+        """Legacy method to get a problem by ID - kept for backward compatibility."""
+        with self.SessionLocal() as session:
+            db_problem = session.query(DBProblem).filter(DBProblem.problem_id == problem_id).first()
+            if db_problem:
+                return db_to_domain_problem(db_problem)
+        return None
 
     def get_problems_by_subject(self, subject: str) -> List[DomainProblem]:
         """Legacy method to get problems by subject - kept for backward compatibility."""
-        import asyncio
-        return asyncio.run(self.get_by_subject(subject))
+        with self.SessionLocal() as session:
+            db_problems = session.query(DBProblem).filter(DBProblem.subject == subject).all()
+            return [db_to_domain_problem(db) for db in db_problems]
 
     def save_answer(self, problem_id: str, answer: str, user_id: str = "default"):
         """Save an answer for a problem."""
@@ -191,14 +211,14 @@ class DatabaseAdapter(IProblemRepository, IUserProgressRepository, ISkillReposit
 
             if existing_answer:
                 # Update existing answer
-                existing_answer.answer = answer
+                existing_answer.user_answer = answer
                 existing_answer.updated_at = datetime.datetime.now()
             else:
                 # Create new answer
                 answer_obj = DBAnswer(
                     problem_id=problem_id,
                     user_id=user_id,
-                    answer=answer,
+                    user_answer=answer,
                     created_at=datetime.datetime.now(),
                     updated_at=datetime.datetime.now(),
                 )
@@ -214,38 +234,62 @@ class DatabaseAdapter(IProblemRepository, IUserProgressRepository, ISkillReposit
                 .filter(DBAnswer.problem_id == problem_id, DBAnswer.user_id == user_id)
                 .first()
             )
-            return answer.answer if answer else None
+            return answer.user_answer if answer else None
 
     def get_all_answers(self, user_id: str = "default") -> List[Tuple[str, str, str]]:
         """Retrieve all answers for a user."""
         with self.SessionLocal() as session:
             answers = (
-                session.query(DBAnswer.problem_id, DBAnswer.answer, DBAnswer.updated_at)
+                session.query(DBAnswer.problem_id, DBAnswer.user_answer, DBAnswer.updated_at)
                 .filter(DBAnswer.user_id == user_id)
                 .all()
             )
-            return [(ans.problem_id, ans.answer, str(ans.updated_at)) for ans in answers]
+            return [(ans.problem_id, ans.user_answer, str(ans.updated_at)) for ans in answers]
 
     def get_all_problems(self) -> List[DomainProblem]:
         """Retrieve all problems from the database."""
-        import asyncio
-        return asyncio.run(self.get_by_subject(""))  # This is a workaround - need to fix
+        with self.SessionLocal() as session:
+            db_problems = session.query(DBProblem).all()
+            return [db_to_domain_problem(db) for db in db_problems]
 
     def get_problems_by_task_number(self, subject: str, task_number: int) -> List[DomainProblem]:
         """Retrieve problems by subject and task number."""
-        import asyncio
-        all_problems = asyncio.run(self.get_by_subject(subject))
-        return [p for p in all_problems if p.task_number == task_number]
+        with self.SessionLocal() as session:
+            db_problems = session.query(DBProblem).filter(
+                DBProblem.subject == subject, DBProblem.task_number == task_number
+            ).all()
+            return [db_to_domain_problem(db) for db in db_problems]
 
     def get_random_problems_by_subject(self, subject: str, count: int) -> List[DomainProblem]:
         """Retrieve a random set of problems by subject."""
-        import asyncio
         import random
-        all_problems = asyncio.run(self.get_by_subject(subject))
+        all_problems = self.get_problems_by_subject(subject)
         return random.sample(all_problems, min(count, len(all_problems)))
 
     def get_problem_count_by_subject(self, subject: str) -> int:
         """Get the total count of problems for a subject."""
-        import asyncio
-        all_problems = asyncio.run(self.get_by_subject(subject))
-        return len(all_problems)
+        with self.SessionLocal() as session:
+            count = session.query(DBProblem).filter(DBProblem.subject == subject).count()
+            return count
+    
+    def get_all_subjects(self) -> List[str]:
+        """Get all available subjects from the database."""
+        with self.SessionLocal() as session:
+            subjects = session.query(DBProblem.subject).distinct().all()
+            return [subject for subject, in subjects if subject]  # Извлекаем значения из кортежей и фильтруем None
+    
+    def get_random_problem_ids(self, subject: str, count: int) -> List[str]:
+        """Get random problem IDs for a given subject."""
+        with self.SessionLocal() as session:
+            # Получаем случайные задачи для указанного предмета
+            # Используем func.random() для случайной сортировки и limit для ограничения количества
+            db_problems = session.query(DBProblem.problem_id).filter(
+                DBProblem.subject == subject
+            ).order_by(sa.func.random()).limit(count).all()
+            
+            # Извлекаем ID задач из кортежей
+            return [problem_id for problem_id, in db_problems]
+    
+    def initialize_db(self):
+        """Initialize the database by creating tables."""
+        self._ensure_tables()

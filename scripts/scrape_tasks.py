@@ -24,7 +24,7 @@ sys.path.insert(0, str(project_root))
 
 import config
 from utils.logging_config import configure_logging
-from scraper.fipi_scraper_refactored import FIPIScraper
+from scraper.fipi_scraper import FIPIScraper
 from infrastructure.adapters.database_adapter import DatabaseAdapter
 from resource_management.browser_pool_manager import BrowserPoolManager
 from infrastructure.adapters.specification_adapter import SpecificationAdapter

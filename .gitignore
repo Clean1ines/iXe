@@ -65,3 +65,4 @@ wheels/
 # Cache directories
 .cache/
 .pki/
+minikube-linux-amd64

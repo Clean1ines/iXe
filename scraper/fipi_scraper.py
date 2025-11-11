@@ -1,5 +1,6 @@
 """
 Module for scraping FIPI website content and orchestrating the processing pipeline.
+Refactored to follow Clean Architecture principles by delegating to application services.
 """
 import asyncio
 import logging
@@ -12,19 +13,17 @@ from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 from resource_management.browser_pool_manager import BrowserPoolManager
 from utils.metadata_extractor import MetadataExtractor
 from domain.models.problem_builder import ProblemBuilder
-from processors.page_processor import PageProcessingOrchestrator
 from domain.models.problem_schema import Problem
-from utils.downloader import AssetDownloader
 from infrastructure.adapters.task_number_inferer_adapter import TaskNumberInfererAdapter
 from infrastructure.adapters.specification_adapter import SpecificationAdapter
 from infrastructure.adapters.block_processor_adapter import BlockProcessorAdapter
 from domain.services.answer_type_detector import AnswerTypeService
 from domain.services.metadata_enhancer import MetadataExtractionService
-from infrastructure.adapters.specification_adapter import SpecificationAdapter
 from utils.fipi_urls import FIPI_BASE_URL, FIPI_QUESTIONS_URL, FIPI_SUBJECTS_LIST_URL
 from infrastructure.adapters.database_adapter import DatabaseAdapter
 from infrastructure.adapters.task_classifier_adapter import TaskClassifierAdapter
 from datetime import datetime
+from application.services.page_scraping_service import PageScrapingService
 
 
 logger = logging.getLogger(__name__)
@@ -33,10 +32,9 @@ logger = logging.getLogger(__name__)
 class FIPIScraper:
     """
     Orchestrates the scraping and processing of FIPI website content.
-    This class coordinates browser management, page navigation, HTML parsing,
-    asset downloading, and transformation into structured Problem instances.
-    It relies on dependency injection for components like BrowserPoolManager to
-    enable testing and modularity.
+    This class now delegates the core scraping logic to application services
+    following Clean Architecture principles, while maintaining its role as
+    a coordinator for the overall scraping workflow.
     """
 
     def __init__(
@@ -94,6 +92,17 @@ class FIPIScraper:
         
         # Initialize task classifier
         self.task_classifier = TaskClassifierAdapter(self.task_inferer)
+        
+        # Initialize the HTML processor (BlockProcessorAdapter implements IHTMLProcessor)
+        self.block_processor = BlockProcessorAdapter(
+            task_inferer=self.task_inferer,
+            task_classifier=self.task_classifier,
+            answer_type_service=AnswerTypeService(),
+            metadata_enhancer=MetadataExtractionService(
+                self.spec_service
+            ),
+            spec_service=self.spec_service
+        )
 
     async def get_projects(self, subjects_list_page) -> Dict[str, str]:
         """
@@ -165,6 +174,7 @@ class FIPIScraper:
     ) -> Tuple[List[Problem], Dict[str, Any]]:
         """
         Scrapes a single page of problems for a given project ID.
+        Delegates the actual scraping to PageScrapingService.
         
         Args:
             proj_id (str): Project ID for the subject.
@@ -176,111 +186,17 @@ class FIPIScraper:
             Tuple[List[Problem], Dict[str, Any]]: List of structured Problem objects
             and additional scraped metadata.
         """
-        logger.info(f"Scraping page {page_num} for project {proj_id} (subject: {subject})...")
+        # Create the application service that handles the page scraping
+        scraping_service = PageScrapingService(
+            html_processor=self.block_processor,
+            problem_repo=self.db_manager,  # Pass the database manager as the repository
+            browser_manager=self.browser_manager,
+            max_retries=self.max_retries,
+            initial_delay=self.initial_delay
+        )
         
-        # CORRECT URL CONSTRUCTION for FIPI bank
-        # Base URL should be questions.php endpoint
-        base_questions_url = FIPI_QUESTIONS_URL
-        full_url = f"{base_questions_url}?proj={proj_id}&page={page_num}"
-        logger.debug(f"Navigating to URL: {full_url}")
-        
-        # Get a *general* page instance from the browser manager (not tied to a specific subject)
-        page = await self.browser_manager.get_general_page()
-        
-        for attempt in range(self.max_retries):
-            try:
-                # Navigate to the specific questions page
-                await page.goto(full_url, wait_until="networkidle", timeout=30000)
-                
-                # Wait for content to load
-                logger.debug("Waiting for .qblock elements to appear...")
-                await page.wait_for_selector(".qblock", timeout=60000)  # Increased timeout
-                
-                # Get page content
-                page_content = await page.content()
-                logger.debug(f"Page content length: {len(page_content)} characters")
-                
-                # Create asset downloader factory that uses the same page context
-                def asset_downloader_factory(page_obj, base, prefix):
-                    return AssetDownloader(page=page_obj)
-                
-                # Create the processing orchestrator
-                block_processor = BlockProcessorAdapter(
-                    task_inferer=self.task_inferer,
-                    task_classifier=self.task_classifier,
-                    answer_type_service=AnswerTypeService(),
-                    metadata_enhancer=MetadataExtractionService(
-                        self.spec_service
-                    ),
-                    spec_service=self.spec_service
-                )
-                
-                orchestrator = PageProcessingOrchestrator(html_processor=block_processor)
-                
-                # Process the page content
-                logger.debug("Starting page processing orchestrator...")
-                results = await orchestrator.process_page(
-                    page_content=page_content,
-                    subject=subject,
-                    base_url=base_questions_url,
-                    run_folder_page=run_folder / page_num,
-                    downloader=asset_downloader_factory(page, base_questions_url, f"../../"),
-                    files_location_prefix="../../"
-                )
-                
-                # Convert results to Problem objects if needed
-                problems = []
-                for result in results:
-                    # Create Problem instance with all required fields from result dict
-                    # Ensure all required fields are present in result before creating Problem
-                    problem = Problem(
-                        problem_id=result.get('problem_id', f"{subject}_unknown_{len(problems)}"),
-                        subject=result.get('subject', subject),
-                        type=result.get('type', 'unknown'),
-                        text=result.get('text', ''),
-                        difficulty_level=result.get('difficulty_level', 'basic'),
-                        exam_part=result.get('exam_part', 'Part 1'),
-                        max_score=result.get('max_score', 1),
-                        created_at=result.get('created_at', datetime.now()),
-                        # Optional fields with defaults
-                        answer=result.get('answer'),
-                        options=result.get('options'),
-                        solutions=result.get('solutions'),
-                        kes_codes=result.get('kes_codes', []),
-                        skills=result.get('skills'),
-                        task_number=result.get('task_number', 0),
-                        kos_codes=result.get('kos_codes', []),
-                        form_id=result.get('form_id'),
-                        source_url=result.get('source_url'),
-                        raw_html_path=result.get('raw_html_path'),
-                        updated_at=result.get('updated_at'),
-                        metadata=result.get('metadata')
-                    )
-                    problems.append(problem)
-
-                scraped_data = {
-                    "page_name": page_num,
-                    "url": full_url,
-                    "results": results
-                }
-                
-                logger.info(f"Successfully scraped {len(problems)} problems from page {page_num}")
-                return problems, scraped_data
-                
-            except (PlaywrightTimeoutError, Exception) as e:
-                logger.warning(f"Attempt {attempt + 1} failed for page {page_num} (proj_id: {proj_id}): {e}")
-                
-                if attempt < self.max_retries - 1:
-                    # Calculate delay with exponential backoff
-                    delay = self.initial_delay * (2 ** attempt)
-                    logger.debug(f"Waiting {delay}s before retry...")
-                    await asyncio.sleep(delay)
-                else:
-                    logger.error(f"All {self.max_retries} attempts failed for page {page_num} (proj_id: {proj_id})")
-                    raise
-            finally:
-                # Close the general page after scraping
-                await page.close()
+        # Delegate the actual scraping to the application service
+        return await scraping_service.scrape_page(proj_id, page_num, run_folder, subject)
 
     async def close(self):
         """Closes the associated browser resources."""
