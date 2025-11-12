@@ -11,7 +11,7 @@ import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 from resource_management.browser_pool_manager import BrowserPoolManager
-from utils.metadata_extractor import MetadataExtractor
+from infrastructure.adapters.fipi_html_metadata_extractor import MetadataExtractor
 from domain.models.problem_builder import ProblemBuilder
 from domain.models.problem_schema import Problem
 from infrastructure.adapters.task_number_inferer_adapter import TaskNumberInfererAdapter
