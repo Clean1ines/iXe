@@ -64,6 +64,8 @@ class DBAnswer(Base):
         nullable=False,
         default="not_checked"
     )
+    is_correct = sa.Column(sa.Boolean)  # Новое поле
+    score = sa.Column(sa.Float)         # Новое поле
     timestamp: datetime.datetime = sa.Column(
         sa.DateTime,
         nullable=False,

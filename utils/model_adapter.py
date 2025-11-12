@@ -77,6 +77,7 @@ def domain_to_db_problem(domain_problem: DomainProblem) -> DBProblem:
         text=domain_problem.text,
         options=domain_problem.options,
         answer=domain_problem.answer,
+        topics=domain_problem.kes_codes,  # Добавляем topics как синоним kes_codes
         solutions=domain_problem.solutions,
         kes_codes=domain_problem.kes_codes,
         skills=domain_problem.skills,

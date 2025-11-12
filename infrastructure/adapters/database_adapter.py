@@ -8,8 +8,9 @@ bridge between application services and the database infrastructure.
 import datetime
 import logging
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 import sqlalchemy as sa
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from domain.models.database_models import Base, DBProblem, DBAnswer, DBUserProgress, DBSkill
@@ -42,11 +43,23 @@ class DatabaseAdapter(IDatabaseProvider):
         self.db_path = db_path
         self.engine = sa.create_engine(f"sqlite:///{db_path}")
         self.SessionLocal = sessionmaker(bind=self.engine)
+        # Для асинхронных операций - создаем асинхронный движок только при необходимости
+        try:
+            self.async_engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
+        except:
+            # В тестах может не быть aiosqlite
+            self.async_engine = None
         self._ensure_tables()
 
     def _ensure_tables(self):
         """Create tables if they don't exist."""
         Base.metadata.create_all(self.engine)
+
+    def async_session(self):
+        """Provide async session context manager."""
+        if self.async_engine is None:
+            raise RuntimeError("Async engine not available. Install aiosqlite.")
+        return AsyncSession(self.async_engine)
 
     # IProblemRepository implementation
     async def save(self, problem: DomainProblem) -> None:
@@ -164,6 +177,37 @@ class DatabaseAdapter(IDatabaseProvider):
             ).all()
             return [db_to_domain_skill(db_skill) for db_skill in db_skills]
 
+    # IDatabaseProvider implementation - добавляем недостающий метод
+    async def save_answer_status(self, problem_id: str, user_id: str, answer: str, is_correct: bool, score: float) -> None:
+        """Save answer status for a user and problem."""
+        with self.SessionLocal() as session:
+            # Check if answer already exists for this user and problem
+            existing_answer = (
+                session.query(DBAnswer)
+                .filter(DBAnswer.problem_id == problem_id, DBAnswer.user_id == user_id)
+                .first()
+            )
+
+            if existing_answer:
+                # Update existing answer
+                existing_answer.user_answer = answer
+                existing_answer.is_correct = is_correct  # Предполагаем, что в DBAnswer есть это поле
+                existing_answer.score = score  # Предполагаем, что в DBAnswer есть это поле
+                existing_answer.updated_at = datetime.datetime.now()
+            else:
+                # Create new answer
+                answer_obj = DBAnswer(
+                    problem_id=problem_id,
+                    user_id=user_id,
+                    user_answer=answer,
+                    is_correct=is_correct,
+                    score=score,
+                    timestamp=datetime.datetime.now(),
+                )
+                session.add(answer_obj)
+
+            session.commit()
+
     # Legacy methods for backward compatibility
     def save_problem(self, problem: DomainProblem) -> None:
         """Legacy method to save a problem - kept for backward compatibility."""
@@ -219,59 +263,53 @@ class DatabaseAdapter(IDatabaseProvider):
                     problem_id=problem_id,
                     user_id=user_id,
                     user_answer=answer,
-                    created_at=datetime.datetime.now(),
-                    updated_at=datetime.datetime.now(),
+                    timestamp=datetime.datetime.now(),
                 )
                 session.add(answer_obj)
 
             session.commit()
 
-    def get_answer_status(self, problem_id: str, user_id: str = "default") -> Optional[str]:
-        """Retrieve the answer status for a problem."""
-        with self.SessionLocal() as session:
-            answer = (
-                session.query(DBAnswer)
-                .filter(DBAnswer.problem_id == problem_id, DBAnswer.user_id == user_id)
-                .first()
-            )
-            return answer.user_answer if answer else None
 
-    def get_all_answers(self, user_id: str = "default") -> List[Tuple[str, str, str]]:
-        """Retrieve all answers for a user."""
-        with self.SessionLocal() as session:
-            answers = (
-                session.query(DBAnswer.problem_id, DBAnswer.user_answer, DBAnswer.updated_at)
-                .filter(DBAnswer.user_id == user_id)
-                .all()
-            )
-            return [(ans.problem_id, ans.user_answer, str(ans.updated_at)) for ans in answers]
+    async def get_answer_status(self, problem_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve the answer status for a problem and user."""
+        if self.async_engine is None:
+            # В тестах используем синхронный сеанс
+            with self.SessionLocal() as session:
+                result = session.query(DBAnswer).filter(
+                    DBAnswer.problem_id == problem_id,
+                    DBAnswer.user_id == user_id
+                ).first()
+                
+                if result:
+                    return {
+                        "user_answer": result.user_answer,
+                        "status": result.status,
+                        "is_correct": result.is_correct,
+                        "score": result.score,
+                        "timestamp": result.timestamp
+                    }
+                return None
+        else:
+            # В продакшене используем асинхронный сеанс
+            async with self.async_session() as session:
+                result = await session.execute(
+                    sa.select(DBAnswer).filter(
+                        DBAnswer.problem_id == problem_id,
+                        DBAnswer.user_id == user_id
+                    )
+                )
+                answer = result.scalars().first()
+                
+                if answer:
+                    return {
+                        "user_answer": answer.user_answer,
+                        "status": answer.status,
+                        "is_correct": answer.is_correct,
+                        "score": answer.score,
+                        "timestamp": answer.timestamp
+                    }
+                return None
 
-    def get_all_problems(self) -> List[DomainProblem]:
-        """Retrieve all problems from the database."""
-        with self.SessionLocal() as session:
-            db_problems = session.query(DBProblem).all()
-            return [db_to_domain_problem(db) for db in db_problems]
-
-    def get_problems_by_task_number(self, subject: str, task_number: int) -> List[DomainProblem]:
-        """Retrieve problems by subject and task number."""
-        with self.SessionLocal() as session:
-            db_problems = session.query(DBProblem).filter(
-                DBProblem.subject == subject, DBProblem.task_number == task_number
-            ).all()
-            return [db_to_domain_problem(db) for db in db_problems]
-
-    def get_random_problems_by_subject(self, subject: str, count: int) -> List[DomainProblem]:
-        """Retrieve a random set of problems by subject."""
-        import random
-        all_problems = self.get_problems_by_subject(subject)
-        return random.sample(all_problems, min(count, len(all_problems)))
-
-    def get_problem_count_by_subject(self, subject: str) -> int:
-        """Get the total count of problems for a subject."""
-        with self.SessionLocal() as session:
-            count = session.query(DBProblem).filter(DBProblem.subject == subject).count()
-            return count
-    
     def get_all_subjects(self) -> List[str]:
         """Get all available subjects from the database."""
         with self.SessionLocal() as session:
@@ -289,7 +327,3 @@ class DatabaseAdapter(IDatabaseProvider):
             
             # Извлекаем ID задач из кортежей
             return [problem_id for problem_id, in db_problems]
-    
-    def initialize_db(self):
-        """Initialize the database by creating tables."""
-        self._ensure_tables()

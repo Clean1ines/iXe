@@ -27,7 +27,7 @@ jobs:
           mypy .
       - name: Run stable tests
         run: |
-          bash scripts/run_stable_tests.sh
+          pytest tests/ -v -s
       - name: Run basic smoke
         run: |
           python -c "print('smoke')"
