@@ -10,14 +10,10 @@ from domain.interfaces.repositories import ISkillRepository
 from domain.models.skill import Skill
 from domain.value_objects.problem_id import ProblemId
 from infrastructure.adapters.database_adapter import DatabaseAdapter
-from utils.model_adapter import (
-    domain_to_db_problem, db_to_domain_problem,
-    domain_to_db_user_progress, db_to_domain_user_progress,
-    domain_to_db_skill, db_to_domain_skill
-)
+from .base_repository import BaseRepository
 
 
-class SkillRepositoryImpl(ISkillRepository):
+class SkillRepositoryImpl(ISkillRepository, BaseRepository):
     """
     Concrete implementation of ISkillRepository using database infrastructure.
 
@@ -33,6 +29,7 @@ class SkillRepositoryImpl(ISkillRepository):
         Args:
             db_adapter: Infrastructure adapter for database operations
         """
+        BaseRepository.__init__(self)
         self._db_adapter = db_adapter
 
     async def get_by_id(self, skill_id: str) -> Optional[Skill]:
@@ -45,7 +42,25 @@ class SkillRepositoryImpl(ISkillRepository):
         Returns:
             The skill domain entity if found, None otherwise
         """
-        return await self._db_adapter.get_skill_by_id(skill_id)
+        try:
+            db_skill = await self._db_adapter.get_skill_by_id(skill_id)
+            if db_skill is None:
+                return None
+            
+            # Use safe attribute access to handle missing fields
+            # Remove created_at and updated_at as they don't exist in Skill model
+            return Skill(
+                skill_id=self._safe_getattr(db_skill, 'skill_id', skill_id),
+                name=self._safe_getattr(db_skill, 'name', ''),
+                description=self._safe_getattr(db_skill, 'description', ''),
+                prerequisites=self._safe_getattr(db_skill, 'prerequisites', []),
+                related_problems=[
+                    ProblemId(pid) for pid in self._safe_getattr(db_skill, 'related_problems', [])
+                ],
+            )
+        except Exception as e:
+            self._handle_conversion_error("skill", e)
+            return None
 
     async def get_all(self) -> List[Skill]:
         """
@@ -54,7 +69,12 @@ class SkillRepositoryImpl(ISkillRepository):
         Returns:
             List of all skill domain entities
         """
-        return await self._db_adapter.get_all_skills()
+        try:
+            db_skills = await self._db_adapter.get_all_skills()
+            return [self._convert_db_to_skill(db_skill) for db_skill in db_skills]
+        except Exception as e:
+            self._handle_conversion_error("all skills", e)
+            return []
 
     async def get_by_problem_id(self, problem_id: ProblemId) -> List[Skill]:
         """
@@ -66,4 +86,36 @@ class SkillRepositoryImpl(ISkillRepository):
         Returns:
             List of skill domain entities associated with the problem
         """
-        return await self._db_adapter.get_skills_by_problem_id(str(problem_id))
+        try:
+            # Convert ProblemId to string for infrastructure layer
+            problem_id_str = self._convert_problem_id(problem_id)
+            db_skills = await self._db_adapter.get_skills_by_problem_id(problem_id_str)
+            return [self._convert_db_to_skill(db_skill) for db_skill in db_skills]
+        except Exception as e:
+            self._handle_conversion_error("skills by problem ID", e)
+            return []
+
+    def _convert_db_to_skill(self, db_skill) -> Skill:
+        """
+        Convert database skill record to domain skill entity.
+        
+        Business Rules:
+        - Handles missing fields gracefully
+        - Provides default values for required fields
+        - Preserves backward compatibility
+        
+        Args:
+            db_skill: Database skill record
+            
+        Returns:
+            Domain skill entity
+        """
+        return Skill(
+            skill_id=self._safe_getattr(db_skill, 'skill_id', ''),
+            name=self._safe_getattr(db_skill, 'name', ''),
+            description=self._safe_getattr(db_skill, 'description', ''),
+            prerequisites=self._safe_getattr(db_skill, 'prerequisites', []),
+            related_problems=[
+                ProblemId(pid) for pid in self._safe_getattr(db_skill, 'related_problems', [])
+            ],
+        )

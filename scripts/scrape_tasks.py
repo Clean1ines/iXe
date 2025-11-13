@@ -127,13 +127,41 @@ class CLIScraper:
             # Создать TaskNumberInfererAdapter
             task_inferer = TaskNumberInfererAdapter(spec_service)
             
-            scraper = FIPIScraper(
-                base_url=config.FIPI_QUESTIONS_URL,
-                browser_manager=browser_manager,  # Pass the individual manager, not the pool
-                subjects_url=config.FIPI_SUBJECTS_URL,
-                spec_service=spec_service,
-                task_inferer=task_inferer
+            # === ИМПОРТИРУЕМ НЕОБХОДИМЫЕ КОМПОНЕНТЫ ДЛЯ СКРЕПИНГА ===
+            from application.services.page_scraping_service import PageScrapingService
+            from application.factories.problem_factory import ProblemFactory
+            from infrastructure.adapters.block_processor_adapter import BlockProcessorAdapter
+            from domain.services.answer_type_detector import AnswerTypeService
+            from domain.services.metadata_enhancer import MetadataExtractionService
+            from infrastructure.adapters.task_classifier_adapter import TaskClassifierAdapter
+            
+            # Создаем необходимые сервисы
+            answer_type_service = AnswerTypeService()
+            metadata_enhancer = MetadataExtractionService(spec_service)
+            
+            # Создаем TaskClassifierAdapter с правильной зависимостью
+            task_classifier = TaskClassifierAdapter(task_inferer)  # Используем task_inferer, а не spec_service
+            
+            # Создаем BlockProcessorAdapter с правильными зависимостями
+            html_processor = BlockProcessorAdapter(
+                task_inferer=task_inferer,
+                task_classifier=task_classifier,  # Правильный классификатор
+                answer_type_service=answer_type_service,
+                metadata_enhancer=metadata_enhancer,
+                spec_service=spec_service
             )
+            
+            # Создаем фабрику
+            problem_factory = ProblemFactory()
+            
+            # Инициализируем сервис с фабрикой
+            scraping_service = PageScrapingService(
+                html_processor=html_processor,
+                problem_repo=db_manager,
+                browser_manager=browser_manager,
+                problem_factory=problem_factory
+            )
+            
             # === ИТЕРАТИВНЫЙ СКРАПИНГ ===
             print(f"📄 Starting scraping for subject: {subject_name} (proj_id: {proj_id})")
             self.logger.info(f"Starting scraping for subject: {subject_name} (proj_id: {proj_id})")
@@ -142,25 +170,18 @@ class CLIScraper:
             # Скрапим страницу "init"
             try:
                 self.logger.debug(f"Attempting to scrape page 'init' for proj_id '{proj_id}' and subject '{scraping_subject_key}'")
-                problems, scraped_data = await scraper.scrape_page(
+                
+                # Используем PageScrapingService для скрапинга и сохранения
+                problems, scraped_data = await scraping_service.scrape_page(
                     proj_id=proj_id,
                     page_num="init",
                     run_folder=subject_dir,
                     subject=scraping_subject_key  # PASS SUBJECT KEY
                 )
+                
                 self.logger.debug(f"Scraping page 'init' returned {len(problems)} problems.")
-                if problems:
-                    for problem in problems:
-                        if not getattr(problem, 'subject', None):
-                            problem.subject = scraping_subject_key
-                    # Use save_problem for each problem instead of save_problems
-                    for problem in problems:
-                        db_manager.save_problem(problem)
-                        total_saved += 1
-                        self.logger.info(f"Saved problem {problem.problem_id} to database")
-                    print(f" ✅ Saved {len(problems)} problems from page init")
-                else:
-                    print(" ⚠️  Page init is empty")
+                total_saved = len(problems)
+                print(f" ✅ Successfully scraped {len(problems)} problems from page init")
             except Exception as e:
                 print(f" ❌ Error on page init: {e}")
                 self.logger.error(f"Error scraping page init: {e}", exc_info=True)
@@ -217,27 +238,23 @@ class CLIScraper:
                 print(f"📄 Trying page {page_num} ...")
                 try:
                     self.logger.debug(f"Attempting to scrape page '{page_num}' for proj_id '{proj_id}' and subject '{scraping_subject_key}'")
-                    problems, _ = await scraper.scrape_page(
+                    
+                    # Используем PageScrapingService для скрапинга и сохранения
+                    problems, _ = await scraping_service.scrape_page(
                         proj_id=proj_id,
                         page_num=str(page_num),
                         run_folder=subject_dir,
                         subject=scraping_subject_key  # PASS SUBJECT KEY
                     )
+                    
                     self.logger.debug(f"Scraping page '{page_num}' returned {len(problems)} problems.")
                     if len(problems) == 0:
                         empty_count += 1
                         print(f"   ⚠️  Page {page_num} is empty ({empty_count}/{max_empty})")
                     else:
                         empty_count = 0  # Reset counter on non-empty page
-                        for problem in problems:
-                            if not getattr(problem, 'subject', None):
-                                problem.subject = scraping_subject_key
-                        # Use save_problem for each problem instead of save_problems
-                        for problem in problems:
-                            db_manager.save_problem(problem)
-                            total_saved += 1
-                            self.logger.info(f"Saved problem {problem.problem_id} to database")
-                        print(f"   ✅ Saved {len(problems)} problems from page {page_num}")
+                        total_saved += len(problems)
+                        print(f"   ✅ Successfully scraped {len(problems)} problems from page {page_num}")
                 except Exception as e:
                     print(f"   ❌ Error on page {page_num}: {e}")
                     self.logger.error(f"Error scraping page {page_num}: {e}", exc_info=True)
@@ -284,7 +301,7 @@ class CLIScraper:
                 # Create directory and database manager
                 subject_dir.mkdir(parents=True, exist_ok=True)
                 db_manager = DatabaseAdapter(str(db_path))
-                db_manager.initialize_db()
+                # # db_manager.initialize_db() # Убрано, так как таблицы создаются в __init__ # Убрано, так как таблицы создаются в __init__
                 print(f"📁 Output directory: {subject_dir}")
 
                 # Determine the subject key for scraping
@@ -368,7 +385,7 @@ class CLIScraper:
 
                             subject_dir.mkdir(parents=True, exist_ok=True)
                             db_manager = DatabaseAdapter(str(db_path))
-                            db_manager.initialize_db()
+                            # # db_manager.initialize_db() # Убрано, так как таблицы создаются в __init__ # Убрано, так как таблицы создаются в __init__
                             print(f"📁 Output directory: {subject_dir}")
 
                             # Determine the subject key for scraping based on the selected subject_name

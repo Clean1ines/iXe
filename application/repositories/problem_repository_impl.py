@@ -10,20 +10,22 @@ from domain.interfaces.repositories import IProblemRepository
 from domain.models.problem import Problem
 from domain.value_objects.problem_id import ProblemId
 from infrastructure.adapters.database_adapter import DatabaseAdapter
-from utils.model_adapter import (
-    domain_to_db_problem, db_to_domain_problem,
-    domain_to_db_user_progress, db_to_domain_user_progress,
-    domain_to_db_skill, db_to_domain_skill
-)
+from .base_repository import BaseRepository
 
 
-class ProblemRepositoryImpl(IProblemRepository):
+class ProblemRepositoryImpl(IProblemRepository, BaseRepository):
     """
     Concrete implementation of IProblemRepository using database infrastructure.
 
     This class adapts domain Problem entities to database models and provides
     the implementation for problem persistence operations. It serves as the
     bridge between the application layer and infrastructure layer.
+    
+    Business Rules:
+    - Inherits from BaseRepository for common functionality
+    - Handles proper conversion of Value Objects to primitive types
+    - Provides standardized error handling and logging
+    - Maintains backward compatibility with original interface
     """
     
     def __init__(self, db_adapter: DatabaseAdapter):
@@ -33,20 +35,24 @@ class ProblemRepositoryImpl(IProblemRepository):
         Args:
             db_adapter: Infrastructure adapter for database operations
         """
+        BaseRepository.__init__(self)
         self._db_adapter = db_adapter
 
     async def save(self, problem: Problem) -> None:
         """
         Save a problem domain entity to the database.
 
-        This method converts the domain entity to a database model and
-        persists it using the infrastructure adapter.
-
         Args:
             problem: The problem domain entity to save
+            
+        Business Rules:
+        - Standardized error handling
+        - Preserves original behavior for backward compatibility
         """
-        db_problem = domain_to_db_problem(problem)
-        await self._db_adapter.save(db_problem)
+        try:
+            await self._db_adapter.save(problem)
+        except Exception as e:
+            self._handle_conversion_error("problem", e)
 
     async def get_by_id(self, problem_id: ProblemId) -> Optional[Problem]:
         """
@@ -57,11 +63,19 @@ class ProblemRepositoryImpl(IProblemRepository):
 
         Returns:
             The problem domain entity if found, None otherwise
+            
+        Business Rules:
+        - Converts ProblemId Value Object to string for infrastructure layer
+        - Handles missing problems gracefully
+        - Standardized error logging
         """
-        db_problem = await self._db_adapter.get_by_id(problem_id)
-        if db_problem:
-            return db_to_domain_problem(db_problem)
-        return None
+        try:
+            # Convert ProblemId to string for infrastructure layer
+            problem_id_str = self._convert_problem_id(problem_id)
+            return await self._db_adapter.get_by_id(problem_id_str)
+        except Exception as e:
+            self._handle_conversion_error("problem by ID", e)
+            return None
 
     async def get_by_subject(self, subject: str) -> List[Problem]:
         """
@@ -72,9 +86,16 @@ class ProblemRepositoryImpl(IProblemRepository):
 
         Returns:
             List of problem domain entities matching the subject
+            
+        Business Rules:
+        - Standardized error handling
+        - Returns empty list on error for backward compatibility
         """
-        db_problems = await self._db_adapter.get_by_subject(subject)
-        return [db_to_domain_problem(db_prob) for db_prob in db_problems]
+        try:
+            return await self._db_adapter.get_by_subject(subject)
+        except Exception as e:
+            self._handle_conversion_error("problems by subject", e)
+            return []
 
     async def get_by_exam_part(self, exam_part: str) -> List[Problem]:
         """
@@ -85,9 +106,16 @@ class ProblemRepositoryImpl(IProblemRepository):
 
         Returns:
             List of problem domain entities matching the exam part
+            
+        Business Rules:
+        - Standardized error handling
+        - Returns empty list on error for backward compatibility
         """
-        db_problems = await self._db_adapter.get_by_exam_part(exam_part)
-        return [db_to_domain_problem(db_prob) for db_prob in db_problems]
+        try:
+            return await self._db_adapter.get_by_exam_part(exam_part)
+        except Exception as e:
+            self._handle_conversion_error("problems by exam part", e)
+            return []
 
     async def get_by_difficulty(self, difficulty: str) -> List[Problem]:
         """
@@ -98,6 +126,13 @@ class ProblemRepositoryImpl(IProblemRepository):
 
         Returns:
             List of problem domain entities matching the difficulty level
+            
+        Business Rules:
+        - Standardized error handling
+        - Returns empty list on error for backward compatibility
         """
-        db_problems = await self._db_adapter.get_by_difficulty(difficulty)
-        return [db_to_domain_problem(db_prob) for db_prob in db_problems]
+        try:
+            return await self._db_adapter.get_by_difficulty(difficulty)
+        except Exception as e:
+            self._handle_conversion_error("problems by difficulty", e)
+            return []

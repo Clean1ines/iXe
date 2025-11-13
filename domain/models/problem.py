@@ -2,23 +2,17 @@
 Domain model representing an EGE problem with business logic and invariants.
 
 This is the core domain entity that encapsulates business rules and validation
-for EGE problems, following DDD principles with rich behavior instead of
-anemic data models.
+for EGE problems, following Domain-Driven Design principles with rich behavior
+instead of anemic data models.
 """
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from enum import Enum
+
 from domain.value_objects.problem_id import ProblemId
-from domain.value_objects.difficulty_level import DifficultyLevel
 from domain.value_objects.problem_type import ProblemType
-
-
-class ProblemStatus(Enum):
-    """Enumeration of possible problem statuses."""
-    DRAFT = "draft"
-    PUBLISHED = "published"
-    ARCHIVED = "archived"
+from domain.value_objects.difficulty_level import DifficultyLevel
+from domain.value_objects.problem_status import ProblemStatus
 
 
 @dataclass
@@ -39,8 +33,8 @@ class Problem:
         exam_part (str): Exam section: "Part 1" or "Part 2".
         max_score (int): Maximum score achievable for this problem (typically 1-4).
         status (ProblemStatus): Current status of the problem (draft, published, archived).
-        options (Optional[List[str]]): Multiple-choice options if applicable. May be null.
         answer (Optional[str]): Canonical answer string; may be null for open-ended or unsolved problems.
+        options (Optional[List[str]]): Multiple-choice options if applicable. May be null.
         solutions (Optional[List[Dict[str, Any]]]): List of solution dictionaries, each containing fields like
             'solution_id', 'text', 'author'. May be null.
         kes_codes (List[str]): List of KES codes (Content Elements Classifier) identifying curriculum topics,
@@ -52,17 +46,18 @@ class Problem:
         source_url (Optional[str]): Original FIPI URL of the problem. May be null.
         raw_html_path (Optional[str]): Path to saved raw HTML file, if preserved. May be null.
         created_at (datetime): ISO8601 timestamp when the record was created.
-        updated_at (datetime): ISO8601 timestamp of last update.
+        updated_at (Optional[datetime]): ISO8601 timestamp of last update. May be null.
         metadata (Optional[Dict[str, Any]]): Arbitrary additional data. May be null.
+        topics (List[str]): Curriculum topics covered by the problem (mapped from kes_codes for DB compatibility).
     """
     problem_id: ProblemId
     subject: str
     problem_type: ProblemType
     text: str
     difficulty_level: DifficultyLevel
-    exam_part: str
+    exam_part: str  # Must be "Part 1" or "Part 2"
     max_score: int = 1
-    status: ProblemStatus = ProblemStatus.PUBLISHED
+    status: ProblemStatus = None  # Will be set in post_init
     answer: Optional[str] = None
     options: Optional[List[str]] = None
     solutions: Optional[List[Dict[str, Any]]] = None
@@ -74,8 +69,9 @@ class Problem:
     source_url: Optional[str] = None
     raw_html_path: Optional[str] = None
     created_at: datetime = None
-    updated_at: datetime = None
+    updated_at: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
+    topics: List[str] = None  # Added for DB compatibility with topics field
 
     def __post_init__(self):
         """Validate the problem after initialization and set default values."""
@@ -83,10 +79,19 @@ class Problem:
             self.kes_codes = []
         if self.kos_codes is None:
             self.kos_codes = []
+        if self.topics is None:
+            # Use kes_codes as topics for DB compatibility
+            self.topics = self.kes_codes[:]
+        if self.status is None:
+            # Set default status
+            from domain.value_objects.problem_status import ProblemStatus, ProblemStatusEnum
+            self.status = ProblemStatus(ProblemStatusEnum.DRAFT)
         if self.created_at is None:
             self.created_at = datetime.now()
         
-        self.updated_at = datetime.now()
+        if self.updated_at is None:
+            self.updated_at = datetime.now()
+        
         self._validate()
 
     def _validate(self):
@@ -172,11 +177,13 @@ class Problem:
         Returns:
             True if the problem is published, False otherwise.
         """
-        return self.status == ProblemStatus.PUBLISHED
+        from domain.value_objects.problem_status import ProblemStatusEnum
+        return self.status.value == ProblemStatusEnum.PUBLISHED
 
     def mark_archived(self):
         """
         Mark the problem as archived, preventing further use in quizzes.
         """
-        self.status = ProblemStatus.ARCHIVED
+        from domain.value_objects.problem_status import ProblemStatusEnum
+        self.status = ProblemStatus(ProblemStatusEnum.ARCHIVED)
         self.updated_at = datetime.now()

@@ -10,14 +10,11 @@ from domain.interfaces.repositories import IUserProgressRepository
 from domain.models.user_progress import UserProgress
 from domain.value_objects.problem_id import ProblemId
 from infrastructure.adapters.database_adapter import DatabaseAdapter
-from utils.model_adapter import (
-    domain_to_db_problem, db_to_domain_problem,
-    domain_to_db_user_progress, db_to_domain_user_progress,
-    domain_to_db_skill, db_to_domain_skill
-)
+from .base_repository import BaseRepository
+import logging
 
 
-class UserProgressRepositoryImpl(IUserProgressRepository):
+class UserProgressRepositoryImpl(IUserProgressRepository, BaseRepository):
     """
     Concrete implementation of IUserProgressRepository using database infrastructure.
 
@@ -33,19 +30,20 @@ class UserProgressRepositoryImpl(IUserProgressRepository):
         Args:
             db_adapter: Infrastructure adapter for database operations
         """
+        BaseRepository.__init__(self)
         self._db_adapter = db_adapter
 
     async def save(self, progress: UserProgress) -> None:
         """
         Save a user progress domain entity to the database.
 
-        This method converts the domain entity to a database model and
-        persists it using the infrastructure adapter.
-
         Args:
             progress: The user progress domain entity to save
         """
-        await self._db_adapter.save_user_progress(progress)
+        try:
+            await self._db_adapter.save_user_progress(progress)
+        except Exception as e:
+            self._handle_conversion_error("user progress", e)
 
     async def get_by_user_and_problem(self, user_id: str, problem_id: ProblemId) -> Optional[UserProgress]:
         """
@@ -58,7 +56,22 @@ class UserProgressRepositoryImpl(IUserProgressRepository):
         Returns:
             The user progress domain entity if found, None otherwise
         """
-        return await self._db_adapter.get_user_progress_by_user_and_problem(user_id, str(problem_id))
+        try:
+            # Convert ProblemId to string for infrastructure layer
+            problem_id_str = self._convert_problem_id(problem_id)
+            db_progress = await self._db_adapter.get_user_progress_by_user_and_problem(user_id, problem_id_str)
+            
+            if db_progress is None:
+                return None
+            
+            # Ensure problem_id is converted back to ProblemId object
+            if hasattr(db_progress, 'problem_id') and not isinstance(db_progress.problem_id, ProblemId):
+                db_progress.problem_id = ProblemId(db_progress.problem_id)
+            
+            return db_progress
+        except Exception as e:
+            self._handle_conversion_error("user progress by user and problem", e)
+            return None
 
     async def get_by_user(self, user_id: str) -> List[UserProgress]:
         """
@@ -70,7 +83,16 @@ class UserProgressRepositoryImpl(IUserProgressRepository):
         Returns:
             List of user progress domain entities for the user
         """
-        return await self._db_adapter.get_user_progress_by_user(user_id)
+        try:
+            progresses = await self._db_adapter.get_user_progress_by_user(user_id)
+            # Ensure all problem_id fields are converted to ProblemId objects
+            for progress in progresses:
+                if hasattr(progress, 'problem_id') and not isinstance(progress.problem_id, ProblemId):
+                    progress.problem_id = ProblemId(progress.problem_id)
+            return progresses
+        except Exception as e:
+            self._handle_conversion_error("user progress by user", e)
+            return []
 
     async def get_completed_by_user(self, user_id: str) -> List[UserProgress]:
         """
@@ -82,4 +104,13 @@ class UserProgressRepositoryImpl(IUserProgressRepository):
         Returns:
             List of completed user progress domain entities for the user
         """
-        return await self._db_adapter.get_completed_user_progress_by_user(user_id)
+        try:
+            progresses = await self._db_adapter.get_completed_user_progress_by_user(user_id)
+            # Ensure all problem_id fields are converted to ProblemId objects
+            for progress in progresses:
+                if hasattr(progress, 'problem_id') and not isinstance(progress.problem_id, ProblemId):
+                    progress.problem_id = ProblemId(progress.problem_id)
+            return progresses
+        except Exception as e:
+            self._handle_conversion_error("completed user progress", e)
+            return []
